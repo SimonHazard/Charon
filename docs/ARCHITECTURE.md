@@ -61,6 +61,20 @@ transaction with enough recovery information to finish or roll back after an
 interruption. Charon preserves the last valid state and reports conflicts rather
 than silently selecting a winner.
 
+Schema v1 limits a UTF-8 note body to 10 MiB, the manifest to 64 MiB, a Workspace
+to 100,000 active notes and 10,000 sections, and IPC-visible integer values to
+JavaScript's safe integer range. Transaction records and complete previous/next
+state copies live under `backups/<transaction-id>/`; note files are replaced
+first and the manifest is atomically replaced last. Opening a Workspace resolves
+an incomplete record to the complete previous or next revision, and requires an
+explicit recovery choice if the current manifest matches neither.
+
+Filesystem notifications are hints rather than authority. The watcher
+coalesces bursts, ignores transaction-internal paths, and asks `Workspace` to
+re-read and validate changed content. Identical self-writes do not advance the
+revision. Invalid or deleted known files leave the last valid snapshot in place
+and create a health issue; unknown Markdown files are import candidates.
+
 ## Deep modules
 
 ### Workspace

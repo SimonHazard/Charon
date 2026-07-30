@@ -23,7 +23,7 @@ prerequisites, and run the desktop app or Astro preview without guessing.
 |------|-------|----------|--------|------------|--------|
 | 001 | Freeze product, domain, privacy, UX, and architecture contracts | P1 | M | - | DONE |
 | 002 | Scaffold the pinned Bun monorepo and reproducible developer loop | P1 | L | 001 | DONE |
-| 003 | Build the deep local Workspace module and typed IPC boundary | P1 | L | 002 | TODO |
+| 003 | Build the deep local Workspace module and typed IPC boundary | P1 | L | 002 | DONE |
 | 004 | Establish the shared premium theme, desktop shell, and EN/FR localization | P1 | L | 002, 003 | TODO |
 | 005 | Deliver note CRUD, sections, search, selection, merge, trash, and undo | P1 | L | 003, 004 | TODO |
 | 006 | Build the ClipboardComposer and fast copy workflows | P1 | M | 005 | TODO |
