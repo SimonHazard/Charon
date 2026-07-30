@@ -1,7 +1,11 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { useWorkspace, WorkspaceProvider } from '@/app/workspace-context';
+import {
+  useWorkspace,
+  type WorkspaceCommandDraft,
+  WorkspaceProvider,
+} from '@/app/workspace-context';
 import type { WorkspaceSnapshot } from '@/bindings/workspace';
 import type { WorkspaceClient, WorkspaceListener } from '@/lib/ipc/workspace-client';
 
@@ -16,6 +20,13 @@ const snapshot = (revision: number): WorkspaceSnapshot => ({
 function Observer() {
   const state = useWorkspace();
   return <output>{`${state.status}:${state.snapshot?.revision ?? 'none'}`}</output>;
+}
+
+let workspaceApi: ReturnType<typeof useWorkspace> | null = null;
+
+function ApiObserver() {
+  workspaceApi = useWorkspace();
+  return <output>{`${workspaceApi.status}:${workspaceApi.snapshot?.revision ?? 'none'}`}</output>;
 }
 
 describe('workspace context', () => {
@@ -83,5 +94,71 @@ describe('workspace context', () => {
       </WorkspaceProvider>,
     );
     expect(await screen.findByText('warning:7')).toBeTruthy();
+  });
+
+  it('serializes writes and stamps each command with the latest revision', async () => {
+    const commands: number[] = [];
+    let releaseFirst: (() => void) | undefined;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const client: WorkspaceClient = {
+      snapshot: async () => snapshot(1),
+      subscribe: async () => () => undefined,
+      execute: async (command) => {
+        commands.push(command.expectedRevision);
+        if (commands.length === 1) await firstGate;
+        const next = snapshot(command.expectedRevision + 1);
+        return { snapshot: next, transactionId: `tx-${next.revision}`, undoToken: null };
+      },
+    };
+    render(
+      <WorkspaceProvider client={client}>
+        <ApiObserver />
+      </WorkspaceProvider>,
+    );
+    await screen.findByText('ready:1');
+    const draft: WorkspaceCommandDraft = { type: 'createSection', name: 'Ideas', sortKey: 0 };
+    const first = workspaceApi?.executeWorkspaceCommand(draft);
+    const second = workspaceApi?.executeWorkspaceCommand(draft);
+    await waitFor(() => expect(commands).toEqual([1]));
+    releaseFirst?.();
+    await act(async () => {
+      await Promise.all([first, second]);
+    });
+    expect(commands).toEqual([1, 2]);
+    expect(screen.getByText('ready:3')).toBeTruthy();
+  });
+
+  it('refreshes after a stale revision and asks the view to retry', async () => {
+    let snapshots = 0;
+    const client: WorkspaceClient = {
+      snapshot: async () => snapshot(++snapshots === 1 ? 2 : 5),
+      subscribe: async () => () => undefined,
+      execute: async () =>
+        Promise.reject({
+          code: 'stale_revision',
+          messageKey: 'workspace_error_stale_revision',
+          expectedRevision: 2,
+          actualRevision: 5,
+          recoveryLocation: null,
+        }),
+    };
+    render(
+      <WorkspaceProvider client={client}>
+        <ApiObserver />
+      </WorkspaceProvider>,
+    );
+    await screen.findByText('ready:2');
+    await act(async () => {
+      await expect(
+        workspaceApi?.executeWorkspaceCommand({
+          type: 'createSection',
+          name: 'Ideas',
+          sortKey: 0,
+        }),
+      ).rejects.toMatchObject({ code: 'stale_revision' });
+    });
+    expect(screen.getByText('warning:5')).toBeTruthy();
   });
 });

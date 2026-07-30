@@ -166,8 +166,8 @@ trash opens one alert with item count and section context, then offers an undo
 toast that calls restore with the returned transaction payload. Trash view
 supports restore and separately confirmed permanent deletion.
 
-Merge opens `merge-dialog.tsx` with source order, target section, separator
-choice, and exact Markdown preview. Confirm creates one composite note and
+Merge opens `merge-dialog.tsx` with source order, target section, and an exact
+Markdown preview using the deterministic `\n\n---\n\n` Workspace separator. Confirm creates one composite note and
 trashes sources in one Workspace transaction. On failure, no partial UI state is
 shown. On success, select and focus the new note and offer undo.
 

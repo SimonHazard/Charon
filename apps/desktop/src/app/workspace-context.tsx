@@ -1,6 +1,19 @@
-import { createContext, type PropsWithChildren, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
-import type { WorkspaceIpcError, WorkspaceSnapshot } from '@/bindings/workspace';
+import type {
+  WorkspaceCommand,
+  WorkspaceCommandResult,
+  WorkspaceIpcError,
+  WorkspaceSnapshot,
+} from '@/bindings/workspace';
 import {
   asWorkspaceError,
   tauriWorkspaceClient,
@@ -15,6 +28,18 @@ export type WorkspaceViewState =
   | { status: 'warning'; snapshot: WorkspaceSnapshot; error: WorkspaceIpcError }
   | { status: 'error'; snapshot: null; error: WorkspaceIpcError };
 
+export type WorkspaceCommandDraft = {
+  [Type in WorkspaceCommand['type']]: Omit<
+    Extract<WorkspaceCommand, { type: Type }>,
+    'expectedRevision'
+  >;
+}[WorkspaceCommand['type']];
+
+type WorkspaceContextValue = WorkspaceViewState & {
+  executeWorkspaceCommand(command: WorkspaceCommandDraft): Promise<WorkspaceCommandResult>;
+  refreshWorkspace(): Promise<WorkspaceSnapshot>;
+};
+
 const browserClient: WorkspaceClient = {
   snapshot: () =>
     Promise.reject({
@@ -27,7 +52,7 @@ const browserClient: WorkspaceClient = {
   subscribe: async () => () => undefined,
 };
 
-const WorkspaceContext = createContext<WorkspaceViewState | null>(null);
+const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({
   children,
@@ -39,25 +64,95 @@ export function WorkspaceProvider({
     snapshot: null,
     error: null,
   });
+  const snapshotRef = useRef<WorkspaceSnapshot | null>(null);
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
+    snapshotRef.current = snapshot;
+    setState({ status: 'ready', snapshot, error: null });
+  }, []);
+
+  const refreshWorkspace = useCallback(async () => {
+    const snapshot = await client.snapshot();
+    applySnapshot(snapshot);
+    return snapshot;
+  }, [applySnapshot, client]);
+
+  const executeWorkspaceCommand = useCallback(
+    (draft: WorkspaceCommandDraft) => {
+      const execute = async () => {
+        const snapshot = snapshotRef.current;
+        if (!snapshot || !client.execute) {
+          throw asWorkspaceError({
+            code: 'not_open',
+            messageKey: 'workspace_error_not_open',
+          });
+        }
+
+        const command = {
+          ...draft,
+          expectedRevision: snapshot.revision,
+        } as WorkspaceCommand;
+
+        try {
+          const result = await client.execute(command);
+          applySnapshot(result.snapshot);
+          return result;
+        } catch (error) {
+          const workspaceError = asWorkspaceError(error);
+          if (workspaceError.code === 'stale_revision') {
+            try {
+              const refreshed = await client.snapshot();
+              snapshotRef.current = refreshed;
+              setState({ status: 'warning', snapshot: refreshed, error: workspaceError });
+            } catch {
+              setState((current) =>
+                current.snapshot
+                  ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
+                  : { status: 'error', snapshot: null, error: workspaceError },
+              );
+            }
+          } else {
+            setState((current) =>
+              current.snapshot
+                ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
+                : { status: 'error', snapshot: null, error: workspaceError },
+            );
+          }
+          throw workspaceError;
+        }
+      };
+
+      const pending = writeQueueRef.current.then(execute, execute);
+      writeQueueRef.current = pending.then(
+        () => undefined,
+        () => undefined,
+      );
+      return pending;
+    },
+    [applySnapshot, client],
+  );
 
   useEffect(() => {
     void workspaceKey;
     let active = true;
     let unsubscribe: (() => void) | undefined;
     setState({ status: 'loading', snapshot: null, error: null });
+    snapshotRef.current = null;
+    writeQueueRef.current = Promise.resolve();
 
     const connect = async () => {
       try {
         const snapshot = await client.snapshot();
         if (!active) return;
-        setState({ status: 'ready', snapshot, error: null });
+        applySnapshot(snapshot);
         unsubscribe = await client.subscribe((event) => {
           if (!active) return;
           setState((current) => {
             const revision = current.snapshot?.revision ?? -1;
-            return event.revision > revision
-              ? { status: 'ready', snapshot: event.snapshot, error: null }
-              : current;
+            if (event.revision <= revision) return current;
+            snapshotRef.current = event.snapshot;
+            return { status: 'ready', snapshot: event.snapshot, error: null };
           });
         });
         if (!active) unsubscribe();
@@ -79,9 +174,13 @@ export function WorkspaceProvider({
       active = false;
       unsubscribe?.();
     };
-  }, [client, workspaceKey]);
+  }, [applySnapshot, client, workspaceKey]);
 
-  return <WorkspaceContext.Provider value={state}>{children}</WorkspaceContext.Provider>;
+  return (
+    <WorkspaceContext.Provider value={{ ...state, executeWorkspaceCommand, refreshWorkspace }}>
+      {children}
+    </WorkspaceContext.Provider>
+  );
 }
 
 export function useWorkspace() {

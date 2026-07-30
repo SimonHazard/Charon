@@ -203,6 +203,20 @@
   border-left: 1px solid var(--border-subtle);
 }
 
+.shortcut-help-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.shortcut-help-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+}
+
 .mobile-rail {
   transform-origin: left center;
 }
