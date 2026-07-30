@@ -2,14 +2,19 @@ import { createFileRoute } from '@tanstack/react-router';
 
 import { useMessages } from '@/app/providers';
 import { WorkspaceState } from '@/components/workspace-state';
+import { NoteScreen } from '@/features/notes/note-screen';
 
 export const Route = createFileRoute('/notes')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    section: typeof search.section === 'string' ? search.section : undefined,
+  }),
   component: NotesRoute,
   errorComponent: RouteError,
 });
 
 function NotesRoute() {
   const m = useMessages();
+  const search = Route.useSearch();
   return (
     <section aria-labelledby="notes-heading" className="route-surface">
       <div className="route-heading">
@@ -19,7 +24,7 @@ function NotesRoute() {
         <p>{m.notes_description()}</p>
       </div>
       <WorkspaceState>
-        {() => <p className="route-placeholder">{m.notes_empty()}</p>}
+        {(snapshot) => <NoteScreen sectionId={search.section} snapshot={snapshot} />}
       </WorkspaceState>
     </section>
   );

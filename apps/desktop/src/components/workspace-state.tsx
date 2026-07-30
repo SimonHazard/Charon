@@ -1,8 +1,8 @@
 import { IconAlertTriangle, IconFolderPlus, IconInfoCircle } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
-
 import { useMessages } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
+import type { WorkspaceSnapshot } from '@/bindings/workspace';
 import { Button } from '@/components/ui/button';
 import {
   Empty,
@@ -14,9 +14,13 @@ import {
 } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function WorkspaceState({ children }: { children(snapshotName: string): ReactNode }) {
+export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnapshot): ReactNode }) {
   const m = useMessages();
   const state = useWorkspace();
+  const errorMessage =
+    state.error &&
+    ((m as unknown as Record<string, (() => string) | undefined>)[state.error.messageKey]?.() ??
+      m.workspace_error_unknown());
 
   if (state.status === 'loading') {
     return (
@@ -55,7 +59,7 @@ export function WorkspaceState({ children }: { children(snapshotName: string): R
             <IconAlertTriangle />
           </EmptyMedia>
           <EmptyTitle>{m.workspace_error_title()}</EmptyTitle>
-          <EmptyDescription>{m.workspace_error_description()}</EmptyDescription>
+          <EmptyDescription>{errorMessage || m.workspace_error_description()}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -66,10 +70,10 @@ export function WorkspaceState({ children }: { children(snapshotName: string): R
       {state.status === 'warning' ? (
         <div className="workspace-warning" role="alert">
           <IconInfoCircle />
-          <span>{m.workspace_warning()}</span>
+          <span>{errorMessage || m.workspace_warning()}</span>
         </div>
       ) : null}
-      {children(state.snapshot.workspaceId)}
+      {children(state.snapshot)}
     </>
   );
 }

@@ -1,6 +1,6 @@
 import type { ThemeName } from '@charon/theme/theme-contract';
 import { createContext, type PropsWithChildren, useContext, useState } from 'react';
-
+import { CommandProvider } from '@/app/commands/command-provider';
 import { type AppLocale, applyLocale, readLocale } from '@/app/locale';
 import { readTheme, saveTheme } from '@/app/theme';
 import { WorkspaceProvider } from '@/app/workspace-context';
@@ -32,7 +32,9 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <PreferencesContext.Provider value={{ theme, locale, setTheme, setLocale }}>
       <MotionSystem>
-        <WorkspaceProvider>{children}</WorkspaceProvider>
+        <WorkspaceProvider>
+          <CommandProvider>{children}</CommandProvider>
+        </WorkspaceProvider>
       </MotionSystem>
     </PreferencesContext.Provider>
   );

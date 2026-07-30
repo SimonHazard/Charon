@@ -15,6 +15,8 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
+HTMLElement.prototype.scrollTo = () => undefined;
+
 afterEach(() => {
   cleanup();
   localStorage.clear();

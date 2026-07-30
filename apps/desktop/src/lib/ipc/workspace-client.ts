@@ -3,6 +3,8 @@ import { listen } from '@tauri-apps/api/event';
 
 import type {
   WorkspaceChangedEvent,
+  WorkspaceCommand,
+  WorkspaceCommandResult,
   WorkspaceIpcError,
   WorkspaceSnapshot,
 } from '@/bindings/workspace';
@@ -11,11 +13,13 @@ export type WorkspaceListener = (event: WorkspaceChangedEvent) => void;
 
 export interface WorkspaceClient {
   snapshot(): Promise<WorkspaceSnapshot>;
+  execute?(command: WorkspaceCommand): Promise<WorkspaceCommandResult>;
   subscribe(listener: WorkspaceListener): Promise<() => void>;
 }
 
 export const tauriWorkspaceClient: WorkspaceClient = {
   snapshot: () => invoke<WorkspaceSnapshot>('workspace_snapshot'),
+  execute: (command) => invoke<WorkspaceCommandResult>('workspace_execute', { command }),
   subscribe: async (listener) => {
     const unlisten = await listen<WorkspaceChangedEvent>('workspace://changed', (event) =>
       listener(event.payload),
