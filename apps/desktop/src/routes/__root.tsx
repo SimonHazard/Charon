@@ -1,5 +1,7 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router';
 
+import { AppProviders } from '@/app/providers';
+import { AppShell } from '@/components/app-shell';
 import { Toaster } from '@/components/ui/toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -11,7 +13,11 @@ function RootRoute() {
   return (
     <Toaster>
       <TooltipProvider>
-        <Outlet />
+        <AppProviders>
+          <AppShell>
+            <Outlet />
+          </AppShell>
+        </AppProviders>
       </TooltipProvider>
     </Toaster>
   );
