@@ -1,8 +1,8 @@
 import { IconAlertTriangle, IconFolderPlus, IconInfoCircle } from '@tabler/icons-react';
 import type { ReactNode } from 'react';
-
 import { useMessages } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
+import type { WorkspaceSnapshot } from '@/bindings/workspace';
 import { Button } from '@/components/ui/button';
 import {
   Empty,
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function WorkspaceState({ children }: { children(snapshotName: string): ReactNode }) {
+export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnapshot): ReactNode }) {
   const m = useMessages();
   const state = useWorkspace();
 
@@ -69,7 +69,7 @@ export function WorkspaceState({ children }: { children(snapshotName: string): R
           <span>{m.workspace_warning()}</span>
         </div>
       ) : null}
-      {children(state.snapshot.workspaceId)}
+      {children(state.snapshot)}
     </>
   );
 }
