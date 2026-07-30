@@ -1,29 +1,18 @@
-import { Outlet, createRootRoute } from '@tanstack/react-router'
+import { createRootRoute, Outlet } from '@tanstack/react-router';
 
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
-
-import '../styles.css'
+import { Toaster } from '@/components/ui/toast';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 export const Route = createRootRoute({
-  component: RootComponent,
-})
+  component: RootRoute,
+});
 
-function RootComponent() {
+function RootRoute() {
   return (
-    <>
-      <Outlet />
-      <TanStackDevtools
-        config={{
-          position: 'bottom-right',
-        }}
-        plugins={[
-          {
-            name: 'TanStack Router',
-            render: <TanStackRouterDevtoolsPanel />,
-          },
-        ]}
-      />
-    </>
-  )
+    <Toaster>
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
+    </Toaster>
+  );
 }

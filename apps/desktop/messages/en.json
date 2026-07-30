@@ -1,0 +1,8 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "app_title": "Charon",
+  "home_title": "Your local capture space",
+  "home_description": "Router, localization, and the desktop shell are ready.",
+  "home_status": "Local-only smoke route",
+  "toast_close_label": "Close notification"
+}

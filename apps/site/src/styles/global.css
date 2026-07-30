@@ -1,0 +1,42 @@
+@import "tailwindcss";
+@import "@charon/theme/index.css";
+
+:root {
+  font-family: var(--font-system);
+  color: var(--foreground);
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+}
+
+.smoke-shell {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: 2rem;
+}
+
+.smoke-shell > * {
+  margin: 0;
+}
+
+.eyebrow {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+a {
+  color: var(--primary);
+  text-underline-offset: 0.2em;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}

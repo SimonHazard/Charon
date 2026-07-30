@@ -1,19 +1,34 @@
-import { defineConfig } from 'vite'
-import { devtools } from '@tanstack/devtools-vite'
+import { fileURLToPath, URL } from 'node:url';
+import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import tailwindcss from '@tailwindcss/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 
-import { tanstackRouter } from '@tanstack/router-plugin/vite'
-
-import viteReact from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-
-const config = defineConfig({
-  resolve: { tsconfigPaths: true },
+export default defineConfig(({ mode }) => ({
   plugins: [
-    devtools(),
+    tanstackRouter({ target: 'react', autoCodeSplitting: mode !== 'test' }),
+    paraglideVitePlugin({
+      project: './project.inlang',
+      outdir: './src/paraglide',
+      emitTsDeclarations: true,
+      strategy: ['localStorage', 'baseLocale'],
+    }),
+    react(),
     tailwindcss(),
-    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
-    viteReact(),
   ],
-})
-
-export default config
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  server: {
+    host: '127.0.0.1',
+    port: 1420,
+    strictPort: true,
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
+}));

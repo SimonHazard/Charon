@@ -1,0 +1,22 @@
+:root {
+  --motion-duration-direct: 80ms;
+  --motion-duration-surface: 180ms;
+  --motion-easing-direct: linear;
+  --motion-easing-surface: cubic-bezier(0.2, 0, 0, 1);
+  --motion-press-scale: 0.98;
+  --material-translucency: 0.88;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-direct: 0ms;
+    --motion-duration-surface: 0ms;
+    --motion-press-scale: 1;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-translucency: 1;
+  }
+}

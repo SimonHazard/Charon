@@ -1,25 +1,25 @@
 ---
 import { Image } from 'astro:assets';
 
-import charonMark from '../assets/charon-mark.svg';
-import '../styles/global.css';
+import charonMark from '../../assets/charon-mark.svg';
+import '../../styles/global.css';
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="generator" content={Astro.generator} />
-    <title>Charon — local desktop scaffold</title>
+    <title>Charon — socle desktop local</title>
   </head>
   <body>
     <main class="smoke-shell">
       <Image src={charonMark} alt="" width={64} height={64} />
-      <p class="eyebrow">Static English route</p>
+      <p class="eyebrow">Route française statique</p>
       <h1>Charon</h1>
-      <p>The local-only desktop toolchain is ready.</p>
-      <a href="/fr/" hreflang="fr">Français</a>
+      <p>La chaîne d’outils desktop locale est prête.</p>
+      <a href="/" hreflang="en">English</a>
     </main>
   </body>
 </html>

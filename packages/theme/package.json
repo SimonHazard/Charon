@@ -1,0 +1,13 @@
+{
+  "name": "@charon/theme",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    "./tokens.css": "./src/tokens.css",
+    "./motion.css": "./src/motion.css",
+    "./index.css": "./src/index.css"
+  }
+}

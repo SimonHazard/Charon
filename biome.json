@@ -3,10 +3,15 @@
   "files": {
     "includes": [
       "**",
-      "!**/dist/**",
-      "!**/target/**",
+      "!**/.astro",
+      "!**/dist",
+      "!**/target",
       "!apps/desktop/src/routeTree.gen.ts",
-      "!apps/desktop/src/paraglide/**"
+      "!apps/desktop/src/paraglide",
+      "!apps/desktop/project.inlang/cache",
+      "!apps/desktop/project.inlang/.meta.json",
+      "!apps/desktop/project.inlang/README.md",
+      "!apps/desktop/src-tauri/gen"
     ]
   },
   "formatter": {
@@ -20,10 +25,15 @@
       "quoteStyle": "single"
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "preset": "recommended"
     }
   },
   "assist": {
@@ -33,5 +43,17 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["apps/site/**/*.astro"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ]
 }
