@@ -1,22 +1,26 @@
 :root {
-  --motion-duration-direct: 80ms;
-  --motion-duration-surface: 180ms;
-  --motion-easing-direct: linear;
-  --motion-easing-surface: cubic-bezier(0.2, 0, 0, 1);
+  --motion-duration-feedback: 90ms;
+  --motion-duration-surface: 360ms;
+  --motion-easing-feedback: cubic-bezier(0.2, 0, 0, 1);
+  --motion-easing-surface: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-press-scale: 0.98;
-  --material-translucency: 0.88;
+  --motion-surface-distance: 16px;
+  --motion-duration-direct: var(--motion-duration-feedback);
+  --motion-easing-direct: var(--motion-easing-feedback);
+  --material-blur: 18px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --motion-duration-direct: 0ms;
-    --motion-duration-surface: 0ms;
+    --motion-duration-feedback: 0ms;
+    --motion-duration-surface: 120ms;
     --motion-press-scale: 1;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --material-translucency: 1;
+    --material-titlebar: var(--canvas);
+    --material-blur: 0px;
   }
 }

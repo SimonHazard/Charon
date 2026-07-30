@@ -3,8 +3,10 @@
 
 :root {
   font-family: var(--font-system);
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--text);
+  background: var(--canvas);
+  font-optical-sizing: auto;
+  line-height: 1.5;
 }
 
 body {

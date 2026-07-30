@@ -3,8 +3,6 @@
 @import "shadcn/tailwind.css";
 @import "@charon/theme/index.css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --font-sans: var(--font-system);
   --color-background: var(--background);
@@ -42,33 +40,202 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring/60;
   }
 
   html {
-    @apply bg-background font-sans text-foreground;
+    min-width: 320px;
+    background: var(--canvas);
+    color: var(--text);
+    font-family: var(--font-system);
+    font-optical-sizing: auto;
+    line-height: 1.45;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     margin: 0;
+    min-height: 100dvh;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 2.4vw, 1.75rem);
+    font-weight: 650;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+  }
+
+  p {
+    margin: 0;
   }
 }
 
-.app-shell {
+.desktop-shell {
   display: grid;
-  min-height: 100vh;
-  place-content: center;
+  grid-template:
+    "title title" 44px
+    "rail main" minmax(0, 1fr)
+    "rail status" 28px / 240px minmax(0, 1fr);
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--canvas);
+}
+
+.titlebar {
+  grid-area: title;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.65rem;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--material-titlebar);
+  backdrop-filter: blur(var(--material-blur));
+  -webkit-backdrop-filter: blur(var(--material-blur));
+}
+
+.titlebar-name {
+  font-size: 0.84rem;
+  letter-spacing: -0.01em;
+}
+
+.titlebar-actions {
+  display: flex;
+  gap: 0.15rem;
+  margin-left: auto;
+}
+
+.rail-trigger {
+  display: none;
+}
+
+.section-rail {
+  grid-area: rail;
+  min-width: 0;
+  padding: 0.75rem 0.55rem;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface);
+}
+
+.rail-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.rail-link {
+  width: 100%;
+  justify-content: flex-start;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.rail-link[data-active="true"] {
+  background: var(--selection);
+  color: var(--selection-text);
+}
+
+.work-area {
+  grid-area: main;
+  min-width: 0;
+  overflow: auto;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+}
+
+.route-surface {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.route-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.route-heading p,
+.route-placeholder {
+  max-width: 62ch;
+  color: var(--text-muted);
+}
+
+.workspace-loading {
+  display: flex;
+  max-width: 48rem;
+  flex-direction: column;
   gap: 0.75rem;
-  padding: 2rem;
 }
 
-.app-shell > * {
-  margin: 0;
+.workspace-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-field);
+  color: var(--warning);
 }
 
-.app-eyebrow {
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.workspace-warning svg {
+  width: 1rem;
+  flex: none;
+}
+
+.status-region {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.015em;
+}
+
+.context-inspector {
+  border-left: 1px solid var(--border-subtle);
+}
+
+.mobile-rail {
+  transform-origin: left center;
+}
+
+@media (max-width: 759px) {
+  .desktop-shell {
+    grid-template:
+      "title" 44px
+      "main" minmax(0, 1fr)
+      "status" 28px / minmax(0, 1fr);
+  }
+
+  .section-rail {
+    display: none;
+  }
+
+  .rail-trigger {
+    display: inline-flex;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .titlebar {
+    background: var(--canvas);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .titlebar,
+  .section-rail,
+  .status-region {
+    border-color: currentColor;
+  }
 }
