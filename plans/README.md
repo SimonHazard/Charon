@@ -91,8 +91,8 @@ this ledger and all plans together before installing anything.
 | `@astrojs/check` | `0.9.10` |
 | `@astrojs/sitemap` | `3.7.3` |
 | `sharp` | `0.35.3` |
-| `vite` | `8.1.5` |
-| `@vitejs/plugin-react` | `6.0.4` |
+| `vite` | `8.2.0` |
+| `@vitejs/plugin-react` | `6.0.5` |
 | `react`, `react-dom` | `19.2.8` |
 | `motion` | `12.43.0` |
 | `typescript` | `7.0.2` |
