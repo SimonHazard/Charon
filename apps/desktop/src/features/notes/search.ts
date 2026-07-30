@@ -11,7 +11,7 @@ export type NoteFilter = {
 const whitespace = /\s+/gu;
 
 export function normalizeSearchText(value: string): string {
-  return value.normalize('NFKC').toLocaleLowerCase().replace(whitespace, ' ').trim();
+  return value.normalize('NFKC').toLowerCase().replace(whitespace, ' ').trim();
 }
 
 export function filterNotes(notes: readonly NoteViewModel[], filter: NoteFilter): NoteViewModel[] {

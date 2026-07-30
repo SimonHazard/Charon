@@ -17,6 +17,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnapshot): ReactNode }) {
   const m = useMessages();
   const state = useWorkspace();
+  const errorMessage =
+    state.error &&
+    ((m as unknown as Record<string, (() => string) | undefined>)[state.error.messageKey]?.() ??
+      m.workspace_error_unknown());
 
   if (state.status === 'loading') {
     return (
@@ -55,7 +59,7 @@ export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnaps
             <IconAlertTriangle />
           </EmptyMedia>
           <EmptyTitle>{m.workspace_error_title()}</EmptyTitle>
-          <EmptyDescription>{m.workspace_error_description()}</EmptyDescription>
+          <EmptyDescription>{errorMessage || m.workspace_error_description()}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -66,7 +70,7 @@ export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnaps
       {state.status === 'warning' ? (
         <div className="workspace-warning" role="alert">
           <IconInfoCircle />
-          <span>{m.workspace_warning()}</span>
+          <span>{errorMessage || m.workspace_warning()}</span>
         </div>
       ) : null}
       {children(state.snapshot)}

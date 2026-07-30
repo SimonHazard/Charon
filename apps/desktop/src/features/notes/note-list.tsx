@@ -39,10 +39,13 @@ export function NoteList({
       : -1;
     if (index >= 0) {
       virtualizer.scrollToIndex(index, { align: 'auto' });
-      const activeElement = Array.from(
-        parentRef.current?.querySelectorAll<HTMLElement>('[data-note-focus]') ?? [],
-      ).find((element) => element.dataset.noteFocus === selection.activeId);
-      activeElement?.focus({ preventScroll: true });
+      const frame = window.requestAnimationFrame(() => {
+        const activeElement = Array.from(
+          parentRef.current?.querySelectorAll<HTMLElement>('[data-note-focus]') ?? [],
+        ).find((element) => element.dataset.noteFocus === selection.activeId);
+        activeElement?.focus({ preventScroll: true });
+      });
+      return () => window.cancelAnimationFrame(frame);
     }
   }, [notes, selection.activeId, virtualizer]);
 

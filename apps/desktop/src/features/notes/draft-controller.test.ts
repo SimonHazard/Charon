@@ -22,4 +22,18 @@ describe('draft controller', () => {
     );
     expect(draftReducer(changed, { type: 'revert' }).value).toBe('original');
   });
+
+  it('preserves text typed while an earlier save is in flight', () => {
+    const saving = draftReducer(
+      draftReducer(closedDraft, { type: 'open', noteId: 'note', body: 'original' }),
+      { type: 'change', value: 'first edit' },
+    );
+    const concurrentEdit = draftReducer(saving, { type: 'change', value: 'second edit' });
+    const saved = draftReducer(concurrentEdit, { type: 'saved', body: 'first edit' });
+    expect(saved).toMatchObject({
+      original: 'first edit',
+      value: 'second edit',
+      status: 'dirty',
+    });
+  });
 });

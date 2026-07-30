@@ -48,7 +48,9 @@ export function SectionManager({
               type: 'createSection',
               name: name.trim(),
               sortKey: nextSectionSortKey(sections),
-            }).then(() => setName(''));
+            })
+              .then(() => setName(''))
+              .catch(() => undefined);
           }}
         >
           <FieldGroup>
@@ -84,7 +86,7 @@ export function SectionManager({
                       type: 'renameSection',
                       sectionId: section.id,
                       name: nextName,
-                    });
+                    }).catch(() => undefined);
                   }
                 }}
               >
@@ -101,7 +103,7 @@ export function SectionManager({
                   disabled={index === 0}
                   onClick={() => {
                     const command = reorderSectionCommand(sections, section.id, -1);
-                    if (command) void onCommand(command);
+                    if (command) void onCommand(command).catch(() => undefined);
                   }}
                   size="icon-sm"
                   type="button"
@@ -114,7 +116,7 @@ export function SectionManager({
                   disabled={index === sections.length - 1}
                   onClick={() => {
                     const command = reorderSectionCommand(sections, section.id, 1);
-                    if (command) void onCommand(command);
+                    if (command) void onCommand(command).catch(() => undefined);
                   }}
                   size="icon-sm"
                   type="button"
@@ -125,7 +127,11 @@ export function SectionManager({
                 <Button
                   aria-label={m.section_delete_label({ name: section.name })}
                   disabled={noteCount > 0 || sections.length === 1}
-                  onClick={() => void onCommand({ type: 'deleteSection', sectionId: section.id })}
+                  onClick={() =>
+                    void onCommand({ type: 'deleteSection', sectionId: section.id }).catch(
+                      () => undefined,
+                    )
+                  }
                   size="icon-sm"
                   title={noteCount > 0 ? m.section_delete_blocked() : undefined}
                   type="button"

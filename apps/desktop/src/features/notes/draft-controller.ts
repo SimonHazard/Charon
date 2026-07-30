@@ -46,8 +46,8 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
       return {
         ...state,
         original: action.body,
-        value: action.body,
-        status: 'idle',
+        value: state.value,
+        status: state.value === action.body ? 'idle' : 'dirty',
         errorKey: null,
       };
     case 'failed':

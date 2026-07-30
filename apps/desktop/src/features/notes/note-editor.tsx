@@ -32,11 +32,13 @@ const AUTOSAVE_DELAY_MS = 650;
 export function NoteEditor({
   note,
   open,
+  saveRequest = 0,
   onOpenChange,
   onSave,
 }: {
   note: NoteDto | null;
   open: boolean;
+  saveRequest?: number;
   onOpenChange(open: boolean): void;
   onSave(noteId: string, body: string): Promise<void>;
 }) {
@@ -44,10 +46,19 @@ export function NoteEditor({
   const [draft, dispatch] = useReducer(draftReducer, closedDraft);
   const [discardOpen, setDiscardOpen] = useState(false);
   const inFlight = useRef(false);
+  const openedNoteId = useRef<string | null>(null);
+  const handledSaveRequest = useRef(0);
 
   useEffect(() => {
-    if (note && open) dispatch({ type: 'open', noteId: note.id, body: note.body });
-    if (!open) dispatch({ type: 'close' });
+    if (!open) {
+      openedNoteId.current = null;
+      dispatch({ type: 'close' });
+      return;
+    }
+    if (note && openedNoteId.current !== note.id) {
+      openedNoteId.current = note.id;
+      dispatch({ type: 'open', noteId: note.id, body: note.body });
+    }
   }, [note, open]);
 
   const save = useCallback(async () => {
@@ -73,6 +84,12 @@ export function NoteEditor({
     const timeout = window.setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
     return () => window.clearTimeout(timeout);
   }, [draft.status, save]);
+
+  useEffect(() => {
+    if (saveRequest <= handledSaveRequest.current) return;
+    handledSaveRequest.current = saveRequest;
+    void save();
+  }, [save, saveRequest]);
 
   const requestClose = (next: boolean) => {
     if (next) return onOpenChange(true);
@@ -118,10 +135,6 @@ export function NoteEditor({
                   }}
                   onChange={(event) => dispatch({ type: 'change', value: event.target.value })}
                   onKeyDown={(event) => {
-                    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-                      event.preventDefault();
-                      void save();
-                    }
                     if (event.key === 'Escape' && hasUnsavedDraft(draft)) {
                       event.preventDefault();
                       event.stopPropagation();

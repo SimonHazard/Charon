@@ -43,13 +43,14 @@ export function setStatusCommand(
 export function moveNotesCommand(
   noteIds: readonly string[],
   destinationSectionId: string,
+  notes: readonly NoteDto[] = [],
 ): WorkspaceCommandDraft {
   if (noteIds.length === 1) {
     return {
       type: 'moveNote',
       noteId: noteIds[0] as string,
       sectionId: destinationSectionId,
-      sortKey: 0,
+      sortKey: nextNoteSortKey(notes, destinationSectionId),
     };
   }
   return { type: 'batchMove', noteIds: [...noteIds], destinationSectionId };

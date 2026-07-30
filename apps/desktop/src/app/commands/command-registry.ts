@@ -33,7 +33,7 @@ export function availableCommands(commands: readonly AppCommand[]): AppCommand[]
 export function executeCommand(command: AppCommand, target: EventTarget | null): boolean {
   if (!command.isAvailable()) return false;
   if (!command.allowInEditable && isEditableTarget(target)) return false;
-  void command.execute();
+  void Promise.resolve(command.execute()).catch(() => undefined);
   return true;
 }
 

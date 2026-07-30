@@ -45,7 +45,7 @@ describe('shell states', () => {
 
   it('renders a blocking error when no valid snapshot exists', async () => {
     const client: WorkspaceClient = {
-      snapshot: async () => Promise.reject({ code: 'corrupt', messageKey: 'x' }),
+      snapshot: async () => Promise.reject({ code: 'io', messageKey: 'workspace_error_io' }),
       subscribe: async () => () => undefined,
     };
     render(
@@ -56,6 +56,7 @@ describe('shell states', () => {
       </AppProviders>,
     );
     expect(await screen.findByText('Workspace unavailable')).toBeTruthy();
+    expect(screen.getByText(/local files could not be read or written/i)).toBeTruthy();
   });
 
   it('defines the 760px rail handoff and fixed 240px desktop rail', () => {

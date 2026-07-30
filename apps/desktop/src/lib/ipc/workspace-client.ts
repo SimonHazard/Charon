@@ -2,9 +2,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 import type {
+  WorkspaceChangedEvent,
   WorkspaceCommand,
   WorkspaceCommandResult,
-  WorkspaceChangedEvent,
   WorkspaceIpcError,
   WorkspaceSnapshot,
 } from '@/bindings/workspace';
