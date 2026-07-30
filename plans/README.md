@@ -22,7 +22,7 @@ prerequisites, and run the desktop app or Astro preview without guessing.
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
 | 001 | Freeze product, domain, privacy, UX, and architecture contracts | P1 | M | - | DONE |
-| 002 | Scaffold the pinned Bun monorepo and reproducible developer loop | P1 | L | 001 | TODO |
+| 002 | Scaffold the pinned Bun monorepo and reproducible developer loop | P1 | L | 001 | DONE |
 | 003 | Build the deep local Workspace module and typed IPC boundary | P1 | L | 002 | TODO |
 | 004 | Establish the shared premium theme, desktop shell, and EN/FR localization | P1 | L | 002, 003 | TODO |
 | 005 | Deliver note CRUD, sections, search, selection, merge, trash, and undo | P1 | L | 003, 004 | TODO |
@@ -91,8 +91,8 @@ this ledger and all plans together before installing anything.
 | `@astrojs/check` | `0.9.10` |
 | `@astrojs/sitemap` | `3.7.3` |
 | `sharp` | `0.35.3` |
-| `vite` | `8.1.5` |
-| `@vitejs/plugin-react` | `6.0.4` |
+| `vite` | `8.2.0` |
+| `@vitejs/plugin-react` | `6.0.5` |
 | `react`, `react-dom` | `19.2.8` |
 | `motion` | `12.43.0` |
 | `typescript` | `7.0.2` |

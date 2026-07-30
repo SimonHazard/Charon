@@ -87,9 +87,11 @@ does not undermine the local-only product promise.
 
 - Committing certificates/private keys/passwords, weakening tests for CI, cloud
   sync, analytics, custom update servers, automatic update installation without
-  consent, paid code-signing purchases without operator approval, and publishing
-  a release before all required secrets/manual checks exist. A custom domain or
-  non-GitHub Pages host is out of scope without an explicit operator decision.
+  consent, automated or agent-driven installation of packaged desktop artifacts,
+  paid code-signing purchases without operator approval, and publishing a release
+  before all required secrets/manual checks exist. The operator alone installs the
+  macOS `.dmg` manually during final release validation. A custom domain or non-GitHub
+  Pages host is out of scope without an explicit operator decision.
 
 ## Git workflow
 
@@ -232,18 +234,21 @@ the signed public release and checksums.
 ### Step 7: Complete release, site, and rollback documentation
 
 Write `docs/RELEASING.md` as an exact operator runbook: version bump locations,
-changelog, local gate, tag, environment approvals, per-platform install smoke,
-update-from-previous smoke, draft-to-public promotion, rollback/yank, compromised
-key response, key rotation, site deploy/rollback, Pages base/custom-domain rules,
-and download metadata refresh. `CHANGELOG.md` starts with Keep a Changelog-style
-Unreleased and first version sections without claiming an unpublished release.
+changelog, local gate, tag, environment approvals, operator-owned manual
+per-platform install smoke, update-from-previous smoke, draft-to-public promotion,
+rollback/yank, compromised key response, key rotation, site deploy/rollback, Pages
+base/custom-domain rules, and download metadata refresh. Agents and automation may
+build and verify artifacts but must stop before installation. `CHANGELOG.md` starts
+with Keep a Changelog-style Unreleased and first version sections without claiming
+an unpublished release.
 
 Update README platform table and privacy from actual green build evidence only.
 Create issue/PR templates that request OS/session, app version, capability state,
 and redacted diagnostics, explicitly warning not to paste note content or paths.
 
 **Verify**: a second operator/agent can run a dry release using only the runbook
-until the explicit secret/approval gate; every rollback step has an owner and command.
+until the explicit secret/approval or manual-install gate; every rollback step has
+an owner and command.
 
 ## Test plan
 
@@ -251,7 +256,8 @@ until the explicit secret/approval gate; every rollback step has an owner and co
 - CI quality, Rust matrix, and unsigned artifact workflow runs.
 - Astro review artifact and protected GitHub Pages deployment with base-path,
   localization, metadata, link, privacy, and rollback tests.
-- Artifact installation/smoke on macOS and Linux, then Windows if supported.
+- Operator-performed manual artifact installation/smoke on macOS and Linux, then
+  Windows if supported; agents and workflows stop after artifact verification.
 - Signed prerelease update success and tamper rejection from the previous version.
 - Dirty-draft restart deferral and updater opt-out.
 - Manual notarization/signature verification using platform tools documented in
@@ -284,7 +290,8 @@ until the explicit secret/approval gate; every rollback step has an owner and co
   permissions beyond contents read, pages write, and id-token write.
 - Site base/canonical paths break localized routes or verified downloads.
 - Signed updater accepts a tampered artifact or can restart over a dirty draft.
-- A required Mac/Linux artifact cannot install and run after two platform fixes.
+- A required Mac/Linux artifact fails the operator's manual install-and-run smoke
+  after two platform fixes.
 - Publishing, tagging, pushing, or buying a certificate lacks explicit operator authorization.
 
 ## Maintenance notes

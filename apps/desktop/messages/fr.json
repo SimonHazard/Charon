@@ -1,0 +1,8 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "app_title": "Charon",
+  "home_title": "Votre espace de capture local",
+  "home_description": "Le routeur, la localisation et la coque desktop sont prêts.",
+  "home_status": "Route de validation locale",
+  "toast_close_label": "Fermer la notification"
+}

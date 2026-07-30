@@ -1,0 +1,33 @@
+{
+  "name": "@charon/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "typecheck": "astro check",
+    "test": "astro check && astro build",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/sitemap": "3.7.3",
+    "@charon/theme": "workspace:*",
+    "astro": "7.1.6",
+    "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3"
+  },
+  "charon": {
+    "typescriptCompatibility": "Astro Check 0.9.10 supports TypeScript 5 and 6; keep 6.0.3 isolated to this workspace."
+  }
+}
