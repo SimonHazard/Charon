@@ -27,7 +27,10 @@ describe('note list', () => {
     render(
       <AppProviders>
         <NoteList
+          copyPreset="plain"
           notes={notes}
+          onCopy={vi.fn()}
+          onCopyPreview={vi.fn()}
           onOpen={vi.fn()}
           onSelection={vi.fn()}
           selection={{ activeId: null, anchorId: null, selectedIds: ['note-2'] }}

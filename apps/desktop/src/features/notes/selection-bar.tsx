@@ -1,6 +1,5 @@
 import {
   IconCheck,
-  IconCopy,
   IconFolderSymlink,
   IconGitMerge,
   IconRotateClockwise,
@@ -9,6 +8,7 @@ import {
 import { AnimatePresence, m as motion } from 'motion/react';
 
 import { useMessages } from '@/app/providers';
+import type { CopyPreset } from '@/bindings/clipboard';
 import type { SectionDto } from '@/bindings/workspace';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,6 +19,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { CopyMenu } from '@/features/copy/copy-menu';
 import { motionProfiles } from '@/motion/system';
 
 export function SelectionBar({
@@ -29,6 +30,10 @@ export function SelectionBar({
   onMove,
   moveOpen,
   onMoveOpenChange,
+  copyPreset,
+  onCopy,
+  onCopyPresetChange,
+  onCopyPreview,
   onMerge,
   onTrash,
 }: {
@@ -39,6 +44,10 @@ export function SelectionBar({
   onMove(sectionId: string): void;
   moveOpen: boolean;
   onMoveOpenChange(open: boolean): void;
+  copyPreset: CopyPreset;
+  onCopy(): void;
+  onCopyPresetChange(preset: CopyPreset): void;
+  onCopyPreview(): void;
   onMerge(): void;
   onTrash(): void;
 }) {
@@ -81,10 +90,12 @@ export function SelectionBar({
               </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button disabled size="sm" title={m.selection_copy_disabled()} variant="ghost">
-            <IconCopy data-icon="inline-start" />
-            {m.selection_copy()}
-          </Button>
+          <CopyMenu
+            onCopy={onCopy}
+            onPresetChange={onCopyPresetChange}
+            onPreview={onCopyPreview}
+            preset={copyPreset}
+          />
           <Button disabled={count < 2} onClick={onMerge} size="sm" variant="ghost">
             <IconGitMerge data-icon="inline-start" />
             {m.selection_merge()}

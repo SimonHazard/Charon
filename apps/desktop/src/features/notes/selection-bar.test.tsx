@@ -12,6 +12,10 @@ const props = {
   onMove: vi.fn(),
   moveOpen: false,
   onMoveOpenChange: vi.fn(),
+  copyPreset: 'plain' as const,
+  onCopy: vi.fn(),
+  onCopyPresetChange: vi.fn(),
+  onCopyPreview: vi.fn(),
   onMerge: vi.fn(),
   onTrash: vi.fn(),
 };

@@ -1,9 +1,11 @@
 import { memo } from 'react';
 
 import { useMessages } from '@/app/providers';
+import type { CopyPreset } from '@/bindings/clipboard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { NoteCopyMenu } from '@/features/copy/copy-menu';
 import type { NoteViewModel } from '@/features/notes/note-view-model';
 
 export const NoteRow = memo(function NoteRow({
@@ -13,6 +15,9 @@ export const NoteRow = memo(function NoteRow({
   onActivate,
   onToggle,
   onOpen,
+  copyPreset,
+  onCopy,
+  onCopyPreview,
 }: {
   note: NoteViewModel;
   active: boolean;
@@ -20,6 +25,9 @@ export const NoteRow = memo(function NoteRow({
   onActivate(event: React.MouseEvent, noteId: string): void;
   onToggle(noteId: string): void;
   onOpen(noteId: string): void;
+  copyPreset: CopyPreset;
+  onCopy(noteId: string, preset: CopyPreset): void;
+  onCopyPreview(noteId: string, preset: CopyPreset): void;
 }) {
   const m = useMessages();
   const title = note.title || m.note_untitled();
@@ -56,6 +64,12 @@ export const NoteRow = memo(function NoteRow({
           <span>{note.status === 'done' ? m.note_status_done() : m.note_status_open()}</span>
         </span>
       </Button>
+      <NoteCopyMenu
+        defaultPreset={copyPreset}
+        onCopy={(preset) => onCopy(note.id, preset)}
+        onPreview={(preset) => onCopyPreview(note.id, preset)}
+        title={title}
+      />
     </div>
   );
 });

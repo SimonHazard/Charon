@@ -136,6 +136,12 @@ fn with_workspace<T>(
     operation(workspace).map_err(WorkspaceIpcError::from)
 }
 
+pub(crate) fn current_snapshot(
+    runtime: &State<'_, WorkspaceRuntime>,
+) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
+    with_workspace(runtime, Workspace::snapshot)
+}
+
 fn emit_pending(app: &AppHandle, workspace: &mut Workspace) {
     for event in workspace.take_events() {
         let _ = app.emit("workspace://changed", event);
