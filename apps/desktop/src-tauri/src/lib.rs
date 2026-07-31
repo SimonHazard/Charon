@@ -1,3 +1,4 @@
+pub mod clipboard;
 mod ipc;
 pub mod workspace;
 
@@ -25,6 +26,8 @@ pub fn run() {
             ipc::workspace::workspace_execute,
             ipc::workspace::workspace_close,
             ipc::workspace::workspace_health,
+            ipc::clipboard::clipboard_preview,
+            ipc::clipboard::clipboard_compose_and_write,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Charon");
