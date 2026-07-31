@@ -26,7 +26,7 @@ prerequisites, and run the desktop app or Astro preview without guessing.
 | 003 | Build the deep local Workspace module and typed IPC boundary | P1 | L | 002 | DONE |
 | 004 | Establish the shared premium theme, desktop shell, and EN/FR localization | P1 | L | 002, 003 | DONE |
 | 005 | Deliver note CRUD, sections, search, selection, merge, trash, and undo | P1 | L | 003, 004 | DONE |
-| 006 | Build the ClipboardComposer and fast copy workflows | P1 | M | 005 | TODO |
+| 006 | Build the ClipboardComposer and fast copy workflows | P1 | M | 005 | DONE |
 | 007 | Build quick capture and the cross-platform shortcut capability ladder | P1 | XL | 003, 004, 005 | TODO |
 | 008 | Add onboarding, settings, permissions, diagnostics, and resilience UX | P1 | L | 006, 007 | TODO |
 | 009 | Build the Astro product preview site with the shared app theme | P1 | L | 004, 008 | TODO |

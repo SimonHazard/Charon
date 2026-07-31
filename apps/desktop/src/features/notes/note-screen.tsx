@@ -2,8 +2,10 @@ import { IconFilePlus, IconSearchOff, IconTrash } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useCommandRegistration } from '@/app/commands/command-provider';
 import type { AppCommand } from '@/app/commands/command-registry';
+import { createCopyCommands } from '@/app/commands/default-commands';
 import { useMessages } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
+import type { ClipboardIpcError, ComposedClipboard, CopyPreset } from '@/bindings/clipboard';
 import type { WorkspaceCommandResult, WorkspaceSnapshot } from '@/bindings/workspace';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +16,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { toast } from '@/components/ui/toast';
+import { copyNotes, copySuccessDescription, previewNotes } from '@/features/copy/copy-actions';
+import {
+  COPY_PRESET_MESSAGE_KEYS,
+  readCopyPreset,
+  saveCopyPreset,
+} from '@/features/copy/copy-preset';
+import { CopyPreviewDialog } from '@/features/copy/copy-preview-dialog';
 import { MergeDialog } from '@/features/notes/merge-dialog';
 import {
   createNoteCommand,
@@ -33,6 +43,11 @@ import { SelectionBar } from '@/features/notes/selection-bar';
 import { emptySelection, selectionReducer } from '@/features/notes/selection-model';
 import { BulkTrashDialog, TrashView } from '@/features/notes/trash-view';
 import { showUndoToast } from '@/features/notes/undo-toast';
+import {
+  asClipboardError,
+  type ClipboardClient,
+  tauriClipboardClient,
+} from '@/lib/ipc/clipboard-client';
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -46,9 +61,11 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 export function NoteScreen({
   snapshot,
   sectionId = null,
+  clipboardClient = tauriClipboardClient,
 }: {
   snapshot: WorkspaceSnapshot;
   sectionId?: string | null;
+  clipboardClient?: ClipboardClient;
 }) {
   const m = useMessages();
   const { executeWorkspaceCommand } = useWorkspace();
@@ -66,6 +83,13 @@ export function NoteScreen({
   const [saveRequest, setSaveRequest] = useState(0);
   const [lastUndoToken, setLastUndoToken] = useState<string | null>(null);
   const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
+  const [copyPreset, setCopyPreset] = useState(readCopyPreset);
+  const [copyPreviewOpen, setCopyPreviewOpen] = useState(false);
+  const [copyPreviewPreset, setCopyPreviewPreset] = useState<CopyPreset>('plain');
+  const [copyPreviewIds, setCopyPreviewIds] = useState<readonly string[]>([]);
+  const [copyPreviewResult, setCopyPreviewResult] = useState<ComposedClipboard | null>(null);
+  const [copyPreviewError, setCopyPreviewError] = useState<ClipboardIpcError | null>(null);
+  const [copyPreviewLoading, setCopyPreviewLoading] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const indexedNotes = useMemo(() => createSearchIndex(snapshot).sort(compareNotes), [snapshot]);
@@ -106,6 +130,68 @@ export function NoteScreen({
     ).filter(Boolean);
     return names.join(', ') || m.trash_context_current();
   }, [m, selectedNotes, snapshot.sections]);
+
+  const updateCopyPreset = useCallback((preset: CopyPreset) => {
+    saveCopyPreset(preset);
+    setCopyPreset(preset);
+  }, []);
+
+  const clipboardErrorMessage = useCallback(
+    (error: ClipboardIpcError) =>
+      (m as unknown as Record<string, () => string>)[error.messageKey]?.() ??
+      m.clipboard_error_write_failed(),
+    [m],
+  );
+
+  const performCopy = useCallback(
+    async (noteIds: readonly string[], preset: CopyPreset): Promise<boolean> => {
+      try {
+        const result = await copyNotes(clipboardClient, snapshot, noteIds, preset);
+        const presetName = m[COPY_PRESET_MESSAGE_KEYS[preset]]();
+        toast.add({
+          title: m.copy_success_title(),
+          description: copySuccessDescription(result, presetName, {
+            one: m.copy_success_one,
+            many: m.copy_success_many,
+          }),
+          type: 'success',
+        });
+        return true;
+      } catch (error) {
+        const clipboardError = asClipboardError(error);
+        toast.add({
+          title: m.copy_error_title(),
+          description: clipboardErrorMessage(clipboardError),
+          type: 'error',
+          actionProps: {
+            children: m.copy_retry(),
+            onClick: () => void performCopy(noteIds, preset),
+          },
+        });
+        return false;
+      }
+    },
+    [clipboardClient, clipboardErrorMessage, m, snapshot],
+  );
+
+  const openCopyPreview = useCallback(
+    async (noteIds: readonly string[], preset: CopyPreset) => {
+      setCopyPreviewOpen(true);
+      setCopyPreviewPreset(preset);
+      setCopyPreviewIds([...noteIds]);
+      setCopyPreviewResult(null);
+      setCopyPreviewError(null);
+      setCopyPreviewLoading(true);
+      try {
+        setCopyPreviewResult(await previewNotes(clipboardClient, snapshot, noteIds, preset));
+      } catch (error) {
+        setCopyPreviewError(asClipboardError(error));
+      } finally {
+        setCopyPreviewLoading(false);
+      }
+    },
+    [clipboardClient, snapshot],
+  );
 
   useEffect(() => setActiveSectionId(sectionId), [sectionId]);
 
@@ -324,6 +410,16 @@ export function NoteScreen({
         isAvailable: () => actionIds.length > 0 && !trash,
         execute: toggleDone,
       },
+      ...createCopyCommands({
+        isAvailable: () => selection.selectedIds.length > 0 && !trash,
+        copyDefault: async () => {
+          await performCopy(selection.selectedIds, copyPreset);
+        },
+        preview: () => openCopyPreview(selection.selectedIds, copyPreset),
+        copyPreset: async (preset) => {
+          await performCopy(selection.selectedIds, preset);
+        },
+      }),
       {
         id: 'selection.select-all',
         labelKey: 'command_selection_all',
@@ -415,12 +511,15 @@ export function NoteScreen({
       actionIds,
       activeNote,
       createNote,
+      copyPreset,
       editorId,
       lastUndoToken,
       performLastUndo,
+      performCopy,
+      openCopyPreview,
       reorderActive,
       selection.activeId,
-      selection.selectedIds.length,
+      selection.selectedIds,
       snapshot.sections.length,
       toggleDone,
       trash,
@@ -475,7 +574,10 @@ export function NoteScreen({
       />
       {notes.length > 0 ? (
         <NoteList
+          copyPreset={copyPreset}
           notes={notes}
+          onCopy={(noteId, preset) => void performCopy([noteId], preset)}
+          onCopyPreview={(noteId, preset) => void openCopyPreview([noteId], preset)}
           onOpen={setEditorId}
           onSelection={(action) => {
             if (action.type === 'keyboard') return handleKeyboard(action.event);
@@ -541,9 +643,13 @@ export function NoteScreen({
         />
       ) : (
         <SelectionBar
+          copyPreset={copyPreset}
           count={selection.selectedIds.length}
           moveOpen={moveOpen}
           onMerge={() => setMergeOpen(true)}
+          onCopy={() => void performCopy(selection.selectedIds, copyPreset)}
+          onCopyPresetChange={updateCopyPreset}
+          onCopyPreview={() => void openCopyPreview(selection.selectedIds, copyPreset)}
           onMove={(destination) => void moveSelected(destination).catch(() => undefined)}
           onMoveOpenChange={setMoveOpen}
           onSetDone={() => void setSelectedStatus('done').catch(() => undefined)}
@@ -562,6 +668,20 @@ export function NoteScreen({
         }}
         open={Boolean(editorNote)}
         saveRequest={saveRequest}
+      />
+      <CopyPreviewDialog
+        error={copyPreviewError}
+        loading={copyPreviewLoading}
+        onCopy={() => {
+          void performCopy(copyPreviewIds, copyPreviewPreset).then((copied) => {
+            if (copied) setCopyPreviewOpen(false);
+          });
+        }}
+        onOpenChange={setCopyPreviewOpen}
+        onRetry={() => void openCopyPreview(copyPreviewIds, copyPreviewPreset)}
+        open={copyPreviewOpen}
+        preset={copyPreviewPreset}
+        result={copyPreviewResult}
       />
       <MergeDialog
         notes={selectedNotes}

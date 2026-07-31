@@ -196,3 +196,5 @@ runs exactly one batch mutation.
   before changing whitespace or prefixes.
 - Keep the writer replaceable for tests, but do not create a generic clipboard
   service with unused read/history methods.
+- Copy-and-complete is deferred because `docs/PRODUCT.md` does not list it as a
+  v1 journey or command; ordinary copy remains side-effect free.

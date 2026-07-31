@@ -1,6 +1,6 @@
 import type { m } from '@/paraglide/messages.js';
 
-export type CommandCategory = 'navigation' | 'notes' | 'selection' | 'workspace';
+export type CommandCategory = 'navigation' | 'notes' | 'selection' | 'copy' | 'workspace';
 export type CommandMessageKey = keyof typeof m;
 
 export type AppCommand = {

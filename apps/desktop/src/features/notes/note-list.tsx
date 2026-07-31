@@ -1,5 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useRef } from 'react';
+import type { CopyPreset } from '@/bindings/clipboard';
 import { NoteRow } from '@/features/notes/note-row';
 import type { NoteViewModel } from '@/features/notes/note-view-model';
 import type { SelectionState } from '@/features/notes/selection-model';
@@ -11,6 +12,9 @@ export function NoteList({
   selection,
   onSelection,
   onOpen,
+  copyPreset,
+  onCopy,
+  onCopyPreview,
 }: {
   notes: readonly NoteViewModel[];
   selection: SelectionState;
@@ -21,6 +25,9 @@ export function NoteList({
       | { type: 'keyboard'; event: React.KeyboardEvent },
   ): void;
   onOpen(noteId: string): void;
+  copyPreset: CopyPreset;
+  onCopy(noteId: string, preset: CopyPreset): void;
+  onCopyPreview(noteId: string, preset: CopyPreset): void;
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
   const selected = new Set(selection.selectedIds);
@@ -71,6 +78,7 @@ export function NoteList({
             >
               <NoteRow
                 active={selection.activeId === note.id}
+                copyPreset={copyPreset}
                 note={note}
                 onActivate={(event, id) =>
                   onSelection({
@@ -81,6 +89,8 @@ export function NoteList({
                   })
                 }
                 onOpen={onOpen}
+                onCopy={onCopy}
+                onCopyPreview={onCopyPreview}
                 onToggle={(id) => onSelection({ type: 'toggle', id })}
                 selected={selected.has(note.id)}
               />
