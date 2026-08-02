@@ -20,6 +20,27 @@
         "minHeight": 480,
         "resizable": true,
         "fullscreen": false
+      },
+      {
+        "label": "capture",
+        "title": "Charon",
+        "url": "/capture",
+        "width": 560,
+        "height": 420,
+        "minWidth": 560,
+        "minHeight": 320,
+        "maxWidth": 560,
+        "maxHeight": 640,
+        "center": true,
+        "visible": false,
+        "focus": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": true,
+        "maximizable": false,
+        "minimizable": false,
+        "closable": false,
+        "fullscreen": false
       }
     ],
     "security": {

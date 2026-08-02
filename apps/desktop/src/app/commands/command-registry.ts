@@ -1,6 +1,12 @@
 import type { m } from '@/paraglide/messages.js';
 
-export type CommandCategory = 'navigation' | 'notes' | 'selection' | 'copy' | 'workspace';
+export type CommandCategory =
+  | 'navigation'
+  | 'notes'
+  | 'selection'
+  | 'copy'
+  | 'capture'
+  | 'workspace';
 export type CommandMessageKey = keyof typeof m;
 
 export type AppCommand = {
@@ -9,6 +15,7 @@ export type AppCommand = {
   descriptionKey: CommandMessageKey;
   category: CommandCategory;
   defaultShortcut?: string;
+  displayShortcut?: string;
   destructive?: boolean;
   allowInEditable?: boolean;
   isAvailable(): boolean;
@@ -38,8 +45,9 @@ export function executeCommand(command: AppCommand, target: EventTarget | null):
 }
 
 export function formatShortcut(shortcut: string, isMac: boolean): string[] {
-  return shortcut.split('+').map((part) => {
-    if (part !== 'Mod') return part;
+  return shortcut.split(/[+,]/).map((rawPart) => {
+    const part = rawPart.trim();
+    if (part !== 'Mod' && part !== 'CmdOrCtrl') return part;
     return isMac ? '⌘' : 'Ctrl';
   });
 }

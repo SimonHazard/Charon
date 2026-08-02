@@ -401,4 +401,3 @@ mod tests {
         assert!(triggers.is_empty());
     }
 }
-

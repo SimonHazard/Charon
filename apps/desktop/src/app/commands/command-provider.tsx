@@ -153,12 +153,15 @@ function CommandRuntime({ children }: PropsWithChildren) {
           </DialogHeader>
           <div className="shortcut-help-list">
             {visibleCommands
-              .filter((command) => command.defaultShortcut)
+              .filter((command) => command.displayShortcut ?? command.defaultShortcut)
               .map((command) => (
                 <div className="shortcut-help-row" key={command.id}>
                   <span>{message(command.labelKey)}</span>
                   <KbdGroup>
-                    {formatShortcut(command.defaultShortcut as string, isMac).map((key) => (
+                    {formatShortcut(
+                      (command.displayShortcut ?? command.defaultShortcut) as string,
+                      isMac,
+                    ).map((key) => (
                       <Kbd key={key}>{key}</Kbd>
                     ))}
                   </KbdGroup>

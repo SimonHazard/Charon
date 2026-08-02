@@ -39,5 +39,7 @@ describe('command registry', () => {
   it('formats the platform modifier without leaking the hotkeys package', () => {
     expect(formatShortcut('Mod+Shift+K', true)).toEqual(['⌘', 'Shift', 'K']);
     expect(formatShortcut('Mod+K', false)).toEqual(['Ctrl', 'K']);
+    expect(formatShortcut('CmdOrCtrl+Shift+Space', false)).toEqual(['Ctrl', 'Shift', 'Space']);
+    expect(formatShortcut('Shift,Shift', true)).toEqual(['Shift', 'Shift']);
   });
 });

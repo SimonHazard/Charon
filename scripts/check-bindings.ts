@@ -18,6 +18,12 @@ const bindings = [
     testFilter: 'export_clipboard_bindings',
     outputVariable: 'CHARON_CLIPBOARD_BINDINGS_OUT',
   },
+  {
+    generatedPath: join(repositoryRoot, 'apps/desktop/src/bindings/capture.ts'),
+    temporaryPath: join(temporaryDirectory, 'capture.ts'),
+    testFilter: 'export_capture_bindings',
+    outputVariable: 'CHARON_CAPTURE_BINDINGS_OUT',
+  },
 ] as const;
 
 try {

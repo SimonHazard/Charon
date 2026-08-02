@@ -1,7 +1,9 @@
-pub mod clipboard;
 pub mod capture;
+pub mod clipboard;
 mod ipc;
 pub mod workspace;
+
+use tauri::Manager;
 
 pub fn application_health() -> &'static str {
     "ok"
@@ -11,9 +13,23 @@ pub fn application_health() -> &'static str {
 pub fn run() {
     tauri::Builder::default()
         .manage(ipc::workspace::WorkspaceRuntime::default())
+        .manage(ipc::capture::CaptureRuntime::default())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_denylist(&["capture"])
+                .skip_initial_state("capture")
+                .build(),
+        )
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, _shortcut, event| {
+                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        ipc::capture::handle_global_shortcut(app);
+                    }
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -29,7 +45,23 @@ pub fn run() {
             ipc::workspace::workspace_health,
             ipc::clipboard::clipboard_preview,
             ipc::clipboard::clipboard_compose_and_write,
+            ipc::capture::capture_capabilities,
+            ipc::capture::capture_open,
+            ipc::capture::capture_request_permission,
+            ipc::capture::capture_set_shortcut,
+            ipc::capture::capture_close,
         ])
+        .setup(|app| {
+            ipc::capture::initialize(app.handle())?;
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if matches!(window.label(), "main" | "capture")
+                && matches!(event, tauri::WindowEvent::Destroyed)
+            {
+                ipc::capture::shutdown(window.app_handle());
+            }
+        })
         .run(tauri::generate_context!())
         .expect("failed to run Charon");
 }

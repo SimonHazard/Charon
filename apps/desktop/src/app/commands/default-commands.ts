@@ -69,3 +69,32 @@ export function createCopyCommands(actions: {
     })),
   ];
 }
+
+export function createCaptureCommands(actions: {
+  doubleShiftAvailable: boolean;
+  openCapture(): void | Promise<void>;
+}): AppCommand[] {
+  return [
+    {
+      id: 'capture.open',
+      labelKey: 'command_capture_open',
+      descriptionKey: 'command_capture_open_description',
+      category: 'capture',
+      defaultShortcut: 'Mod+Shift+Space',
+      displayShortcut: 'Mod+Shift+Space',
+      allowInEditable: true,
+      isAvailable: () => true,
+      execute: actions.openCapture,
+    },
+    {
+      id: 'capture.double-shift',
+      labelKey: 'command_capture_double_shift',
+      descriptionKey: 'command_capture_double_shift_description',
+      category: 'capture',
+      displayShortcut: 'Shift,Shift',
+      allowInEditable: true,
+      isAvailable: () => actions.doubleShiftAvailable,
+      execute: actions.openCapture,
+    },
+  ];
+}
