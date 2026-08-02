@@ -19,7 +19,7 @@
 
 ## Status
 
-- **Execution state**: IN PROGRESS
+- **Execution state**: DONE
 - **Priority**: P1
 - **Effort**: XL
 - **Risk**: HIGH
@@ -31,6 +31,8 @@
 - **Public-AX expansion**: ADR 0009, 2026-08-03
 - **Hybrid acquisition decision**: ADR 0010, 2026-08-03, after physical
   Chrome/Codex failures and review of Tin's public implementation
+- **Completed**: 2026-08-04 against the final ad-hoc debug artifact recorded in
+  `docs/platform-support.md`
 
 ## Why this matters
 
@@ -387,37 +389,37 @@ the Git workflow section. Only after all done criteria pass, update Plan 007 to
 
 ## Done criteria
 
-- [ ] Unmodified double Shift creates exactly one normal note for non-empty
+- [x] Unmodified double Shift creates exactly one normal note for non-empty
   selections in TextEdit, static Chrome page content, and Codex without showing
   or focusing Charon.
-- [ ] The direct AX ladder remains first and does not touch the pasteboard when
+- [x] The direct AX ladder remains first and does not touch the pasteboard when
   it succeeds.
-- [ ] The Copy fallback posts exactly one Command-C only after explicit gesture,
+- [x] The Copy fallback posts exactly one Command-C only after explicit gesture,
   failed direct AX, confirmed permissions, complete snapshot, stable source, and
   stable pre-copy change count.
-- [ ] The complete pre-existing pasteboard is restored when safe; a concurrent
+- [x] The complete pre-existing pasteboard is restored when safe; a concurrent
   clipboard write is never overwritten; failures are content-free.
-- [ ] Empty, whitespace, secure, denied, unsupported, blocked, unsafe, and timed-
+- [x] Empty, whitespace, secure, denied, unsupported, blocked, unsafe, and timed-
   out acquisition creates nothing.
-- [ ] Command-double-Shift and the portable accelerator reveal one empty focused
+- [x] Command-double-Shift and the portable accelerator reveal one empty focused
   editor without creating a note or reading selected text.
-- [ ] The main Notes input creates one note in the active section and preserves
+- [x] The main Notes input creates one note in the active section and preserves
   text on failure.
-- [ ] No capture window, route, capability, lifecycle, or special Quick Note
+- [x] No capture window, route, capability, lifecycle, or special Quick Note
   entity remains.
-- [ ] A fresh launch safely opens a visible default Workspace and offers an
+- [x] A fresh launch safely opens a visible default Workspace and offers an
   enabled chooser after collisions/failure.
-- [ ] Listener callback, serial worker, duplicate suppression, restart, and
+- [x] Listener callback, serial worker, duplicate suppression, restart, and
   shutdown tests pass without leaks or UI blocking.
-- [ ] Only public SDK APIs are used; there is no private API, automatic Paste,
+- [x] Only public SDK APIs are used; there is no private API, automatic Paste,
   arbitrary input, clipboard monitor/history, OCR, screen capture, unbounded AX
   traversal, privileged helper, or source-focus theft.
-- [ ] Permission/privacy UI discloses transient clipboard exposure and safe
+- [x] Permission/privacy UI discloses transient clipboard exposure and safe
   conditional restoration in EN/FR.
-- [ ] Linux/Windows claims remain unpromoted without physical evidence.
-- [ ] Bindings, targeted tests, full checks, Rust tests, fmt, clippy, final debug
+- [x] Linux/Windows claims remain unpromoted without physical evidence.
+- [x] Bindings, targeted tests, full checks, Rust tests, fmt, clippy, final debug
   build, signature verification, complete diff review, and physical matrix pass.
-- [ ] The exact remaining commits exist and Plan 007 is `DONE` in
+- [x] The exact remaining commits exist and Plan 007 is `DONE` in
   `plans/README.md`.
 
 ## STOP conditions

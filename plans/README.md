@@ -26,7 +26,7 @@ commands for the desktop app or Astro preview.
 | 004 | Establish the shared premium theme, desktop shell, and EN/FR localization | P1 | L | 002, 003 | DONE |
 | 005 | Deliver note CRUD, sections, search, selection, merge, trash, and undo | P1 | L | 003, 004 | DONE |
 | 006 | Build the ClipboardComposer and fast copy workflows | P1 | M | 005 | DONE |
-| 007 | Build focus-preserving hybrid selection capture and shortcuts | P1 | XL | 003, 004, 005 | IN PROGRESS |
+| 007 | Build focus-preserving hybrid selection capture and shortcuts | P1 | XL | 003, 004, 005 | DONE |
 | 008 | Add onboarding, settings, permissions, diagnostics, and resilience UX | P1 | L | 006, 007 | TODO |
 | 009 | Build the Astro product preview site with the shared app theme | P1 | L | 004, 008 | TODO |
 | 010 | Add optional local insights with TanStack Charts | P2 | M | 005, 008 | TODO |
@@ -38,14 +38,11 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED: <reason>`, or
 
 ## Active handoff
 
-Plan 007 is the only active plan on branch `codex/007-quick-capture`, based at
-commit `c5c33fc` plus its documented Plan 007 worktree. Public-AX-only capture
-hit its stated clipboard STOP during physical Chrome/Codex testing. The user
-accepted ADR 0010's safer bounded synthetic-Copy fallback on 2026-08-03. A new
-executor must read the complete rewritten Plan 007, run its drift check, preserve
-the plan-owned worktree, verify the temporary AX diagnostics stay removed, and
-finish the two remaining commits and final physical matrix. Do not restart
-permission-reset or framework-migration experiments, and do not begin Plan 008.
+Plan 007 completed on 2026-08-04 on branch `codex/007-quick-capture`. Its final
+macOS ad-hoc debug artifact passed the complete physical gesture, focus,
+application-family, pasteboard-restoration, concurrent-write, denial, manual-
+input, and restart matrix recorded in `docs/platform-support.md`. Plan 008
+remains `TODO` and was not started.
 
 ## Dependency notes
 

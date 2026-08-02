@@ -10,5 +10,6 @@ pub use coordinator::{
 pub use error::{CaptureError, CaptureIpcError};
 pub use model::{
     CapabilityState, CaptureAction, CaptureCapabilities, CaptureEditorRequest,
-    CapturePermissionKind, CaptureStatusEvent, CaptureTrigger, PlatformKind,
+    CapturePermissionKind, CaptureStatusEvent, CaptureTrigger, CaptureWarning, CapturedSelection,
+    PlatformKind,
 };

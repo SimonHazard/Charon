@@ -8,7 +8,7 @@ complete physical matrix. Runtime capability reporting remains authoritative.
 
 | Platform | Standard editor reveal | Modifier gestures | Selected-text acquisition | Product status |
 | --- | --- | --- | --- | --- |
-| macOS 14+ | Implemented; final-build smoke pending | Native passive double-Shift listener implemented; corrected false-positive matrix pending | AX-first hybrid adapter is IN PROGRESS. Direct AX is partially proved; bounded Copy fallback from ADR 0010 is planned but not yet implemented or physically accepted. | Main Notes input and default Workspace are usable. Do not advertise global selected-text capture yet. |
+| macOS 14+ | Supported by the final Plan 007 ad-hoc debug matrix | Native passive double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development support is proved. Plan 012 must repeat the matrix on the stable Developer ID signed and notarized artifact before release advertising. |
 | Linux X11 | Pinned Tauri implementation compiles; no physical X11 evidence | Not implemented | Not implemented | Main Notes input and in-app editor command only; global claims unproved. |
 | Linux Wayland | Compositor/portal dependent; no local evidence | No universal modifier-only protocol accepted | Not implemented | Main Notes input and in-app editor command only. |
 | Windows | Pinned Tauri implementation compiles; no signed Windows evidence | Not implemented | Not implemented | Main Notes input and in-app editor command only; global claims unproved. |
@@ -19,28 +19,38 @@ build evidence before promotion.
 
 ## macOS evidence collected during Plan 007
 
-Environment first recorded on 2026-07-31 and retested on 2026-08-03:
+Environment first recorded on 2026-07-31 and finally accepted on 2026-08-04:
 
 - macOS 26.5 (25F71), arm64;
 - Tauri CLI 2.11.4 and Rust crate 2.11.5;
 - bundle identifier `dev.charon.app`;
-- explicitly ad-hoc signed debug bundle;
-- previously recorded executable SHA-256
-  `3ebc05d79ae0cde5acdbaa7c035dc7430c75de771dacadfb64925c1115044b73`.
-
-That hash identifies an intermediate build only. It is not evidence for ADR
-0010 and must be replaced after the final hybrid implementation is built.
+- final executable SHA-256
+  `e8eb9b9ff4ad2b1d21078bb5544f2e434202ab19f27ade0af3d9b416afc8e5ce`;
+- ad-hoc hardened-runtime signature, designated requirement
+  `cdhash H"c5466d22ef54932d38a6ba5a9792559f32b9c3f0"`;
+- `codesign --verify --deep --strict` passed for the final debug bundle;
+- the build output was copied byte-for-byte to `/Applications/Charon.app` for
+  TCC testing; the installed executable retained the same SHA-256, designated
+  requirement, and valid signature.
 
 ### Permission and gesture findings
 
-- Accessibility alone did not allow the passive modifier listener. ADR 0008
-  corrected the model: `CGPreflightListenEventAccess`/
-  `CGRequestListenEventAccess` gate Input Monitoring, while
+- ADR 0008 keeps the product capabilities separate:
+  `CGPreflightListenEventAccess` gates the passive listener, while
   `AXIsProcessTrusted`/`AXIsProcessTrustedWithOptions` separately gate selected-
   text acquisition.
-- TCC logs for the corrected bundle showed both capabilities authorized. Further
-  broad permission resets did not make static Chrome or Codex selection appear
-  through Accessibility and are not an accepted compatibility strategy.
+- The explicit Input Monitoring action uses the public
+  `IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)` API. This symbol and request
+  type were verified in the installed macOS 26 SDK after
+  `CGRequestListenEventAccess` failed to register the ad-hoc bundle reliably.
+- Each ad-hoc rebuild changed the designated requirement. Only the exact
+  `Accessibility` and `ListenEvent` decisions for `dev.charon.app` were reset
+  after those identity changes; no broad TCC reset was used. On this macOS 26.5
+  host, the final Input Monitoring grant still required the documented manual
+  `+` flow for the byte-identical app installed in `/Applications`.
+- TCC and Charon's localized permission state both confirmed Input Monitoring
+  and Accessibility before the final matrix. Charon was restarted once after
+  the grant so the passive listener could register.
 - Command held throughout double Shift physically revealed Charon's main editor.
 - Direct AX acquisition physically worked in TextEdit/AppKit and the editable
   Chrome URL field.
@@ -51,9 +61,9 @@ That hash identifies an intermediate build only. It is not evidence for ADR
   not a deeper tree scan, a private API, another TCC permission, Electron, or a
   privileged helper.
 
-### Acquisition decision
+### Accepted acquisition implementation
 
-The final macOS adapter must:
+The accepted macOS adapter:
 
 1. try ADR 0009's bounded public Accessibility ladder first;
 2. only after a no-selection result, snapshot the complete current pasteboard
@@ -71,30 +81,34 @@ acceptance, not something the implementation can guarantee away.
 
 ## Final macOS acceptance matrix
 
-All rows below must be rerun against one final debug bundle after ADR 0010 is
-implemented. Replace `Pending` with a dated result, acquisition path, build
-identifier/hash, and clipboard/focus outcome. A failure blocks Plan 007.
+Every row passed physically on 2026-08-04 against the one final debug
+executable identified above. The tester reported every required case as
+`PASS`. Charon exposes no acquisition-path diagnostic, by design, so paths are
+recorded only where prior direct evidence plus the AX-first invariant proves
+them; the remaining application-family rows record the accepted hybrid result
+without adding content instrumentation.
 
-| Case | Result |
-| --- | --- |
-| Fresh launch opens or safely creates the visible default Workspace | Passed on intermediate build; rerun final build |
-| Portable accelerator reveals the main empty editor from another app | Pending final build |
-| Command-double-Shift reveals one empty editor and creates no note | Passed on intermediate build; rerun final build |
-| False-positive gestures do not trigger | Pure tests pass; physical final build pending |
-| Empty selection creates nothing | Pending final build |
-| TextEdit/AppKit selection creates one note through direct AX and leaves clipboard unchanged | Direct AX passed on intermediate build; rerun final build |
-| Chrome URL field creates one note through direct AX | Direct AX passed on intermediate build; rerun final build |
-| Static Chrome page selection creates one note through bounded Copy, preserves focus, restores text clipboard | Pending implementation |
-| Codex conversation selection creates one note through bounded Copy, preserves focus, restores clipboard | Pending implementation |
-| Safari/WebKit static text | Pending final build |
-| VS Code/Cursor editor text when installed | Pending final build |
-| Preview PDF text | Pending final build |
-| Rich/multi-item pasteboard restores exactly | Pending implementation |
-| Concurrent clipboard write is never overwritten | Pending implementation |
-| Unchanged, blocked, or slow Copy creates nothing safely | Pending implementation |
-| Secure field and canvas-only source create nothing | Pending implementation |
-| Manual Notes input creates one note and preserves failure text | UI tests pass; physical final build pending |
-| Restart registers one listener, worker, and accelerator | Coordinator tests partial; physical final build pending |
+| Case | Final result | Acquisition or observation |
+| --- | --- | --- |
+| Fresh launch opens or safely creates the visible default Workspace | Passed | Visible default Workspace opened safely |
+| Portable accelerator reveals the main empty editor from another app | Passed | Charon revealed one focused empty editor; no note |
+| Command-double-Shift reveals one empty editor and creates no note | Passed | Physical hardware gesture; dirty draft remained protected |
+| False-positive gestures do not trigger | Passed | Shift+letter, repeat, hold, mixed Shift, Command change, and three taps were no-ops |
+| Empty selection creates nothing | Passed | No note and no Charon surface |
+| TextEdit/AppKit selection creates one note and leaves clipboard unchanged | Passed | Direct AX, proved before the hybrid fallback and preserved by AX-first ordering |
+| Chrome URL field creates one note | Passed | Direct AX, proved before the hybrid fallback and preserved by AX-first ordering |
+| Static Chrome page selection creates one note, preserves focus, and restores text clipboard | Passed | Bounded Copy; the direct AX ladder was previously proved to return no selection |
+| Codex conversation selection creates one note, preserves focus, and restores clipboard | Passed | Bounded Copy; the direct AX ladder was previously proved to return no selection |
+| Safari/WebKit static text | Passed | AX-first hybrid path; exact branch intentionally not surfaced |
+| VS Code/Cursor editor text when installed | Passed | AX-first hybrid path; exact branch intentionally not surfaced |
+| Preview PDF text | Passed | AX-first hybrid path; exact branch intentionally not surfaced |
+| Rich/multi-item pasteboard restores exactly | Passed | Complete item/type snapshot restored |
+| Concurrent clipboard write is never overwritten | Passed | Concurrent marker remained authoritative |
+| Unchanged, blocked, or slow Copy creates nothing safely | Passed | Bounded no-op |
+| Secure field and canvas-only source create nothing | Passed | Secure/inaccessible no-op |
+| Clipboard-manager disclosure matches observed behavior | Passed | Transient selection may be observed; Charon retains no history |
+| Manual Notes input creates one note and preserves failure text | Passed | One versioned Workspace command; failed draft retained |
+| Restart registers one listener, worker, and accelerator | Passed | One action per gesture after restart |
 
 Ad-hoc debug evidence is development-only. Plan 012 must repeat the same matrix
 on the stable Developer ID signed and notarized artifact before the macOS feature
@@ -104,7 +118,7 @@ is advertised as release-supported.
 
 - [ADR 0010](adr/0010-bounded-copy-selection-fallback.md)
 - [Tin SelectionCapture.swift](https://github.com/enzofrasca/tin/blob/main/Tin/Services/SelectionCapture.swift)
-- [Apple Input Monitoring request API](https://developer.apple.com/documentation/coregraphics/cgrequestlisteneventaccess())
+- [Apple DTS Input Monitoring request guidance](https://developer.apple.com/forums/thread/828052)
 - [Apple Accessibility trust API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)
 - [Apple NSPasteboard changeCount](https://developer.apple.com/documentation/appkit/nspasteboard/changecount)
 - [Apple CGEvent posting](https://developer.apple.com/documentation/coregraphics/cgevent/post(tap:))

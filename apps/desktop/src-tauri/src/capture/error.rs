@@ -12,6 +12,8 @@ pub enum CaptureError {
     ShortcutUnregistration,
     #[error("the enhanced capture listener could not start")]
     ListenerUnavailable,
+    #[error("the bounded capture worker could not start")]
+    WorkerUnavailable,
     #[error("Accessibility permission is denied")]
     PermissionDenied,
     #[error("selected-text capture is unsupported")]
@@ -48,6 +50,9 @@ impl From<CaptureError> for CaptureIpcError {
             ),
             CaptureError::ListenerUnavailable => {
                 ("listener_unavailable", "capture_error_listener_unavailable")
+            }
+            CaptureError::WorkerUnavailable => {
+                ("worker_unavailable", "capture_error_worker_unavailable")
             }
             CaptureError::PermissionDenied => {
                 ("permission_denied", "capture_error_permission_denied")

@@ -1,6 +1,7 @@
 import { createRootRoute, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCaptureEditor } from '@/app/capture-editor-context';
+import { captureStatusTone } from '@/app/capture-status';
 import { useCommandRegistration } from '@/app/commands/command-provider';
 import type { AppCommand } from '@/app/commands/command-registry';
 import { createCaptureCommands } from '@/app/commands/default-commands';
@@ -70,10 +71,16 @@ function RouteCommands() {
       }),
       tauriCaptureClient.subscribeStatus((status) => {
         if (!active) return;
+        const tone = captureStatusTone(status.messageKey);
         const description =
           (m as unknown as Record<string, () => string>)[status.messageKey]?.() ??
           m.capture_error_unknown();
-        toast.add({ title: m.capture_status_error_title(), description, type: 'error' });
+        toast.add({
+          title:
+            tone === 'warning' ? m.capture_status_warning_title() : m.capture_status_error_title(),
+          description,
+          type: tone,
+        });
       }),
     ]).then((stops) => {
       if (active) {

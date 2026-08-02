@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex};
 use charon_desktop_lib::capture::{
     CapabilityState, CaptureAction, CaptureCapabilities, CaptureCoordinator, CaptureEditorRequest,
     CaptureError, CaptureIpcError, CapturePermissionKind, CaptureStatusEvent, CaptureTrigger,
-    PlatformCapturePort, PlatformKind, ShortcutPort, DEFAULT_CAPTURE_SHORTCUT,
+    CaptureWarning, CapturedSelection, PlatformCapturePort, PlatformKind, ShortcutPort,
+    DEFAULT_CAPTURE_SHORTCUT,
 };
 use ts_rs::{Config, TS};
 
@@ -42,6 +43,7 @@ struct FakePlatformState {
     double_shift: CapabilityState,
     selected_text: CapabilityState,
     selected: Result<Option<String>, CaptureError>,
+    warning: Option<CaptureWarning>,
     grant_input_on_request: bool,
     grant_accessibility_on_request: bool,
     starts: usize,
@@ -87,11 +89,14 @@ impl PlatformCapturePort for FakePlatform {
         Ok(())
     }
 
-    fn selected_text(&mut self) -> Result<Option<String>, CaptureError> {
+    fn selected_text(&mut self) -> Result<CapturedSelection, CaptureError> {
         let mut state = self.0.lock().expect("platform state");
         state.reads += 1;
         match &state.selected {
-            Ok(value) => Ok(value.clone()),
+            Ok(value) => Ok(CapturedSelection {
+                body: value.clone(),
+                warning: state.warning,
+            }),
             Err(CaptureError::PermissionDenied) => Err(CaptureError::PermissionDenied),
             Err(_) => Err(CaptureError::SelectionFailed),
         }
@@ -123,6 +128,7 @@ fn coordinator(
         double_shift,
         selected_text,
         selected,
+        warning: None,
         grant_input_on_request: false,
         grant_accessibility_on_request: false,
         starts: 0,
@@ -140,19 +146,53 @@ fn coordinator(
 
 #[test]
 fn capture_selection_returns_exact_non_empty_body() {
-    let (mut coordinator, _, platform) = coordinator(
+    let (mut note_coordinator, _, platform) = coordinator(
         CapabilityState::Available,
         CapabilityState::Available,
         Ok(Some("  private draft\n")),
     );
-    let action = coordinator
+    let action = note_coordinator
         .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
         .expect("available capture");
     match action {
-        Some(CaptureAction::CreateNote { body }) => assert_eq!(body, "  private draft\n"),
+        Some(CaptureAction::CreateNote { body, .. }) => assert_eq!(body, "  private draft\n"),
         _ => panic!("expected one note action"),
     }
     assert_eq!(platform.lock().expect("platform").reads, 1);
+}
+
+#[test]
+fn capture_warning_is_attached_to_one_note_or_returned_without_content() {
+    let (mut note_coordinator, _, platform) = coordinator(
+        CapabilityState::Available,
+        CapabilityState::Available,
+        Ok(Some("exact body")),
+    );
+    platform.lock().expect("platform").warning = Some(CaptureWarning::ClipboardNotRestored);
+    assert!(matches!(
+        note_coordinator
+            .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+            .expect("capture"),
+        Some(CaptureAction::CreateNote {
+            body,
+            warning: Some(CaptureWarning::ClipboardNotRestored),
+        }) if body == "exact body"
+    ));
+
+    let (mut warning_coordinator, _, platform) = coordinator(
+        CapabilityState::Available,
+        CapabilityState::Available,
+        Ok(None),
+    );
+    platform.lock().expect("platform").warning = Some(CaptureWarning::ClipboardNotRestored);
+    assert!(matches!(
+        warning_coordinator
+            .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+            .expect("warning"),
+        Some(CaptureAction::ShowWarning {
+            warning: CaptureWarning::ClipboardNotRestored,
+        })
+    ));
 }
 
 #[test]
@@ -346,6 +386,7 @@ fn capture_errors_never_contain_selected_content() {
         CaptureError::PermissionDenied,
         CaptureError::SelectionFailed,
         CaptureError::MainEditorUnavailable,
+        CaptureError::WorkerUnavailable,
     ] {
         assert!(!error.to_string().contains(content));
     }

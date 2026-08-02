@@ -53,8 +53,44 @@ pub enum CaptureTrigger {
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum CaptureAction {
-    CreateNote { body: String },
-    OpenEditor { request_id: u32 },
+    CreateNote {
+        body: String,
+        warning: Option<CaptureWarning>,
+    },
+    OpenEditor {
+        request_id: u32,
+    },
+    ShowWarning {
+        warning: CaptureWarning,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CaptureWarning {
+    ClipboardNotRestored,
+}
+
+impl CaptureWarning {
+    pub const fn message_key(self) -> &'static str {
+        match self {
+            Self::ClipboardNotRestored => "capture_warning_clipboard_not_restored",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CapturedSelection {
+    pub body: Option<String>,
+    pub warning: Option<CaptureWarning>,
+}
+
+impl CapturedSelection {
+    pub fn from_body(body: String) -> Self {
+        Self {
+            body: Some(body),
+            warning: None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]

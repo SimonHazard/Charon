@@ -19,4 +19,13 @@ describe('locale preference', () => {
   it('keeps message catalogs in parity', () => {
     expect(Object.keys(en).sort()).toEqual(Object.keys(fr).sort());
   });
+
+  it('discloses the bounded Copy fallback and clipboard restoration warning in both locales', () => {
+    expect(en.capture_accessibility_description).toContain('clipboard manager');
+    expect(en.capture_accessibility_description).toContain('never posts Paste');
+    expect(en.capture_warning_clipboard_not_restored).toContain('newer clipboard value');
+    expect(fr.capture_accessibility_description).toContain('gestionnaire de presse-papiers');
+    expect(fr.capture_accessibility_description).toContain('n’envoie jamais Coller');
+    expect(fr.capture_warning_clipboard_not_restored).toContain('valeur plus récente');
+  });
 });

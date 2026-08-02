@@ -57,7 +57,7 @@ impl PlatformCapturePort for UnsupportedCaptureAdapter {
     ) -> Result<(), super::CaptureError> {
         Ok(())
     }
-    fn selected_text(&mut self) -> Result<Option<String>, super::CaptureError> {
+    fn selected_text(&mut self) -> Result<super::CapturedSelection, super::CaptureError> {
         Err(super::CaptureError::SelectionUnsupported)
     }
     fn reset_gesture(&mut self) {}

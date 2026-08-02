@@ -1,6 +1,6 @@
 use super::{
     CapabilityState, CaptureAction, CaptureCapabilities, CaptureError, CapturePermissionKind,
-    CaptureTrigger, PlatformKind,
+    CaptureTrigger, CapturedSelection, PlatformKind,
 };
 
 pub const DEFAULT_CAPTURE_SHORTCUT: &str = "CmdOrCtrl+Shift+Space";
@@ -18,7 +18,7 @@ pub trait PlatformCapturePort: Send {
     fn start(&mut self) -> Result<(), CaptureError>;
     fn request_permission(&mut self, permission: CapturePermissionKind)
         -> Result<(), CaptureError>;
-    fn selected_text(&mut self) -> Result<Option<String>, CaptureError>;
+    fn selected_text(&mut self) -> Result<CapturedSelection, CaptureError>;
     fn reset_gesture(&mut self);
     fn shutdown(&mut self);
 }
@@ -176,9 +176,14 @@ impl CaptureCoordinator {
             return Ok(None);
         }
         match self.platform.selected_text() {
-            Ok(Some(body)) if !body.trim().is_empty() => {
-                Ok(Some(CaptureAction::CreateNote { body }))
-            }
+            Ok(CapturedSelection {
+                body: Some(body),
+                warning,
+            }) if !body.trim().is_empty() => Ok(Some(CaptureAction::CreateNote { body, warning })),
+            Ok(CapturedSelection {
+                warning: Some(warning),
+                ..
+            }) => Ok(Some(CaptureAction::ShowWarning { warning })),
             Ok(_) => Ok(None),
             Err(CaptureError::PermissionDenied) => {
                 self.capabilities.selected_text = CapabilityState::Denied;

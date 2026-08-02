@@ -1,4 +1,7 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -8,13 +11,15 @@ use crate::capture::gesture::CaptureGestureIntent;
 use crate::capture::platform;
 use crate::capture::{
     CaptureAction, CaptureCapabilities, CaptureCoordinator, CaptureEditorRequest, CaptureError,
-    CaptureIpcError, CapturePermissionKind, CaptureStatusEvent, CaptureTrigger, ShortcutPort,
+    CaptureIpcError, CapturePermissionKind, CaptureStatusEvent, CaptureTrigger, CaptureWarning,
+    ShortcutPort,
 };
 
 use super::workspace::{self, WorkspaceRuntime};
 
 pub struct CaptureRuntime {
     coordinator: Mutex<Option<CaptureCoordinator>>,
+    worker: Mutex<Option<CaptureWorker>>,
     active_section_id: Mutex<Option<String>>,
     editor_listener_ready: Mutex<bool>,
     pending_editor_request: Mutex<Option<CaptureEditorRequest>>,
@@ -26,12 +31,80 @@ impl Default for CaptureRuntime {
     fn default() -> Self {
         Self {
             coordinator: Mutex::new(None),
+            worker: Mutex::new(None),
             active_section_id: Mutex::new(None),
             editor_listener_ready: Mutex::new(false),
             pending_editor_request: Mutex::new(None),
             pending_status: Mutex::new(None),
             started_at: Instant::now(),
         }
+    }
+}
+
+enum CaptureWorkerMessage {
+    Capture,
+    Stop,
+}
+
+struct CaptureWorker {
+    sender: SyncSender<CaptureWorkerMessage>,
+    pending: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+}
+
+impl CaptureWorker {
+    fn start(task: impl Fn() + Send + 'static) -> Result<Self, CaptureError> {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let pending = Arc::new(AtomicBool::new(false));
+        let thread_pending = Arc::clone(&pending);
+        let thread = thread::Builder::new()
+            .name("charon-capture-worker".to_owned())
+            .spawn(move || {
+                while let Ok(message) = receiver.recv() {
+                    match message {
+                        CaptureWorkerMessage::Capture => {
+                            task();
+                            thread_pending.store(false, Ordering::Release);
+                        }
+                        CaptureWorkerMessage::Stop => break,
+                    }
+                }
+                thread_pending.store(false, Ordering::Release);
+            })
+            .map_err(|_| CaptureError::WorkerUnavailable)?;
+        Ok(Self {
+            sender,
+            pending,
+            thread: Some(thread),
+        })
+    }
+
+    fn enqueue(&self) -> bool {
+        if self.pending.swap(true, Ordering::AcqRel) {
+            return false;
+        }
+        match self.sender.try_send(CaptureWorkerMessage::Capture) {
+            Ok(()) => true,
+            Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) => {
+                self.pending.store(false, Ordering::Release);
+                false
+            }
+        }
+    }
+
+    fn stop(&mut self) {
+        let Some(thread) = self.thread.take() else {
+            return;
+        };
+        let _ = self.sender.send(CaptureWorkerMessage::Stop);
+        let _ = thread.join();
+        self.pending.store(false, Ordering::Release);
+    }
+}
+
+impl Drop for CaptureWorker {
+    fn drop(&mut self) {
+        self.stop();
     }
 }
 
@@ -61,21 +134,39 @@ pub fn initialize(app: &AppHandle) -> Result<(), CaptureError> {
         .coordinator
         .lock()
         .map_err(|_| CaptureError::RuntimeLock)?;
+    if current.is_some() {
+        return Ok(());
+    }
     let trigger_app = app.clone();
     let callback = Arc::new(move |intent| {
-        let intent_app = trigger_app.clone();
-        // Return from the CGEventTap callback before querying Accessibility or
-        // writing the Workspace. Chromium may need its main thread to receive
-        // the modifier event before it can answer a cross-process AX request.
-        let _ = trigger_app.run_on_main_thread(move || {
-            handle_double_shift(&intent_app, intent);
-        });
+        handle_double_shift(&trigger_app, intent);
     });
     let platform = platform::create(callback);
-    let mut coordinator =
-        CaptureCoordinator::new(Box::new(TauriShortcutPort { app: app.clone() }), platform);
-    coordinator.initialize();
-    *current = Some(coordinator);
+    *current = Some(CaptureCoordinator::new(
+        Box::new(TauriShortcutPort { app: app.clone() }),
+        platform,
+    ));
+
+    let worker_app = app.clone();
+    let worker = match CaptureWorker::start(move || {
+        let _ = trigger(&worker_app, CaptureTrigger::DoubleShiftCapture);
+    }) {
+        Ok(worker) => worker,
+        Err(error) => {
+            if let Some(mut coordinator) = current.take() {
+                coordinator.shutdown();
+            }
+            return Err(error);
+        }
+    };
+    *runtime
+        .worker
+        .lock()
+        .map_err(|_| CaptureError::RuntimeLock)? = Some(worker);
+    current
+        .as_mut()
+        .ok_or(CaptureError::RuntimeLock)?
+        .initialize();
     Ok(())
 }
 
@@ -84,11 +175,17 @@ pub fn handle_global_shortcut(app: &AppHandle) {
 }
 
 pub fn handle_double_shift(app: &AppHandle, intent: CaptureGestureIntent) {
-    let source = match intent {
-        CaptureGestureIntent::CaptureSelection => CaptureTrigger::DoubleShiftCapture,
-        CaptureGestureIntent::OpenEditor => CaptureTrigger::CommandDoubleShift,
-    };
-    let _ = trigger(app, source);
+    match intent {
+        CaptureGestureIntent::CaptureSelection => {
+            let _ = enqueue_capture(app);
+        }
+        CaptureGestureIntent::OpenEditor => {
+            let intent_app = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                let _ = trigger(&intent_app, CaptureTrigger::CommandDoubleShift);
+            });
+        }
+    }
 }
 
 pub fn shutdown(app: &AppHandle) {
@@ -101,6 +198,23 @@ pub fn shutdown(app: &AppHandle) {
     if let Some(mut coordinator) = coordinator {
         coordinator.shutdown();
     }
+    let worker = runtime
+        .worker
+        .lock()
+        .ok()
+        .and_then(|mut current| current.take());
+    if let Some(mut worker) = worker {
+        worker.stop();
+    }
+}
+
+fn enqueue_capture(app: &AppHandle) -> Result<bool, CaptureError> {
+    let runtime = app.state::<CaptureRuntime>();
+    let worker = runtime
+        .worker
+        .lock()
+        .map_err(|_| CaptureError::RuntimeLock)?;
+    Ok(worker.as_ref().is_some_and(CaptureWorker::enqueue))
 }
 
 pub fn handle_main_focus(app: &AppHandle) {
@@ -178,7 +292,7 @@ fn trigger(app: &AppHandle, source: CaptureTrigger) -> Result<(), CaptureIpcErro
 fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureIpcError> {
     dispatch_action(
         action,
-        |body| {
+        |body, warning| {
             let runtime = app.state::<CaptureRuntime>();
             let section_id = runtime
                 .active_section_id
@@ -202,8 +316,13 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
                     message_key: error.message_key,
                 }),
             };
-            if let Err(error) = result {
-                remember_status(app, error.message_key)?;
+            match result {
+                Err(error) => remember_status(app, error.message_key)?,
+                Ok(()) => {
+                    if let Some(warning) = warning {
+                        remember_status(app, warning.message_key().to_owned())?;
+                    }
+                }
             }
             Ok(())
         },
@@ -223,6 +342,7 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
                 Some(CaptureEditorRequest { request_id });
             emit_pending_editor_request(app)
         },
+        |warning| remember_status(app, warning.message_key().to_owned()),
     )
 }
 
@@ -298,12 +418,14 @@ fn emit_pending_status(app: &AppHandle) -> Result<(), CaptureIpcError> {
 
 fn dispatch_action(
     action: CaptureAction,
-    mut create_note: impl FnMut(String) -> Result<(), CaptureIpcError>,
+    mut create_note: impl FnMut(String, Option<CaptureWarning>) -> Result<(), CaptureIpcError>,
     mut open_editor: impl FnMut(u32) -> Result<(), CaptureIpcError>,
+    mut show_warning: impl FnMut(CaptureWarning) -> Result<(), CaptureIpcError>,
 ) -> Result<(), CaptureIpcError> {
     match action {
-        CaptureAction::CreateNote { body } => create_note(body),
+        CaptureAction::CreateNote { body, warning } => create_note(body, warning),
         CaptureAction::OpenEditor { request_id } => open_editor(request_id),
+        CaptureAction::ShowWarning { warning } => show_warning(warning),
     }
 }
 
@@ -327,8 +449,10 @@ fn elapsed_ms(runtime: &State<'_, CaptureRuntime>) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::dispatch_action;
-    use crate::capture::CaptureAction;
+    use super::{dispatch_action, CaptureWorker};
+    use crate::capture::{CaptureAction, CaptureWarning};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{mpsc, Arc};
 
     #[test]
     fn note_action_dispatches_exactly_one_workspace_write() {
@@ -337,15 +461,18 @@ mod tests {
         dispatch_action(
             CaptureAction::CreateNote {
                 body: "exact body".to_owned(),
+                warning: None,
             },
-            |body| {
+            |body, warning| {
                 bodies.push(body);
+                assert!(warning.is_none());
                 Ok(())
             },
             |request_id| {
                 editor_requests.push(request_id);
                 Ok(())
             },
+            |_| Ok(()),
         )
         .expect("dispatch");
         assert_eq!(bodies, ["exact body"]);
@@ -358,7 +485,7 @@ mod tests {
         let mut editor_requests = Vec::new();
         dispatch_action(
             CaptureAction::OpenEditor { request_id: 9 },
-            |_| {
+            |_, _| {
                 note_writes += 1;
                 Ok(())
             },
@@ -366,9 +493,50 @@ mod tests {
                 editor_requests.push(request_id);
                 Ok(())
             },
+            |_| Ok(()),
         )
         .expect("dispatch");
         assert_eq!(note_writes, 0);
         assert_eq!(editor_requests, [9]);
+    }
+
+    #[test]
+    fn warning_action_is_content_free_and_dispatches_once() {
+        let mut warnings = Vec::new();
+        dispatch_action(
+            CaptureAction::ShowWarning {
+                warning: CaptureWarning::ClipboardNotRestored,
+            },
+            |_, _| Ok(()),
+            |_| Ok(()),
+            |warning| {
+                warnings.push(warning);
+                Ok(())
+            },
+        )
+        .expect("dispatch warning");
+        assert_eq!(warnings, [CaptureWarning::ClipboardNotRestored]);
+    }
+
+    #[test]
+    fn capture_worker_is_capacity_one_and_shutdown_is_idempotent() {
+        let (started_tx, started_rx) = mpsc::sync_channel(1);
+        let (release_tx, release_rx) = mpsc::sync_channel(1);
+        let runs = Arc::new(AtomicUsize::new(0));
+        let task_runs = Arc::clone(&runs);
+        let mut worker = CaptureWorker::start(move || {
+            task_runs.fetch_add(1, Ordering::SeqCst);
+            let _ = started_tx.send(());
+            let _ = release_rx.recv();
+        })
+        .expect("worker");
+
+        assert!(worker.enqueue());
+        started_rx.recv().expect("worker started");
+        assert!(!worker.enqueue());
+        release_tx.send(()).expect("release worker");
+        worker.stop();
+        worker.stop();
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
     }
 }

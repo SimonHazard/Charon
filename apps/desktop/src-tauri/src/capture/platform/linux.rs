@@ -44,7 +44,7 @@ impl PlatformCapturePort for LinuxCaptureAdapter {
         Ok(())
     }
 
-    fn selected_text(&mut self) -> Result<Option<String>, CaptureError> {
+    fn selected_text(&mut self) -> Result<crate::capture::CapturedSelection, CaptureError> {
         Err(CaptureError::SelectionUnsupported)
     }
 
