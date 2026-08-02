@@ -40,11 +40,14 @@ export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnaps
             <IconFolderPlus />
           </EmptyMedia>
           <EmptyTitle>{m.workspace_empty_title()}</EmptyTitle>
-          <EmptyDescription>{m.workspace_empty_description()}</EmptyDescription>
+          <EmptyDescription>{errorMessage || m.workspace_empty_description()}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button disabled title={m.workspace_choose_disabled()}>
-            {m.workspace_choose()}
+          <Button
+            disabled={!state.canChooseWorkspace || state.isChoosingWorkspace}
+            onClick={() => void state.chooseWorkspace()}
+          >
+            {state.isChoosingWorkspace ? m.workspace_choosing() : m.workspace_choose()}
           </Button>
         </EmptyContent>
       </Empty>

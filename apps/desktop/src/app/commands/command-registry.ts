@@ -18,6 +18,8 @@ export type AppCommand = {
   displayShortcut?: string;
   destructive?: boolean;
   allowInEditable?: boolean;
+  helpOnly?: boolean;
+  helpAction?: boolean;
   isAvailable(): boolean;
   execute(): void | Promise<void>;
 };

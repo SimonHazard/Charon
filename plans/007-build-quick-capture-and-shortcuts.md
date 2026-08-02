@@ -1,255 +1,461 @@
-# Plan 007: Build quick capture and the cross-platform shortcut capability ladder
+# Plan 007: Build focus-preserving hybrid selection capture and shortcuts
 
-> **Executor instructions**: This is a risk-first platform plan. Execute the
-> spike and gates in order, and never advertise a capability before its platform
-> smoke test passes. Stop on any STOP condition. Update the index when done.
+> **Executor instructions**: This is the active, risk-first platform plan. Read
+> ADRs 0006, 0008, 0009, and 0010 before touching implementation. Execute the
+> native gates in order, never advertise a capability before its physical smoke
+> passes, and stop on every STOP condition. Do not start Plan 008. Update the
+> index to `DONE` only after every done criterion passes.
 >
-> **Drift check (run first)**: inspect Tauri windows, global-shortcut registration,
-> platform modules, and command registry. Expected state: one main window, in-app
-> commands, and no native modifier listener or Accessibility code. Re-read ADR
-> 0002. Stop if another implementation already claims `Shift`, `Shift`.
+> **Drift check (run first)**:
+> `git diff --stat c5c33fc -- AGENTS.md README.md docs plans apps/desktop/src-tauri/Cargo.toml apps/desktop/src-tauri/Cargo.lock apps/desktop/src-tauri/src/capture apps/desktop/src-tauri/src/ipc apps/desktop/src apps/desktop/messages apps/desktop/src-tauri/tauri.conf.json`.
+> Expected branch state: commits `dd1d1dd` and `c5c33fc` exist; the uncommitted
+> Plan 007 work removes the rejected capture window, adds the main Notes
+> input/editor handoff and safe default Workspace, separates Input Monitoring
+> from Accessibility, and contains the bounded public-AX ladder. The obsolete
+> debug-only `NSLog` has been removed and the experimental 128-ancestor bound
+> has been returned to 32; no pasteboard transaction exists yet. Stop if those
+> diagnostics reappear or another user's overlapping change cannot be attributed
+> safely.
 
 ## Status
 
+- **Execution state**: IN PROGRESS
 - **Priority**: P1
 - **Effort**: XL
 - **Risk**: HIGH
 - **Depends on**: Plans 003, 004, and 005
-- **Category**: direction, migration, tests
-- **Planned at**: unborn `main` (no commit), 2026-07-30
+- **Category**: direction, migration, privacy, tests
+- **Branch**: `codex/007-quick-capture`
+- **Replanned at**: commit `c5c33fc`, 2026-07-31
+- **Permission/signing correction**: ADR 0008, 2026-08-03
+- **Public-AX expansion**: ADR 0009, 2026-08-03
+- **Hybrid acquisition decision**: ADR 0010, 2026-08-03, after physical
+  Chrome/Codex failures and review of Tin's public implementation
 
 ## Why this matters
 
-Global double Shift is the signature interaction, but it is not a normal global
-accelerator. Tauri's shortcut API models modifiers plus one key, and Wayland does
-not provide a universal modifier-only hook. A capability ladder keeps the core
-capture workflow reliable everywhere while allowing a proved native macOS path
-and honest, testable fallbacks on Linux and Windows.
+Capture is the product's core loop. With text selected in another application,
+unmodified double Shift must create one normal Workspace note without showing
+Charon or stealing focus. This must work in the applications the product is for,
+including static Chrome pages and Codex. Command plus double Shift must instead
+reveal the existing main window with an empty editor. The portable accelerator
+performs that visible journey, and manual entry remains a compact input in the
+main Notes work area.
 
-## Current state
+Physical evidence proved that public Accessibility selection attributes alone
+cannot meet the Chrome/Codex requirement reliably. The accepted macOS contract
+is therefore hybrid: use the bounded public-AX ladder first, then ADR 0010's one
+synthetic source Copy transaction with a complete in-memory pasteboard snapshot,
+bounded wait, and change-count-guarded restoration. This is a native adapter
+change; Charon remains a Tauri application.
 
-- The app-owned command registry handles focused-window shortcuts only.
-- Tauri global-shortcut is pinned but has no production registration.
-- Only the main window exists. No quick-capture route, native event tap, selected
-  text adapter, permission prompt, or platform capability report exists.
-- ADR 0002 requires `CmdOrCtrl+Shift+Space` everywhere and treats double Shift
-  plus selected-text capture as separately proved platform capabilities.
+## Evidence and current state
+
+- Commits `dd1d1dd` and `c5c33fc` prove the pure gesture state machine and
+  establish `CaptureCoordinator`, exact native dependencies, capability DTOs,
+  and the initial macOS event-tap/Accessibility adapters.
+- The uncommitted worktree removes the hidden `capture` WebView, `/capture`
+  route, draft form, focus restoration, and capture-window capabilities rejected
+  by ADR 0006. It adds the main Notes capture input/editor event and the safe
+  default Workspace from ADR 0007.
+- Physical testing confirmed the portable accelerator and Command-double-Shift
+  can reveal the main editor. Input Monitoring and Accessibility are separate
+  TCC grants and both were observed as authorized for the corrected bundle.
+- Direct AX acquisition works for TextEdit/AppKit and editable Chrome browser
+  chrome. It did not create a note for static selected page text in Chrome or
+  selected Codex content. Increasing the parent walk from 32 to 128 and repeated
+  TCC resets did not change that result.
+- The temporary content-free `NSLog` diagnostics have been removed and each AX
+  candidate origin is back at ADR 0009's 32-element maximum. Do not reintroduce
+  those diagnostics or deepen/broaden the AX scan further.
+- Tin's public `SelectionCapture.swift` confirms the interoperable technique:
+  snapshot `NSPasteboard.general`, post Command-C with public `CGEvent`, read the
+  new string, then restore. Charon must implement the safer transaction in ADR
+  0010 rather than copy Tin's unconditional restoration behavior.
+- No framework migration, helper process, private API, OCR, screen capture, or
+  extra macOS permission is needed. Do not continue permission-reset experiments
+  unless a changed bundle identity specifically invalidates the existing grant.
 
 ## Commands you will need
 
 | Purpose | Command | Expected on success |
-|---------|---------|---------------------|
-| State tests | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture::gesture` | all timing/state cases pass |
-| Core tests | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture` | all coordinator tests pass |
-| UI tests | `bun run test:desktop -- capture shortcut` | all quick-window tests pass |
+| --- | --- | --- |
+| Drift | command in the executor block | only known Plan 007 work |
+| Gesture tests | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture::gesture` | all timing/modifier cases pass |
+| Capture tests | `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture` | coordinator, AX, pasteboard transaction, lifecycle pass |
+| UI tests | `bun run test:desktop -- capture note-screen shortcut` | input/editor/help journeys pass |
+| Public SDK proof | `CHARON_SDK_PATH=$(xcrun --show-sdk-path); rg -n "kAXSelectedTextMarkerRangeAttribute|kAXStringForTextMarkerRangeParameterizedAttribute|AXUIElementCopyElementAtPosition|changeCount|pasteboardItems|CGEventPost" "$CHARON_SDK_PATH/System/Library/Frameworks/ApplicationServices.framework/Frameworks/HIServices.framework/Headers" "$CHARON_SDK_PATH/System/Library/Frameworks/AppKit.framework/Headers/NSPasteboard.h" "$CHARON_SDK_PATH/System/Library/Frameworks/CoreGraphics.framework/Headers"` | all used native contracts are in public headers |
 | Rust quality | `cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings` | exit 0 |
+| Full checks | `bun run bindings:check && bun run check && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked` | exit 0 |
 | Debug app | `bun run tauri:build -- --debug` | current-platform bundle succeeds |
-
-## Suggested executor toolkit
-
-- Use `improve-codebase-architecture` to keep shortcut, selection acquisition,
-  permissions, and window lifecycle inside one deep CaptureCoordinator.
-- Read official Tauri global-shortcut and capability docs before coding.
-- Use `shadcn` for the capture form, section combobox, kbd labels, and errors.
-- Use `apple-design` for capture-window materialization, repeated-trigger
-  interruption, anchored origin, and reduced-motion/transparency behavior.
+| Signature | `codesign --verify --deep --strict --verbose=2 apps/desktop/src-tauri/target/debug/bundle/macos/Charon.app` | valid debug bundle |
 
 ## Scope
 
 **In scope**:
 
-- `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/Cargo.lock`,
-  `apps/desktop/src-tauri/build.rs`
-- `apps/desktop/src-tauri/tauri.conf.json`,
-  `apps/desktop/src-tauri/capabilities/main.json`,
-  `apps/desktop/src-tauri/capabilities/capture.json`
-- `apps/desktop/src-tauri/src/capture/mod.rs`, `coordinator.rs`, `gesture.rs`, `model.rs`,
-  `error.rs`, `window.rs`
-- `apps/desktop/src-tauri/src/capture/platform/mod.rs`, `macos.rs`, `linux.rs`, `windows.rs`
-- `apps/desktop/src-tauri/src/ipc/capture.rs`,
-  `apps/desktop/src-tauri/src/ipc/mod.rs`, `apps/desktop/src-tauri/src/lib.rs`
-- `apps/desktop/src-tauri/tests/capture_contract.rs`
-- `apps/desktop/src/bindings/capture.ts` (generated),
-  `apps/desktop/src/lib/ipc/capture-client.ts`
-- `apps/desktop/src/routes/capture.tsx`
-- `apps/desktop/src/features/capture/capture-screen.tsx`, `capture-form.tsx`,
-  `capture-controller.ts`, `capture-status.tsx`
-- `apps/desktop/src/app/commands/default-commands.ts`
-- `apps/desktop/messages/en.json`, `apps/desktop/messages/fr.json`
-- Tests beside these frontend files
-- `docs/adr/0002-platform-capture.md`, `docs/ARCHITECTURE.md`,
-  `docs/platform-support.md` for evidence and exact dependency pins
+- `apps/desktop/src-tauri/Cargo.toml`, generated `Cargo.lock`, and
+  `tauri.conf.json`;
+- minimal exact direct macOS dependencies already present transitively in the
+  lockfile when required: `objc2 0.6.4`, `objc2-app-kit 0.3.2`, and
+  `objc2-foundation 0.3.2`;
+- removal of capture-only capability/window configuration;
+- `apps/desktop/src-tauri/src/capture/**`, including splitting the current giant
+  macOS file into focused listener, permission, AX, and pasteboard adapter files;
+- `apps/desktop/src-tauri/src/ipc/capture.rs`, `ipc/workspace.rs`, `ipc/mod.rs`,
+  and `src/lib.rs`;
+- `apps/desktop/src-tauri/tests/capture_contract.rs`;
+- generated `apps/desktop/src/bindings/capture.ts` and its binding check;
+- desktop capture/workspace IPC clients;
+- removal of the dedicated capture route, form, controller, status, and window;
+- main Notes input, full-editor reveal, command registry/help, root wiring,
+  localized EN/FR messages, semantic CSS, and adjacent tests;
+- safe first-run default Workspace plus enabled folder chooser fallback;
+- `AGENTS.md`, README, product/architecture/privacy/UX contracts, ADRs 0002,
+  0006, 0008, 0009, new ADR 0010, `docs/platform-support.md`, this plan,
+  affected completed/downstream plan references, and `plans/README.md`.
 
 **Out of scope**:
 
-- Synthetic paste, keyboard-event suppression, clipboard-based selected-text
-  theft, background content collection, Wayland capability claims without a
-  stable supported protocol, auto-start at login, and release signing.
-- Full Windows double Shift if no signed Windows smoke environment is available.
+- a special Quick Note entity, implicit durable section, or dedicated capture
+  window;
+- the deferred Copper-like simple presentation mode;
+- automatic Paste, more than one synthetic Copy per explicit capture gesture,
+  arbitrary key injection, clipboard polling/history, or background collection;
+- restoring over a concurrent clipboard write or reading the old clipboard as a
+  selection;
+- private Accessibility APIs, opaque text-marker decoding, recursive tree scans,
+  OCR, screen capture, bundle-specific extraction, or a privileged helper;
+- auto-start, stable release signing, or distribution work from Plan 012;
+- claiming enhanced Windows, X11, or Wayland capture without their own native
+  adapter and physical target evidence.
 
 ## Git workflow
 
 - Branch: `codex/007-quick-capture`
-- Commits: `test(capture): prove gesture state machine`,
-  `feat(capture): add quick capture coordinator`,
-  `feat(macos): add consented double-shift capture`,
-  then platform adapters only when proved
-- Do not push or open a PR unless instructed.
+- Existing commits:
+  - `test(capture): prove gesture state machine`
+  - `feat(capture): add quick capture coordinator`
+- Remaining commits, in order:
+  1. `refactor(capture): keep capture in main workspace`
+  2. `feat(macos): capture selections with bounded copy fallback`
+- Keep the current Plan 007 worktree; do not reset it wholesale. Stage the first
+  commit by responsibility, then complete and stage the macOS adapter, contracts,
+  platform evidence, and plan status in the second commit.
+- Do not push or open a pull request unless instructed.
 
 ## Steps
 
-### Step 1: Run and document a platform spike before choosing native crates
+### Step 1: Preserve the one-surface capture product
 
-On each available target, record OS/session, Accessibility status, whether a
-standard global accelerator registers, whether modifier key down/up events are
-observable outside the app, and whether selected text can be read without
-modifying the clipboard. Update `docs/platform-support.md` with evidence.
+Complete the ADR 0006/0007 work already present:
 
-For any native Rust dependency, query the official registry and upstream docs,
-select a stable release, pin it exactly in a target-specific dependency table,
-and add its version to `plans/README.md`. Do not add an unmaintained permission
-plugin or a Git dependency merely to avoid implementing a small OS adapter. The
-preferred architecture uses official OS APIs through a narrowly scoped adapter.
+- unmodified double Shift plus one non-empty acquired selection maps to exactly
+  one versioned Workspace `CreateNote` command in the active ephemeral section,
+  with deterministic first-section fallback;
+- empty/unavailable acquisition creates nothing and leaves Charon hidden;
+- Command held consistently across double Shift opens the existing main empty
+  editor and never reads selected text or pre-creates a note;
+- `CmdOrCtrl+Shift+Space` performs the same editor reveal;
+- manual fast capture is one compact input in the active Notes work area;
+- fresh launch safely opens or creates `Documents/Charon`, tries
+  `Documents/Charon Workspace` on collision, and otherwise exposes an enabled
+  folder chooser without modifying unrelated directories.
 
-This gate may result in:
+Remove every capture-window route, capability, lifecycle helper, form, style,
+translation, and test. React must continue to dispatch typed commands and never
+read Workspace files directly. Repeated editor requests focus an existing empty
+draft but never overwrite non-empty unsaved text.
 
-- macOS: supported double Shift and Accessibility selected text.
-- Linux X11: standard accelerator; native double Shift only if proved.
-- Linux Wayland: fallback accelerator only.
-- Windows: standard accelerator; native enhancements deferred until proved.
+**Verify**: `test ! -e apps/desktop/src/routes/capture.tsx && test ! -e apps/desktop/src-tauri/src/capture/window.rs`; run UI tests; run capture application tests for one command, deterministic destination, no mutation on failure, one editor event, dirty-draft preservation, default Workspace collisions, and listener cleanup. Commit `refactor(capture): keep capture in main workspace` only when these pass.
 
-**Verify**: `rg -n "macOS|X11|Wayland|Windows|evidence|fallback" docs/platform-support.md` -> complete capability rows; every added native dependency is exact in `Cargo.toml` and the ledger.
+### Step 2: Keep gesture and permission boundaries exact
 
-### Step 2: Implement and exhaustively test the double-Shift state machine
+Keep the pure fake-clock gesture model at two complete taps within 300 ms.
+`captureSelection` requires Command absent throughout; `openEditor` requires
+Command held throughout. Reset on Command changes, another key, overlapping
+Shift chords, event-tap restart, security boundary, backward time, or timeout.
+Auto-repeat and holds never trigger.
 
-In pure `gesture.rs`, accept normalized key down/up events plus monotonic time.
-Trigger only after two complete Shift press-release taps within 300ms, with no
-non-modifier event between them. Ignore auto-repeat; reset on focus/security
-boundary changes, timeout, another key, a held Shift, or mixed chord use. Treat
-left/right Shift according to the documented spike decision. Never suppress or
-rewrite OS key events.
+Input Monitoring gates only the passive `listenOnly` event-tap listener.
+Accessibility separately gates both the direct-AX acquisition and ADR 0010's
+single synthetic Copy. Permission requests occur only from explicit localized
+help/onboarding actions, never on mount. Command-double-Shift needs Input
+Monitoring but never Accessibility.
 
-Use a fake monotonic clock. Cover exact threshold edges, key repeat, Shift+letter,
-left/right combinations, three taps, long hold, sleep/resume gap, concurrent
-fallback shortcut, and listener restart.
+The event-tap callback must return immediately. Route `openEditor` to the main
+thread and route `captureSelection` to one serial, bounded capture worker with a
+capacity-one/single-flight contract. Waiting for AX, pasteboard materialization,
+Copy, or Workspace I/O must never block the Core Graphics callback or freeze the
+main WebView. Shutdown stops and joins the worker and listener exactly once.
 
-**Verify**: run State tests -> all cases pass with no wall-clock sleeps.
+**Verify**: Gesture tests cover left/right combinations, exact 300 ms boundary,
+both intents, modifier changes, Shift+letter, repeat, holds, three taps,
+security/focus reset, listener restart, queue saturation, duplicate suppression,
+and idempotent shutdown without wall-clock sleeps in unit tests.
 
-### Step 3: Build the deep CaptureCoordinator with capability fallback
+### Step 3: Retain the bounded public Accessibility primary path
 
-CaptureCoordinator owns registration, native adapter lifecycle, permission
-state, selected-text acquisition, quick-window show/focus, draft handoff, and
-shutdown. Its public model reports each capability as `available`, `denied`,
-`unsupported`, or `error`, plus the active fallback shortcut.
+Split the current macOS experiment into cohesive native adapter files rather
+than growing `platform/macos.rs` further. Keep unsafe FFI in small helpers with
+balanced Core Foundation ownership. The direct path:
 
-Register the standard accelerator in Rust with Tauri global-shortcut so it works
-while the main window is hidden. Validate and re-register changes without leaving
-two active shortcuts. On trigger, request selected text only if the platform
-adapter is authorized; otherwise open an empty draft. Emit no selected text to
-logs, analytics, crash reports, or diagnostics.
+1. captures the foreground source identity;
+2. builds a cycle-safe candidate chain from the focused UI element and parents;
+3. performs at most one system-wide pointer hit-test and walks its parents;
+4. then considers focused window and application;
+5. limits each origin to 32 candidates and deduplicates the combined sequence;
+6. tries `AXSelectedText`, `AXSelectedTextRange` with `AXStringForRange`, then
+   `AXSelectedTextMarkerRange` with `AXStringForTextMarkerRange`;
+7. rejects secure controls, wrong Core Foundation types, malformed/empty values,
+   and permission failures with typed content-free outcomes.
 
-Add macOS Accessibility trust check and prompt only from a user action. Use the
-native event adapter proved in Step 1 for double Shift and the Accessibility API
-for selected text; do not overwrite the clipboard as a workaround. Linux and
-Windows modules must compile on their targets even when they return unsupported.
+Do not enumerate applications/windows, recurse through descendants, hard-code a
+bundle identifier, or increase the ancestor bound. Remove the temporary
+debug-only `NSLog`, all content or app-name diagnostics not needed for a typed
+capability, and unused experimental imports. Preserve exact selected text while
+trimming only to decide emptiness.
 
-**Verify**: run Core tests -> fake adapters cover available, denied, unsupported,
-registration conflict, repeated trigger, shutdown, and no-content-logging cases.
+**Verify**: deterministic AX tests cover direct string, standard range, marker
+range, ancestor fallback, pointer fallback, focused window/application, wrong
+type, AX error, secure role, cycle, deduplication, and the exact 32-element bound.
+The public SDK proof command succeeds.
 
-### Step 4: Add a purpose-built quick-capture window
+### Step 4: Implement ADR 0010's safe pasteboard transaction
 
-Configure a hidden `capture` window at `/capture`: 560px wide, content-sized,
-centered near the active display, always on top while open, excluded from the
-taskbar where supported, and not persisted as a normal main-window state. Use
-restrained decoration consistent with `docs/UX.md`; do not introduce permanent
-glass or platform-private APIs.
+Add a capture-specific macOS pasteboard adapter owned by
+`CaptureCoordinator`, not `ClipboardComposer`. Use public AppKit/Core Graphics
+bindings and exact direct dependency pins only when needed. The production
+transaction and its fake test port must implement this order:
 
-The form contains a Markdown textarea, section combobox, Save, and Close. Prefill
-authorized selected text, focus the textarea, and retain an unsaved draft if a
-second trigger arrives. Enter behavior must not accidentally submit multiline
-content; use Cmd/Ctrl+Enter to save and Escape to close, with confirmation for a
-dirty non-empty draft. Successful save uses exactly one Workspace create command,
-clears the draft, and hides the window.
+1. Acquire the single-flight slot only after direct AX returned no text. Capture
+   the unchanged non-Charon foreground process identity and reject a publicly
+   identified secure text role/subrole.
+2. Snapshot `NSPasteboard.general` change count and every materializable type of
+   every item into owned in-memory bytes. Use explicit constants:
+   `MAX_PASTEBOARD_ITEMS = 32`, `MAX_TYPES_PER_ITEM = 64`,
+   `MAX_SNAPSHOT_BYTES = 64 MiB`, and `SNAPSHOT_TIMEOUT = 150 ms`. If any item or
+   type cannot be represented completely within those bounds, post no event.
+3. Recheck both the pasteboard change count and foreground process identity. If
+   either changed, discard the snapshot and do nothing.
+4. Post exactly one `kVK_ANSI_C` key-down/key-up pair with the Command flag using
+   a public `CGEvent` at the HID event tap. Do not post Paste, activate Charon,
+   move focus, or send a second Copy retry.
+5. Wait asynchronously for a changed pasteboard count for at most
+   `COPY_TIMEOUT = 500 ms`, using a production poll interval no shorter than
+   10 ms. After a change, require 25 ms of stable change count before reading
+   the public string type. Unit tests use a fake clock/scheduler, never sleeps.
+6. Never accept the pre-gesture clipboard value. The first newly produced,
+   non-empty string is the candidate note body. An unsupported/empty new payload
+   still proceeds to safe restoration but creates no note.
+7. Immediately before restoration, confirm that the current count is still the
+   stable transaction-owned count. Restore every snapshotted item/type only in
+   that case. If the count changed, skip restoration so a newer user/application
+   copy is never overwritten. Treat restoration failure as a typed content-free
+   warning; never claim the clipboard was preserved.
+8. Release all snapshot and selected-text buffers after the typed action is
+   handed to the existing Workspace command. Never persist, log, diagnose, or
+   emit raw pasteboard data outside that action.
 
-The WebView content materializes with the shared surface spring from a subtle
-scale/opacity state anchored to the capture field, never by pretending the native
-window itself has gesture momentum. A second global trigger while opening must
-retarget from the current presentation values and focus the existing draft; a
-close during entry reverses the same path. Native show/focus and save semantics
-must not wait for visual completion. Reduced motion uses an immediate show plus a
-short fade; reduced transparency uses an opaque elevated surface with a stronger
-separator. Do not stack backdrop filters over the native window material.
+Do not add a Tauri clipboard read capability to the WebView. Native snapshot
+access stays inside the macOS capture adapter. `ClipboardComposer` remains its
+existing deterministic write-only product module.
 
-**Verify**: `bun run test:desktop -- capture-screen capture-controller` -> prefill, empty,
-permission denied, repeated trigger, dirty close, save conflict/retry, focus,
-and localized labels pass.
+**Verify**: fake transaction tests cover empty pasteboard, one/multiple rich
+items, item/type/byte/time limits, complete restoration, unchanged Copy,
+delayed Copy, exact timeout, same string with changed count, empty new string,
+source change before post, secure field, concurrent write before restore,
+restoration failure, queue overlap, and zero content in errors/logs. A test must
+prove a concurrent clipboard value is never overwritten.
 
-### Step 5: Connect in-app and global commands without overlap
+### Step 5: Integrate the hybrid action without duplicate notes
 
-Register `capture.open` in the app command registry and display both active
-global mechanisms in shortcut help. In-app raw keyboard handling may reuse the
-pure gesture state machine only if TanStack Hotkeys cannot express modifier-only
-sequences; keep that listener inside CaptureCoordinator's frontend controller.
-Prevent duplicate opens when global and focused-window listeners see the same
-gesture. Remove all listeners on app exit, window teardown, and shortcut change.
+For `captureSelection`, the platform result is one of direct AX text, bounded
+Copy text, no selection, permission denied, unsupported, or content-free
+warning. The first non-empty direct result wins and must not touch the
+pasteboard. Only a direct no-selection result can start the Copy fallback.
 
-**Verify**: `bun run test:desktop -- shortcut capture` -> editable typing, duplicate
-suppression, listener cleanup, and command-help labels pass.
+`CaptureCoordinator` returns at most one `CreateNote { body }` per gesture. The
+application layer maps it to one Workspace command using active ephemeral
+section context. Acquisition failure never creates a blank note. If no Workspace
+or section is available, do not persist the selected text elsewhere; retain only
+a content-free status for the next visible session. Duplicate native/standard
+triggers remain suppressed.
 
-### Step 6: Run the platform acceptance matrix
+Expose a content-free restoration warning in the next visible main session and
+localized help, without showing a capture window or stealing source focus. Do
+not include selection, pasteboard type names, source application name, or paths
+in errors or diagnostics.
 
-For every CI-available target, build and run the standard accelerator smoke test.
-On physical/virtual targets available to the operator, execute the documented
-manual cases: app hidden, other app focused, Shift+letter does not trigger,
-double Shift does, denial opens empty capture, selection prefill is exact, save
-persists, Escape is safe, and restart re-registers one listener.
+**Verify**: coordinator/application tests prove AX-first order, fallback only on
+no-selection, one action, one Workspace command, exact body preservation,
+denied/unsupported/empty no-op, duplicate suppression, missing Workspace no
+content retention, warning redaction, and cleanup.
 
-Mark a feature supported in `docs/platform-support.md` only when its row contains
-date, OS/session, build identifier, and result. The UI reads the runtime
-capability model, not hard-coded platform promises.
+### Step 6: Make permission and privacy copy honest
 
-**Verify**: Debug app command succeeds on the current platform; capability table
-has no unsupported feature labeled supported.
+Update EN/FR help and the affected contracts to explain:
+
+- Input Monitoring observes only the double-Shift modifier sequence;
+- Accessibility reads public selection data and may invoke one source Copy when
+  direct access fails;
+- selected text may appear briefly on the system clipboard and be observed by
+  an installed clipboard manager;
+- Charon restores the previous clipboard only when it can prove no concurrent
+  write occurred;
+- Charon never monitors clipboard history, posts Paste, or uploads content;
+- the portable accelerator and manual input remain available after denial.
+
+No permission prompt occurs on mount. Keep macOS capability claims pending until
+the full debug matrix passes. Linux and Windows remain at their evidence-gated
+tiers; do not imply the macOS fallback exists there.
+
+**Verify**: `rg -n "bounded|Copy|clipboard manager|concurrent|Accessibility|Input Monitoring|Paste" AGENTS.md README.md docs apps/desktop/messages plans/007-build-quick-capture-and-shortcuts.md` shows consistent disclosure and no old blanket prohibition that contradicts ADR 0010. Translation tests pass.
+
+### Step 7: Run the complete macOS physical acceptance matrix
+
+Build one corrected debug bundle, record its macOS version, architecture,
+bundle identifier, executable SHA-256, and signature in
+`docs/platform-support.md`, then grant Input Monitoring and Accessibility to that
+exact bundle. Do not repeatedly reset all TCC permissions. Reset only the exact
+Charon service/bundle when a changed identity makes the existing grant invalid,
+and record why.
+
+Physically test:
+
+- another application remains focused and Charon is hidden;
+- standard accelerator reveals the main empty editor;
+- Command-double-Shift reveals one empty editor without a note;
+- Shift+letter, repeat, hold, mixed Shift chord, Command-state change, and three
+  taps do not trigger;
+- empty selection does nothing;
+- TextEdit/AppKit selection creates exactly one note through direct AX without
+  changing the clipboard;
+- Chrome URL-field selection exercises direct AX;
+- static Chrome page selection creates exactly one note, keeps Chrome focused,
+  and restores a pre-existing text clipboard;
+- selected Codex conversation text creates exactly one note, keeps Codex
+  focused, and restores the previous clipboard;
+- Safari/WebKit static text, Preview PDF text, and VS Code/Cursor editor text
+  pass when installed, through either documented acquisition result;
+- a pre-existing rich/multi-item pasteboard is restored exactly;
+- a concurrent clipboard write is not overwritten;
+- unchanged/blocked/slow Copy and a secure field create nothing;
+- canvas-only or otherwise inaccessible content creates nothing;
+- a clipboard manager may observe the transient selection as disclosed, while
+  Charon itself retains no history;
+- manual input creates one note and preserves failed text;
+- restart registers one listener, one worker, and one accelerator.
+
+Record which cases used direct AX versus Copy fallback. A passing ad-hoc debug
+build is development evidence only; Plan 012 must repeat the matrix on the
+stable Developer ID signed artifact.
+
+**Verify**: `docs/platform-support.md` contains no blank or optimistic result;
+every required local case is `passed` or the plan stops with an exact blocker.
+
+### Step 8: Final verification, diff review, commits, and status
+
+Run all commands from the command table in order. Run the complete physical
+matrix after the final debug build, not an earlier binary. Re-read the entire
+diff from `c5c33fc` for scope, generated-file provenance, secrets, content logs,
+unsafe ownership, exact pins, platform claims, stale capture-window code, and
+the `Workspace`/`CaptureCoordinator`/`ClipboardComposer` dependency direction.
+
+Confirm no debug `NSLog`, temporary diagnostics, selected text, pasteboard
+payload, private path, or permission-reset script is committed. Confirm
+`Cargo.lock`, bindings, Paraglide output, and routes were generated by their
+owning tools rather than hand-edited. Create the two remaining exact commits in
+the Git workflow section. Only after all done criteria pass, update Plan 007 to
+`DONE` in `plans/README.md` in the second commit. Do not push.
 
 ## Test plan
 
-- Exhaustive pure gesture tests with a fake monotonic clock.
-- Coordinator contract tests with fake shortcut, permission, selection, window,
-  and Workspace adapters.
-- UI tests for full capture states and draft safety.
-- Motion tests cover trigger-while-opening, close-while-entering, current-value
-  retargeting, focus before animation completion, and accessibility fallbacks.
-- Compile checks for macOS, Linux, and Windows target-specific modules in CI.
-- Documented manual platform matrix, because OS-global hooks cannot be proved by
-  jsdom or Rust unit tests alone.
+- Pure fake-clock gesture and duplicate-suppression tests.
+- Coordinator tests with fake shortcut, permission, AX, pasteboard, clock, and
+  Workspace/application ports.
+- AX representation/candidate tests with bounded depth and Core Foundation type
+  failures.
+- Pasteboard transaction tests with complete rich snapshots, limits, timeouts,
+  concurrent writes, restoration failures, and content-redaction assertions.
+- UI tests for main input, editor reveal, dirty draft, permission copy, warnings,
+  EN/FR, and cleanup.
+- Real-filesystem tests for safe default Workspace and exactly one CreateNote.
+- Dated physical macOS matrix for cross-process focus, TCC, source Copy, and
+  pasteboard behavior.
+- Full binding, Bun, format, clippy, Cargo, bundle, and signature gates.
 
 ## Done criteria
 
-- [ ] Standard fallback accelerator works while the main window is hidden.
-- [ ] Double Shift never fires for Shift+letter, repeat, hold, or unrelated keys.
-- [ ] macOS native features are permission-gated and content is never logged.
-- [ ] Wayland and unproved targets show honest fallback status.
-- [ ] Capture window preserves drafts, focuses correctly, and saves one note.
-- [ ] Listeners are single-instance and cleaned up.
-- [ ] All native dependencies are exact and documented with evidence.
-- [ ] Core/UI tests, clippy, format, current-platform build, and capability table pass.
-- [ ] This plan is `DONE` in the index.
+- [ ] Unmodified double Shift creates exactly one normal note for non-empty
+  selections in TextEdit, static Chrome page content, and Codex without showing
+  or focusing Charon.
+- [ ] The direct AX ladder remains first and does not touch the pasteboard when
+  it succeeds.
+- [ ] The Copy fallback posts exactly one Command-C only after explicit gesture,
+  failed direct AX, confirmed permissions, complete snapshot, stable source, and
+  stable pre-copy change count.
+- [ ] The complete pre-existing pasteboard is restored when safe; a concurrent
+  clipboard write is never overwritten; failures are content-free.
+- [ ] Empty, whitespace, secure, denied, unsupported, blocked, unsafe, and timed-
+  out acquisition creates nothing.
+- [ ] Command-double-Shift and the portable accelerator reveal one empty focused
+  editor without creating a note or reading selected text.
+- [ ] The main Notes input creates one note in the active section and preserves
+  text on failure.
+- [ ] No capture window, route, capability, lifecycle, or special Quick Note
+  entity remains.
+- [ ] A fresh launch safely opens a visible default Workspace and offers an
+  enabled chooser after collisions/failure.
+- [ ] Listener callback, serial worker, duplicate suppression, restart, and
+  shutdown tests pass without leaks or UI blocking.
+- [ ] Only public SDK APIs are used; there is no private API, automatic Paste,
+  arbitrary input, clipboard monitor/history, OCR, screen capture, unbounded AX
+  traversal, privileged helper, or source-focus theft.
+- [ ] Permission/privacy UI discloses transient clipboard exposure and safe
+  conditional restoration in EN/FR.
+- [ ] Linux/Windows claims remain unpromoted without physical evidence.
+- [ ] Bindings, targeted tests, full checks, Rust tests, fmt, clippy, final debug
+  build, signature verification, complete diff review, and physical matrix pass.
+- [ ] The exact remaining commits exist and Plan 007 is `DONE` in
+  `plans/README.md`.
 
 ## STOP conditions
 
-- The native listener requires suppressing global keyboard events, private APIs,
-  an unsigned helper, or invasive privileges beyond documented Accessibility.
-- Selected text can only be acquired by silently replacing the user's clipboard.
-- macOS double Shift cannot pass false-positive tests in a signed/local build.
-- A Wayland implementation depends on a compositor-specific hack presented as universal.
-- A new native dependency has no stable, maintained, registry-published release.
-- The quick window can lose non-empty drafts during conflict or re-trigger.
+- A complete bounded pasteboard snapshot cannot be created and restored with
+  public AppKit APIs without risking silent data loss.
+- Any test or physical race proves Charon can overwrite a clipboard value written
+  after its transaction-owned Copy.
+- The required selection needs private APIs, more than one Copy, automatic
+  Paste, arbitrary input, OCR/screen capture, a privileged helper, reverse-
+  engineered marker bytes, or an unbounded/background Accessibility scan.
+- Selected text or pasteboard payload enters logs, diagnostics, temporary files,
+  crash output, or a second persistence path.
+- Silent capture steals focus, shows a Charon surface, creates a blank note, or
+  dispatches more than one Workspace command.
+- Command-double-Shift overwrites a non-empty unsaved editor draft.
+- The event-tap callback or main WebView is blocked by capture timeout/work.
+- The application layer bypasses the versioned Workspace command boundary.
+- Automatic Workspace bootstrap would modify a non-Workspace directory or store
+  note content outside the Workspace.
+- macOS gesture intents cannot pass false-positive tests in the final debug
+  environment.
+- A Linux/Wayland/Windows hack is presented as universal support without target
+  evidence.
+- The full physical matrix fails twice on the same final build after one scoped
+  fix; stop and report evidence rather than resetting permissions repeatedly.
 
 ## Maintenance notes
 
-- Global hooks are platform code. Re-run the full manual matrix after OS, Tauri,
-  or native dependency upgrades.
-- Keep timeout and left/right semantics user-configurable only after evidence that
-  configuration improves real workflows without increasing false triggers.
-- If Wayland gains a stable global-shortcuts protocol supporting this sequence,
-  add a new adapter and update ADR 0002 rather than weakening the fallback.
+- Re-run the complete pasteboard-race and application-family matrix after macOS,
+  Tauri, AppKit binding, browser, Codex, editor, clipboard-manager, permission,
+  or signing changes.
+- Keep the AX primary path bounded and generic. Do not add bundle-identifier
+  extraction rules when the source application's Copy command already provides
+  the compatibility boundary.
+- Changing pasteboard item/type/byte/time limits is a privacy and data-safety
+  change that requires tests and ADR 0010 review.
+- Keep capture destination configurable only after evidence; v1 uses active
+  ephemeral section with deterministic fallback.
+- Treat simple mode as a later presentation experiment over the same commands
+  and Workspace, never as another capture window.

@@ -17,6 +17,7 @@ import {
   formatShortcut,
 } from '@/app/commands/command-registry';
 import { createDefaultCommands } from '@/app/commands/default-commands';
+import { Button } from '@/components/ui/button';
 import {
   Command,
   CommandDialog,
@@ -110,6 +111,9 @@ function CommandRuntime({ children }: PropsWithChildren) {
   const message = (key: AppCommand['labelKey']) =>
     (m as unknown as Record<string, () => string>)[key]?.() ?? key;
   const visibleCommands = availableCommands(commands);
+  const helpCommands = [...visibleCommands]
+    .filter((command) => command.helpAction || command.displayShortcut || command.defaultShortcut)
+    .sort((left, right) => Number(Boolean(right.helpAction)) - Number(Boolean(left.helpAction)));
 
   return (
     <CommandContext.Provider value={{ commands, execute, register }}>
@@ -125,22 +129,27 @@ function CommandRuntime({ children }: PropsWithChildren) {
           <CommandList>
             <CommandEmpty>{m.command_palette_empty()}</CommandEmpty>
             <CommandGroup heading={m.command_palette_group()}>
-              {visibleCommands.map((command) => (
-                <CommandItem
-                  key={command.id}
-                  onSelect={() => {
-                    execute(command.id);
-                    setPaletteOpen(false);
-                  }}
-                >
-                  <span>{message(command.labelKey)}</span>
-                  {command.defaultShortcut ? (
-                    <CommandShortcut>
-                      {formatShortcut(command.defaultShortcut, isMac).join(' ')}
-                    </CommandShortcut>
-                  ) : null}
-                </CommandItem>
-              ))}
+              {visibleCommands
+                .filter((command) => !command.helpOnly)
+                .map((command) => {
+                  const shortcut = command.displayShortcut ?? command.defaultShortcut;
+                  return (
+                    <CommandItem
+                      key={command.id}
+                      onSelect={() => {
+                        execute(command.id);
+                        setPaletteOpen(false);
+                      }}
+                    >
+                      <span>{message(command.labelKey)}</span>
+                      {shortcut ? (
+                        <CommandShortcut>
+                          {formatShortcut(shortcut, isMac).join(' ')}
+                        </CommandShortcut>
+                      ) : null}
+                    </CommandItem>
+                  );
+                })}
             </CommandGroup>
           </CommandList>
         </Command>
@@ -152,11 +161,19 @@ function CommandRuntime({ children }: PropsWithChildren) {
             <DialogDescription>{m.shortcut_help_description()}</DialogDescription>
           </DialogHeader>
           <div className="shortcut-help-list">
-            {visibleCommands
-              .filter((command) => command.displayShortcut ?? command.defaultShortcut)
-              .map((command) => (
-                <div className="shortcut-help-row" key={command.id}>
-                  <span>{message(command.labelKey)}</span>
+            {helpCommands.map((command) => (
+              <div
+                className={`shortcut-help-row${command.helpAction ? ' shortcut-help-action' : ''}`}
+                key={command.id}
+              >
+                <span>
+                  {message(command.helpAction ? command.descriptionKey : command.labelKey)}
+                </span>
+                {command.helpAction ? (
+                  <Button onClick={() => execute(command.id)} size="sm" variant="outline">
+                    {message(command.labelKey)}
+                  </Button>
+                ) : (
                   <KbdGroup>
                     {formatShortcut(
                       (command.displayShortcut ?? command.defaultShortcut) as string,
@@ -165,8 +182,9 @@ function CommandRuntime({ children }: PropsWithChildren) {
                       <Kbd key={key}>{key}</Kbd>
                     ))}
                   </KbdGroup>
-                </div>
-              ))}
+                )}
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

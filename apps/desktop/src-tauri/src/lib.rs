@@ -15,12 +15,7 @@ pub fn run() {
         .manage(ipc::workspace::WorkspaceRuntime::default())
         .manage(ipc::capture::CaptureRuntime::default())
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_denylist(&["capture"])
-                .skip_initial_state("capture")
-                .build(),
-        )
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, _shortcut, event| {
@@ -37,8 +32,10 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             ipc::workspace::workspace_choose_directory,
+            ipc::workspace::workspace_bootstrap_default,
             ipc::workspace::workspace_create,
             ipc::workspace::workspace_open,
+            ipc::workspace::workspace_open_or_create,
             ipc::workspace::workspace_snapshot,
             ipc::workspace::workspace_execute,
             ipc::workspace::workspace_close,
@@ -49,16 +46,18 @@ pub fn run() {
             ipc::capture::capture_open,
             ipc::capture::capture_request_permission,
             ipc::capture::capture_set_shortcut,
-            ipc::capture::capture_close,
+            ipc::capture::capture_set_active_section,
+            ipc::capture::capture_editor_ready,
         ])
         .setup(|app| {
             ipc::capture::initialize(app.handle())?;
             Ok(())
         })
         .on_window_event(|window, event| {
-            if matches!(window.label(), "main" | "capture")
-                && matches!(event, tauri::WindowEvent::Destroyed)
-            {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Focused(true)) {
+                ipc::capture::handle_main_focus(window.app_handle());
+            }
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
                 ipc::capture::shutdown(window.app_handle());
             }
         })

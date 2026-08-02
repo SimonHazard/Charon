@@ -23,7 +23,14 @@ describe('note editor', () => {
     const user = userEvent.setup();
     render(
       <AppProviders>
-        <NoteEditor note={note} onOpenChange={vi.fn()} onSave={vi.fn()} open />
+        <NoteEditor
+          note={note}
+          onCreate={vi.fn()}
+          onCreated={vi.fn()}
+          onOpenChange={vi.fn()}
+          onSave={vi.fn()}
+          open
+        />
       </AppProviders>,
     );
     await user.click(screen.getByRole('tab', { name: 'Preview' }));
@@ -37,7 +44,14 @@ describe('note editor', () => {
     const onSave = vi.fn().mockRejectedValue({ messageKey: 'workspace_error_stale_revision' });
     render(
       <AppProviders>
-        <NoteEditor note={{ ...note, body: 'old' }} onOpenChange={vi.fn()} onSave={onSave} open />
+        <NoteEditor
+          note={{ ...note, body: 'old' }}
+          onCreate={vi.fn()}
+          onCreated={vi.fn()}
+          onOpenChange={vi.fn()}
+          onSave={onSave}
+          open
+        />
       </AppProviders>,
     );
     const editor = screen.getByRole('textbox', { name: 'Markdown body' });

@@ -11,7 +11,7 @@ The core consists of three deep modules:
 
 - `Workspace` owns persistence and every durable domain mutation.
 - `CaptureCoordinator` owns platform shortcut activation, capture permissions,
-  selected-text acquisition, capability fallback, and quick-window lifecycle.
+  gesture classification, selected-text acquisition, and capability fallback.
 - `ClipboardComposer` owns deterministic CopyPreset formatting and explicit
   clipboard writes.
 
@@ -39,7 +39,9 @@ flowchart LR
 
 ## Workspace layout and durability
 
-One selected directory is one Workspace:
+One local directory is one Workspace. First-run bootstrap resolves a safe
+default under Documents in the application layer, then delegates all creation
+or opening to the same Workspace boundary:
 
 ```text
 <workspace>/
@@ -93,18 +95,51 @@ entity-per-repository layer sits between commands and Workspace.
 
 ### CaptureCoordinator
 
-`CaptureCoordinator` translates a platform capability into a capture request.
-It owns global accelerator registration, modifier-sequence adapters, permission
-state, selected-text acquisition, focus restoration, quick-window lifecycle,
-and fallback selection. Its output is draft input or a named Workspace command,
-not direct file access.
+`CaptureCoordinator` translates a platform capability into a typed capture
+action. It owns global accelerator registration, modifier-sequence adapters,
+permission state, selected-text acquisition, duplicate suppression, listener
+lifecycle, and fallback selection. Its macOS adapter owns both the public
+Accessibility acquisition path and ADR 0010's bounded capture-specific Copy
+transaction. Its output is either a normal note-creation action or a request to
+reveal the main empty editor, never direct file access.
+
+The application layer maps a note-creation action to exactly one versioned
+Workspace command using the active ephemeral section, with deterministic first-
+section fallback. It maps an editor action to a main-window event. This keeps
+CaptureCoordinator independent from Workspace persistence and React view state.
+
+The macOS modifier adapter is a public, listen-only Core Graphics event tap.
+It forwards normalized events into the pure double-Shift state machine and
+never suppresses or rewrites an operating-system event. Accessibility selected
+text is queried only while authorization is active. Per ADR 0009, the macOS
+adapter uses a bounded, cycle-safe focused-element ancestor chain followed by
+one topmost Accessibility element explicitly targeted by the pointer and its
+bounded parent chain, then tries direct selected text, standard ranges, and
+public web text-marker ranges. It does not enumerate applications or windows,
+scan background accessibility trees, recurse through every descendant, or call
+private APIs. If this ladder returns no text, the coordinator may run ADR 0010's
+single-flight pasteboard snapshot, one synthetic Command-C, bounded wait/read,
+and change-count-guarded restoration. That adapter never posts Paste or another
+key, monitors clipboard history, persists a snapshot, overwrites a concurrent
+clipboard change, or runs without an explicit gesture. An unmodified gesture
+never shows or focuses Charon; its Command-modified sibling does not request
+selected text and reveals only the main window. Linux and Windows expose the
+same capability model but return `unsupported` for enhancements until their
+documented smoke gates pass.
+
+Input Monitoring preflight/request gates creation of the macOS event tap;
+Accessibility preflight/request independently gates selected-text acquisition
+and the fallback Copy event. Tauri's global-shortcut plugin continues to own
+only the portable accelerator, because its shortcut model requires a non-
+modifier key.
 
 ### ClipboardComposer
 
 `ClipboardComposer` accepts an ordered set of immutable note values plus a
 CopyPreset, produces deterministic Markdown, and performs an explicit clipboard
 write through an adapter. Formatting is testable without a system clipboard.
-It never changes note status, selection, or Workspace files.
+It never changes note status, selection, or Workspace files and does not own the
+separate transient pasteboard transaction used by `CaptureCoordinator`.
 
 ## IPC contract
 

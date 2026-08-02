@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use super::{PlatformCapturePort, PlatformKind};
+use crate::capture::gesture::CaptureGestureIntent;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -9,7 +10,7 @@ mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
 
-pub type DoubleShiftCallback = Arc<dyn Fn() + Send + Sync + 'static>;
+pub type DoubleShiftCallback = Arc<dyn Fn(CaptureGestureIntent) + Send + Sync + 'static>;
 
 pub fn create(callback: DoubleShiftCallback) -> Box<dyn PlatformCapturePort> {
     #[cfg(target_os = "macos")]
@@ -41,17 +42,20 @@ impl PlatformCapturePort for UnsupportedCaptureAdapter {
     fn platform(&self) -> PlatformKind {
         PlatformKind::Unknown
     }
-    fn double_shift_state(&self) -> super::CapabilityState {
+    fn input_monitoring_state(&self) -> super::CapabilityState {
         super::CapabilityState::Unsupported
     }
-    fn selected_text_state(&self) -> super::CapabilityState {
+    fn accessibility_state(&self) -> super::CapabilityState {
         super::CapabilityState::Unsupported
     }
     fn start(&mut self) -> Result<(), super::CaptureError> {
         Err(super::CaptureError::ListenerUnavailable)
     }
-    fn request_permission(&mut self) -> Result<bool, super::CaptureError> {
-        Ok(false)
+    fn request_permission(
+        &mut self,
+        _permission: super::CapturePermissionKind,
+    ) -> Result<(), super::CaptureError> {
+        Ok(())
     }
     fn selected_text(&mut self) -> Result<Option<String>, super::CaptureError> {
         Err(super::CaptureError::SelectionUnsupported)

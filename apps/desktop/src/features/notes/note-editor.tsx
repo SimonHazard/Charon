@@ -31,16 +31,26 @@ const AUTOSAVE_DELAY_MS = 650;
 
 export function NoteEditor({
   note,
+  newDraftKey = null,
   open,
+  focusRequest = 0,
   saveRequest = 0,
   onOpenChange,
   onSave,
+  onCreate,
+  onCreated,
+  onUnsavedChange,
 }: {
   note: NoteDto | null;
+  newDraftKey?: string | null;
   open: boolean;
+  focusRequest?: number;
   saveRequest?: number;
   onOpenChange(open: boolean): void;
   onSave(noteId: string, body: string): Promise<void>;
+  onCreate(body: string): Promise<string>;
+  onCreated(noteId: string): void;
+  onUnsavedChange?(unsaved: boolean): void;
 }) {
   const m = useMessages();
   const [draft, dispatch] = useReducer(draftReducer, closedDraft);
@@ -48,6 +58,7 @@ export function NoteEditor({
   const inFlight = useRef(false);
   const openedNoteId = useRef<string | null>(null);
   const handledSaveRequest = useRef(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -58,16 +69,39 @@ export function NoteEditor({
     if (note && openedNoteId.current !== note.id) {
       openedNoteId.current = note.id;
       dispatch({ type: 'open', noteId: note.id, body: note.body });
+    } else if (!note && newDraftKey && openedNoteId.current !== newDraftKey) {
+      openedNoteId.current = newDraftKey;
+      dispatch({ type: 'open', noteId: newDraftKey, body: '' });
     }
-  }, [note, open]);
+  }, [newDraftKey, note, open]);
+
+  useEffect(() => {
+    onUnsavedChange?.(hasUnsavedDraft(draft));
+  }, [draft, onUnsavedChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    void focusRequest;
+    const frame = window.requestAnimationFrame(() => {
+      textareaRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequest, open]);
 
   const save = useCallback(async () => {
     if (!draft.noteId || !hasUnsavedDraft(draft) || inFlight.current) return;
     inFlight.current = true;
     dispatch({ type: 'saving' });
     try {
-      await onSave(draft.noteId, draft.value);
-      dispatch({ type: 'saved', body: draft.value });
+      if (draft.noteId.startsWith('new:')) {
+        const createdId = await onCreate(draft.value);
+        openedNoteId.current = createdId;
+        dispatch({ type: 'open', noteId: createdId, body: draft.value });
+        onCreated(createdId);
+      } else {
+        await onSave(draft.noteId, draft.value);
+        dispatch({ type: 'saved', body: draft.value });
+      }
     } catch (error) {
       const key =
         error && typeof error === 'object' && 'messageKey' in error
@@ -77,7 +111,7 @@ export function NoteEditor({
     } finally {
       inFlight.current = false;
     }
-  }, [draft, onSave]);
+  }, [draft, onCreate, onCreated, onSave]);
 
   useEffect(() => {
     if (draft.status !== 'dirty') return;
@@ -124,6 +158,7 @@ export function NoteEditor({
                   aria-invalid={Boolean(errorMessage)}
                   autoFocus
                   id="note-markdown"
+                  ref={textareaRef}
                   onBlur={(event) => {
                     if (
                       !event.currentTarget

@@ -30,10 +30,12 @@ back up, or move it.
 
 ### Workspace
 
-A `Workspace` is exactly one user-selected directory plus one schema version.
+A `Workspace` is exactly one local directory plus one schema version.
 It is the transaction and recovery boundary for every durable operation. Charon
 never silently combines directories and never relocates one without an explicit
-user choice.
+user choice. On first launch it opens or creates a visible default in
+`Documents/Charon`, without modifying an unrelated directory that already uses
+that name. The user can choose another location explicitly.
 
 ### Section
 
@@ -76,11 +78,35 @@ explicit confirmation that names its irreversible effect.
 
 ### Quick capture
 
-From any supported platform shortcut, the user opens a centered capture window,
-types Markdown, chooses or accepts a section, and saves. Save gives immediate
-feedback, writes through the Workspace transaction, and returns focus to the
-previous application. If native capture is unavailable, the visible fallback
-and in-app shortcut perform the same save journey.
+With non-empty text selected in another application, the user presses Shift
+twice. Charon creates exactly one normal note in the active section without
+showing a window or taking focus. On macOS, Charon first tries public
+Accessibility direct text, standard ranges, and web text-marker ranges through
+bounded focused and pointer-targeted candidate chains. When those return no
+usable text, the explicit gesture may invoke the unchanged foreground
+application's normal Copy command once, read the resulting text, and restore
+the previous pasteboard only when no concurrent clipboard write occurred. This
+bounded compatibility fallback covers applications such as Chrome and Codex
+that can copy a selection without publishing it through the usable AX chain.
+Empty, whitespace-only, unavailable, malformed, protected, canvas-only, denied,
+timed-out, or safety-rejected selection creates nothing.
+
+Holding Command while pressing Shift twice reveals the main Charon window and
+opens the full editor with an empty draft ready to type. The portable
+`CmdOrCtrl+Shift+Space` fallback performs that same visible journey. Manual fast
+capture uses a compact input in the current Notes work area; Enter creates one
+normal note and empty input does nothing.
+
+On macOS, detecting either double-Shift gesture requires Input Monitoring;
+reading the selection for silent capture additionally requires Accessibility.
+Accessibility also permits the one disclosed synthetic Copy fallback after
+direct acquisition fails. Both are explicit, optional permissions. The standard
+accelerator and manual input remain available when either permission is denied.
+Selected-text acquisition never uses private APIs, automatic Paste, arbitrary
+input injection, clipboard monitoring/history, OCR, screen capture, unbounded
+Accessibility scans, or bundle-specific extraction. During the fallback,
+selected text briefly reaches the system clipboard and may be visible to an
+installed clipboard manager before safe restoration.
 
 ### Editing
 
@@ -128,7 +154,8 @@ and trashes the sources atomically; cancel leaves the Workspace untouched.
 
 The user selects notes in a deliberate order and chooses a CopyPreset, or uses
 the saved default. Charon previews when requested, writes deterministic Markdown
-to the clipboard, confirms completion, and never injects or pastes keystrokes.
+to the clipboard, confirms completion, and this CopyPreset journey never injects
+or pastes keystrokes.
 
 ### Theme and language switching
 
@@ -146,9 +173,9 @@ claims success while some notes were skipped.
 
 ### Permission denial
 
-If filesystem, Accessibility, selected-text capture, or clipboard access is
+If filesystem, Input Monitoring, Accessibility, selected-text capture, or clipboard access is
 denied, Charon explains which feature is affected and why. It offers the
-standard shortcut, visible capture command, manual input, or retry path while
+standard shortcut, visible main-window input, or retry path while
 the core local note workflow remains usable.
 
 ### Public site
@@ -163,8 +190,9 @@ presents a fake application UI or an unverified download.
 
 - Accounts, cloud sync, collaboration, shared workspaces, or a hosted database.
 - Analytics, telemetry, crash upload, advertising, or behavioral profiling.
-- Automatic paste, keystroke injection, or autonomous interaction with
-  third-party applications.
+- Automatic paste, arbitrary keystroke injection, or autonomous interaction
+  with third-party applications. ADR 0010's single synthetic Copy command after
+  an explicit capture gesture is the only narrow exception.
 - Full WYSIWYG editing, rich project management, reminders, or team workflows.
 - A cross-framework component library, dynamic marketing backend, CMS, forms,
   or newsletter.
@@ -172,3 +200,6 @@ presents a fake application UI or an unverified download.
   system does not expose a proven native capability.
 - Insights or charts as a dependency of capture, editing, search, copy, or
   recovery.
+- A second quick-capture window or a special Quick Note entity.
+- A Copper-like compact presentation mode in v1; it remains an optional future
+  view over the same commands and Workspace.

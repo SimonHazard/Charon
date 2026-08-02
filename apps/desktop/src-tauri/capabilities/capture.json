@@ -1,7 +1,0 @@
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "capture",
-  "description": "Quick-capture event permissions; note creation and window lifecycle use custom Rust commands",
-  "windows": ["capture"],
-  "permissions": ["core:event:default"]
-}

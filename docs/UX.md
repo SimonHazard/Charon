@@ -40,10 +40,21 @@ control and a restorable preference. The work area prioritizes search, note
 ordering, selection, and editing. The inspector must disappear cleanly when it
 has no contextual job.
 
-Quick capture is a centered 560px window sized to the draft. It contains the
-minimum fields needed to capture, communicates the current destination, and
-never resembles a modal marketing card. The standard fallback remains visible
-when global capture or permissions are unavailable.
+Fast manual capture is a compact single-line input anchored to the Notes work
+area. It names the current destination section, creates on Enter, ignores empty
+input, and hands longer work to the existing full editor. Global unmodified
+double Shift has no surface and never steals focus. Command plus double Shift or
+the standard accelerator reveals the main window and focuses a new empty editor.
+
+The existing rail/work-area/inspector shell remains the v1 presentation. A
+future optional simple mode may collapse it into a Copper-like single-column
+shelf, but it must preserve the same commands, focus semantics, and Workspace;
+it is not a second capture window.
+
+A fresh launch opens or creates the visible default Workspace in
+`Documents/Charon` and focuses the existing Notes journey. If automatic
+bootstrap cannot safely use that location, the empty state offers an enabled
+folder chooser; it is never a disabled setup dead end.
 
 Layouts must tolerate larger text and French strings without clipping controls.
 At narrow desktop widths, the inspector closes before the work area becomes
@@ -80,6 +91,20 @@ and interrupted Workspace recovery. Color alone never communicates a state.
   focus is not inside editable text. Normal text copy wins inside an editor.
 - Delete moves the selection to trash in one recoverable transaction.
 - Escape closes the topmost surface first, preserving predictable layer order.
+- Unmodified `Shift`, `Shift` captures non-empty selected text and leaves the
+  source application focused. On macOS it tries public Accessibility first,
+  then the disclosed bounded Copy fallback from ADR 0010. Protected, unsafe,
+  malformed, blocked, timed-out, canvas-only, or empty sources do nothing.
+- Command held consistently across `Shift`, `Shift` opens the main empty editor.
+- `CmdOrCtrl+Shift+Space` opens the same main empty editor as the portable
+  fallback.
+
+When enhanced macOS gestures are unavailable, shortcut help exposes separate,
+explicit Input Monitoring and Accessibility permission/retry actions. It names
+which journey each permission enables and explains that selected text may pass
+briefly through the system clipboard when direct Accessibility access fails.
+It never prompts on mount and keeps the standard shortcut and manual input
+usable after denial.
 
 Commands must be reachable without relying on a pointer. Focus returns to the
 logical trigger after a surface closes, and removed rows move focus to the

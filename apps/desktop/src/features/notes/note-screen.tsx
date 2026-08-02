@@ -1,5 +1,6 @@
 import { IconFilePlus, IconSearchOff, IconTrash } from '@tabler/icons-react';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCaptureEditor } from '@/app/capture-editor-context';
 import { useCommandRegistration } from '@/app/commands/command-provider';
 import type { AppCommand } from '@/app/commands/command-registry';
 import { createCopyCommands } from '@/app/commands/default-commands';
@@ -24,6 +25,7 @@ import {
   saveCopyPreset,
 } from '@/features/copy/copy-preset';
 import { CopyPreviewDialog } from '@/features/copy/copy-preview-dialog';
+import { CaptureInput } from '@/features/notes/capture-input';
 import { MergeDialog } from '@/features/notes/merge-dialog';
 import {
   createNoteCommand,
@@ -43,11 +45,15 @@ import { SelectionBar } from '@/features/notes/selection-bar';
 import { emptySelection, selectionReducer } from '@/features/notes/selection-model';
 import { BulkTrashDialog, TrashView } from '@/features/notes/trash-view';
 import { showUndoToast } from '@/features/notes/undo-toast';
+import { tauriCaptureClient } from '@/lib/ipc/capture-client';
 import {
   asClipboardError,
   type ClipboardClient,
   tauriClipboardClient,
 } from '@/lib/ipc/clipboard-client';
+import { isTauriRuntime } from '@/lib/platform';
+
+type NewDraft = { key: string; sectionId: string };
 
 function useDebouncedValue<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -62,12 +68,15 @@ export function NoteScreen({
   snapshot,
   sectionId = null,
   clipboardClient = tauriClipboardClient,
+  captureClient = isTauriRuntime() ? tauriCaptureClient : null,
 }: {
   snapshot: WorkspaceSnapshot;
   sectionId?: string | null;
   clipboardClient?: ClipboardClient;
+  captureClient?: Pick<typeof tauriCaptureClient, 'setActiveSection'> | null;
 }) {
   const m = useMessages();
+  const captureEditor = useCaptureEditor();
   const { executeWorkspaceCommand } = useWorkspace();
   const [query, setQuery] = useState('');
   const deferredQuery = useDebouncedValue(query, 120);
@@ -76,6 +85,9 @@ export function NoteScreen({
   const [activeSectionId, setActiveSectionId] = useState<string | null>(sectionId);
   const [selection, dispatchSelection] = useReducer(selectionReducer, emptySelection);
   const [editorId, setEditorId] = useState<string | null>(null);
+  const [newDraft, setNewDraft] = useState<NewDraft | null>(null);
+  const [editorHasUnsavedDraft, setEditorHasUnsavedDraft] = useState(false);
+  const [editorFocusRequest, setEditorFocusRequest] = useState(0);
   const [sectionManagerOpen, setSectionManagerOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -91,6 +103,8 @@ export function NoteScreen({
   const [copyPreviewError, setCopyPreviewError] = useState<ClipboardIpcError | null>(null);
   const [copyPreviewLoading, setCopyPreviewLoading] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const handledCaptureRequest = useRef(0);
+  const nextDraftKey = useRef(1);
 
   const indexedNotes = useMemo(() => createSearchIndex(snapshot).sort(compareNotes), [snapshot]);
   const notes = useMemo(
@@ -106,6 +120,9 @@ export function NoteScreen({
   const visibleIds = useMemo(() => notes.map((note) => note.id), [notes]);
   const activeNote = snapshot.notes.find((note) => note.id === selection.activeId) ?? null;
   const editorNote = snapshot.notes.find((note) => note.id === editorId) ?? null;
+  const sections = useMemo(() => orderedSections(snapshot), [snapshot]);
+  const activeSection =
+    sections.find((section) => section.id === activeSectionId) ?? sections[0] ?? null;
   const actionIds = useMemo(
     () =>
       selection.selectedIds.length
@@ -119,7 +136,6 @@ export function NoteScreen({
     () => actionIds.flatMap((id) => snapshot.notes.find((note) => note.id === id) ?? []),
     [actionIds, snapshot.notes],
   );
-  const sections = useMemo(() => orderedSections(snapshot), [snapshot]);
   const trashContext = useMemo(() => {
     const names = Array.from(
       new Set(
@@ -196,6 +212,30 @@ export function NoteScreen({
   useEffect(() => setActiveSectionId(sectionId), [sectionId]);
 
   useEffect(() => {
+    if (!captureClient) return;
+    void captureClient.setActiveSection(activeSection?.id ?? null);
+  }, [activeSection?.id, captureClient]);
+
+  const openNewDraft = useCallback(() => {
+    if (!activeSection) return;
+    setEditorId(null);
+    setNewDraft({ key: `new:${nextDraftKey.current++}`, sectionId: activeSection.id });
+    setEditorFocusRequest((current) => current + 1);
+  }, [activeSection]);
+
+  useEffect(() => {
+    const requestId = captureEditor.request?.requestId;
+    if (!requestId || requestId <= handledCaptureRequest.current) return;
+    handledCaptureRequest.current = requestId;
+    if (newDraft || (editorId && editorHasUnsavedDraft)) {
+      setEditorFocusRequest((current) => current + 1);
+    } else {
+      openNewDraft();
+    }
+    captureEditor.consume(requestId);
+  }, [captureEditor, editorHasUnsavedDraft, editorId, newDraft, openNewDraft]);
+
+  useEffect(() => {
     dispatchSelection({ type: 'reconcile', visibleIds });
   }, [visibleIds]);
 
@@ -230,29 +270,15 @@ export function NoteScreen({
     [executeWorkspaceCommand, m],
   );
 
-  const createNote = useCallback(async () => {
-    const section =
-      snapshot.sections.find((candidate) => candidate.id === activeSectionId) ??
-      snapshot.sections[0];
-    if (!section) return;
-    const existing = new Set(snapshot.notes.map((note) => note.id));
-    const result = await executeWorkspaceCommand(createNoteCommand(snapshot.notes, section.id, ''));
-    const created = result.snapshot.notes.find((note) => !existing.has(note.id));
-    if (created) {
-      setQuery('');
-      setStatus('all');
-      setTrash(false);
-      setActiveSectionId(created.sectionId);
-      dispatchSelection({
-        type: 'click',
-        id: created.id,
-        visibleIds: [created.id],
-        toggle: false,
-        extend: false,
-      });
-      setEditorId(created.id);
-    }
-  }, [activeSectionId, executeWorkspaceCommand, snapshot]);
+  const createNote = useCallback(() => openNewDraft(), [openNewDraft]);
+
+  const createCapturedNote = useCallback(
+    async (body: string) => {
+      if (!activeSection) return;
+      await executeWorkspaceCommand(createNoteCommand(snapshot.notes, activeSection.id, body));
+    },
+    [activeSection, executeWorkspaceCommand, snapshot.notes],
+  );
 
   const setSelectedStatus = useCallback(
     async (nextStatus: 'open' | 'done') => {
@@ -371,7 +397,7 @@ export function NoteScreen({
         category: 'notes',
         defaultShortcut: 'Mod+S',
         allowInEditable: true,
-        isAvailable: () => Boolean(editorId),
+        isAvailable: () => Boolean(editorId || newDraft),
         execute: () => setSaveRequest((current) => current + 1),
       },
       {
@@ -513,6 +539,7 @@ export function NoteScreen({
       createNote,
       copyPreset,
       editorId,
+      newDraft,
       lastUndoToken,
       performLastUndo,
       performCopy,
@@ -559,7 +586,7 @@ export function NoteScreen({
     <div className="note-screen">
       <NoteToolbar
         canCreate={snapshot.sections.length > 0}
-        onCreate={() => void createNote().catch(() => undefined)}
+        onCreate={createNote}
         onManageSections={() => setSectionManagerOpen(true)}
         onQueryChange={setQuery}
         onStatusChange={setStatus}
@@ -578,7 +605,10 @@ export function NoteScreen({
           notes={notes}
           onCopy={(noteId, preset) => void performCopy([noteId], preset)}
           onCopyPreview={(noteId, preset) => void openCopyPreview([noteId], preset)}
-          onOpen={setEditorId}
+          onOpen={(noteId) => {
+            setNewDraft(null);
+            setEditorId(noteId);
+          }}
           onSelection={(action) => {
             if (action.type === 'keyboard') return handleKeyboard(action.event);
             if (action.type === 'toggle') {
@@ -628,13 +658,14 @@ export function NoteScreen({
           </EmptyHeader>
           {emptyKind === 'workspace' && snapshot.sections.length > 0 ? (
             <EmptyContent>
-              <Button onClick={() => void createNote().catch(() => undefined)}>
-                {m.note_new()}
-              </Button>
+              <Button onClick={createNote}>{m.note_new()}</Button>
             </EmptyContent>
           ) : null}
         </Empty>
       )}
+      {!trash && activeSection ? (
+        <CaptureInput onCreate={createCapturedNote} sectionName={activeSection.name} />
+      ) : null}
       {trash ? (
         <TrashView
           count={selection.selectedIds.length}
@@ -659,14 +690,45 @@ export function NoteScreen({
         />
       )}
       <NoteEditor
+        focusRequest={editorFocusRequest}
+        newDraftKey={newDraft?.key ?? null}
         note={editorNote}
         onOpenChange={(open) => {
-          if (!open) setEditorId(null);
+          if (!open) {
+            setEditorId(null);
+            setNewDraft(null);
+          }
         }}
+        onCreate={async (body) => {
+          if (!newDraft) throw new Error('new note destination is unavailable');
+          const existing = new Set(snapshot.notes.map((note) => note.id));
+          const result = await executeWorkspaceCommand(
+            createNoteCommand(snapshot.notes, newDraft.sectionId, body),
+          );
+          const created = result.snapshot.notes.find((note) => !existing.has(note.id));
+          if (!created) throw new Error('created note is unavailable');
+          setQuery('');
+          setStatus('all');
+          setTrash(false);
+          setActiveSectionId(created.sectionId);
+          dispatchSelection({
+            type: 'click',
+            id: created.id,
+            visibleIds: [created.id],
+            toggle: false,
+            extend: false,
+          });
+          return created.id;
+        }}
+        onCreated={(noteId) => {
+          setNewDraft(null);
+          setEditorId(noteId);
+        }}
+        onUnsavedChange={setEditorHasUnsavedDraft}
         onSave={async (noteId, body) => {
           await executeWorkspaceCommand(updateNoteCommand(noteId, body));
         }}
-        open={Boolean(editorNote)}
+        open={Boolean(editorNote || newDraft)}
         saveRequest={saveRequest}
       />
       <CopyPreviewDialog

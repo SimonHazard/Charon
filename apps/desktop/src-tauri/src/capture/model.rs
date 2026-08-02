@@ -22,32 +22,51 @@ pub enum PlatformKind {
     Unknown,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub enum CapturePermissionKind {
+    InputMonitoring,
+    Accessibility,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
 pub struct CaptureCapabilities {
     pub platform: PlatformKind,
     pub standard_shortcut: CapabilityState,
+    pub input_monitoring: CapabilityState,
+    pub accessibility: CapabilityState,
     pub double_shift: CapabilityState,
     pub selected_text: CapabilityState,
     pub active_shortcut: String,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CaptureTrigger {
     StandardShortcut,
-    DoubleShift,
+    DoubleShiftCapture,
+    CommandDoubleShift,
     InApp,
 }
 
-#[derive(Clone, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[derive(Clone, Eq, PartialEq)]
+pub enum CaptureAction {
+    CreateNote { body: String },
+    OpenEditor { request_id: u32 },
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
-pub struct CaptureRequest {
+pub struct CaptureEditorRequest {
     pub request_id: u32,
-    pub trigger: CaptureTrigger,
-    pub prefill: String,
-    pub capabilities: CaptureCapabilities,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct CaptureStatusEvent {
+    pub message_key: String,
 }

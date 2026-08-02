@@ -1,4 +1,5 @@
 import type { AppCommand } from '@/app/commands/command-registry';
+import type { CapabilityState, CapturePermissionKind } from '@/bindings/capture';
 import type { CopyPreset } from '@/bindings/clipboard';
 
 export function createDefaultCommands(actions: {
@@ -71,8 +72,12 @@ export function createCopyCommands(actions: {
 }
 
 export function createCaptureCommands(actions: {
-  doubleShiftAvailable: boolean;
-  openCapture(): void | Promise<void>;
+  doubleShiftState: CapabilityState;
+  inputMonitoringState: CapabilityState;
+  accessibilityState: CapabilityState;
+  selectedTextState: CapabilityState;
+  openEditor(): void | Promise<void>;
+  requestPermission(permission: CapturePermissionKind): void | Promise<void>;
 }): AppCommand[] {
   return [
     {
@@ -80,11 +85,10 @@ export function createCaptureCommands(actions: {
       labelKey: 'command_capture_open',
       descriptionKey: 'command_capture_open_description',
       category: 'capture',
-      defaultShortcut: 'Mod+Shift+Space',
       displayShortcut: 'Mod+Shift+Space',
       allowInEditable: true,
       isAvailable: () => true,
-      execute: actions.openCapture,
+      execute: actions.openEditor,
     },
     {
       id: 'capture.double-shift',
@@ -93,8 +97,45 @@ export function createCaptureCommands(actions: {
       category: 'capture',
       displayShortcut: 'Shift,Shift',
       allowInEditable: true,
-      isAvailable: () => actions.doubleShiftAvailable,
-      execute: actions.openCapture,
+      helpOnly: true,
+      isAvailable: () =>
+        actions.doubleShiftState === 'available' && actions.selectedTextState === 'available',
+      execute: () => undefined,
+    },
+    {
+      id: 'capture.command-double-shift',
+      labelKey: 'command_capture_command_double_shift',
+      descriptionKey: 'command_capture_command_double_shift_description',
+      category: 'capture',
+      displayShortcut: 'Mod+Shift,Shift',
+      allowInEditable: true,
+      helpOnly: true,
+      isAvailable: () => actions.doubleShiftState === 'available',
+      execute: actions.openEditor,
+    },
+    {
+      id: 'capture.request-input-monitoring',
+      labelKey: 'capture_input_monitoring_action',
+      descriptionKey: 'capture_input_monitoring_description',
+      category: 'capture',
+      allowInEditable: true,
+      helpOnly: true,
+      helpAction: true,
+      isAvailable: () =>
+        actions.inputMonitoringState === 'denied' || actions.doubleShiftState === 'error',
+      execute: () => actions.requestPermission('inputMonitoring'),
+    },
+    {
+      id: 'capture.request-accessibility',
+      labelKey: 'capture_accessibility_action',
+      descriptionKey: 'capture_accessibility_description',
+      category: 'capture',
+      allowInEditable: true,
+      helpOnly: true,
+      helpAction: true,
+      isAvailable: () =>
+        actions.accessibilityState === 'denied' || actions.selectedTextState === 'error',
+      execute: () => actions.requestPermission('accessibility'),
     },
   ];
 }

@@ -258,6 +258,12 @@ an owner and command.
   localization, metadata, link, privacy, and rollback tests.
 - Operator-performed manual artifact installation/smoke on macOS and Linux, then
   Windows if supported; agents and workflows stop after artifact verification.
+  The signed/notarized macOS artifact must repeat Plan 011's hybrid acquisition
+  and pasteboard-race matrix after granting Input Monitoring and Accessibility
+  to that exact stable bundle identity. Record AppKit, WebKit,
+  Chromium/Electron including Codex, code editor, PDF, secure/blocked/canvas,
+  rich-pasteboard restoration, and concurrent-write results; ad-hoc debug grants
+  are not release evidence.
 - Signed prerelease update success and tamper rejection from the previous version.
 - Dirty-draft restart deferral and updater opt-out.
 - Manual notarization/signature verification using platform tools documented in
@@ -271,6 +277,10 @@ an owner and command.
 - [ ] Astro static artifact verifies and deploys through a protected Pages job.
 - [ ] EN/FR routes, canonical/base paths, sitemap, media, and privacy checks pass at the deployed URL.
 - [ ] Mac and Linux review artifacts build and verify; Windows status is truthful.
+- [ ] The exact signed/notarized macOS artifact passes the dated AX-first hybrid
+  matrix, including ADR 0010's bounded Copy and pasteboard races, without private
+  APIs, automatic Paste, arbitrary input, clipboard monitoring, OCR, clipboard
+  overwrite, or source-focus theft.
 - [ ] Signing material exists only in protected environment secrets and runner temp.
 - [ ] Signed prerelease updater succeeds; tampering fails; dirty drafts defer restart.
 - [ ] Update privacy and opt-in behavior are visible in EN/FR.

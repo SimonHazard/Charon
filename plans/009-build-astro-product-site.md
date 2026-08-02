@@ -181,14 +181,18 @@ Implement the Design Read and dials from `docs/SITE.md`:
 - no emoji, hand-drawn SVG icon paths, fake logos, fake testimonials, or filler
   phrases such as Seamless, Unleash, Elevate, or Revolutionary.
 
-Capture media from a real app fixture after Plan 008. Provide an optimized AVIF
-or WebP hero image with explicit dimensions and a WebM/MP4 demo plus poster. The
-demo shows select text, trigger capture, save prompt ideas, select multiple, copy
-as a list, then paste manually into an agent chat composer. Do not show private
-content or third-party credentials. Keep each video source within the media
-budget recorded in `docs/SITE.md`; use native controls and captions/transcript.
-Use the same operator-approved raster app icon for the favicon. Do not invent a
-second logo, draw an SVG mark, or present the text wordmark as a registered brand.
+Capture media from a real app fixture after Plan 008 and only after Plan 007's
+application-family matrix passes. Provide an optimized AVIF or WebP hero image
+with explicit dimensions and a WebM/MP4 demo plus poster. The demo shows direct-
+AX selection capture from at least one native text application and bounded
+source-Copy capture from one Chromium/Electron application, then opens Charon,
+selects multiple notes, copies as a list, and pastes manually into an agent chat
+composer. Do not claim access to protected, unsafe, blocked, or canvas content
+and do not show private content or third-party credentials. Keep each video
+source within the media budget recorded
+in `docs/SITE.md`; use native controls and captions/transcript. Use the same
+operator-approved raster app icon for the favicon. Do not invent a second logo,
+draw an SVG mark, or present the text wordmark as a registered brand.
 
 **Verify**: media tests decode assets, assert dimensions/durations/size/alt text,
 and reject placeholder or fake-div screenshots. Build emits responsive images
@@ -213,9 +217,11 @@ animation; a static no-JS capture retains complete content order and CTAs.
 ### Step 6: Build privacy, downloads, and changelog pages
 
 Privacy pages mirror `docs/PRIVACY.md`: local app data, no account/sync/analytics/
-telemetry/crash upload, explicit clipboard/Accessibility behavior, and optional
-update network disclosure. The site itself sets no nonessential cookie/local
-storage except the theme preference, runs no analytics, and submits no forms.
+telemetry/crash upload, explicit Accessibility/Input Monitoring behavior, ADR
+0010's transient clipboard exposure and conditional restoration, no automatic
+Paste, and optional update network disclosure. The site itself sets no
+nonessential cookie/local storage except the theme preference, runs no
+analytics, and submits no forms.
 
 Download pages read checked-in `downloads.json`; before Plan 012 it contains only
 real release-page links and availability states. Plan 012 will generate artifact

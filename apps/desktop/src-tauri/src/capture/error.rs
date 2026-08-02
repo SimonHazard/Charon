@@ -18,8 +18,8 @@ pub enum CaptureError {
     SelectionUnsupported,
     #[error("selected-text capture failed")]
     SelectionFailed,
-    #[error("the quick-capture window is unavailable")]
-    WindowUnavailable,
+    #[error("the main editor is unavailable")]
+    MainEditorUnavailable,
     #[error("the capture coordinator has shut down")]
     Shutdown,
     #[error("the capture runtime lock is unavailable")]
@@ -57,9 +57,10 @@ impl From<CaptureError> for CaptureIpcError {
                 "capture_error_selection_unsupported",
             ),
             CaptureError::SelectionFailed => ("selection_failed", "capture_error_selection_failed"),
-            CaptureError::WindowUnavailable => {
-                ("window_unavailable", "capture_error_window_unavailable")
-            }
+            CaptureError::MainEditorUnavailable => (
+                "main_editor_unavailable",
+                "capture_error_main_editor_unavailable",
+            ),
             CaptureError::Shutdown => ("shutdown", "capture_error_shutdown"),
             CaptureError::RuntimeLock => ("runtime_lock", "capture_error_runtime_lock"),
         };

@@ -4,9 +4,9 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use charon_desktop_lib::capture::{
-    CapabilityState, CaptureCapabilities, CaptureCoordinator, CaptureError, CaptureIpcError,
-    CaptureRequest, CaptureTrigger, CaptureWindowPort, PlatformCapturePort, PlatformKind,
-    ShortcutPort, DEFAULT_CAPTURE_SHORTCUT,
+    CapabilityState, CaptureAction, CaptureCapabilities, CaptureCoordinator, CaptureEditorRequest,
+    CaptureError, CaptureIpcError, CapturePermissionKind, CaptureStatusEvent, CaptureTrigger,
+    PlatformCapturePort, PlatformKind, ShortcutPort, DEFAULT_CAPTURE_SHORTCUT,
 };
 use ts_rs::{Config, TS};
 
@@ -41,11 +41,11 @@ impl ShortcutPort for FakeShortcut {
 struct FakePlatformState {
     double_shift: CapabilityState,
     selected_text: CapabilityState,
-    selected: Option<String>,
-    grant_on_request: bool,
+    selected: Result<Option<String>, CaptureError>,
+    grant_input_on_request: bool,
+    grant_accessibility_on_request: bool,
     starts: usize,
-    remembers: usize,
-    restores: usize,
+    reads: usize,
     resets: usize,
     shutdowns: usize,
 }
@@ -57,11 +57,11 @@ impl PlatformCapturePort for FakePlatform {
         PlatformKind::Macos
     }
 
-    fn double_shift_state(&self) -> CapabilityState {
+    fn input_monitoring_state(&self) -> CapabilityState {
         self.0.lock().expect("platform state").double_shift
     }
 
-    fn selected_text_state(&self) -> CapabilityState {
+    fn accessibility_state(&self) -> CapabilityState {
         self.0.lock().expect("platform state").selected_text
     }
 
@@ -70,25 +70,31 @@ impl PlatformCapturePort for FakePlatform {
         Ok(())
     }
 
-    fn request_permission(&mut self) -> Result<bool, CaptureError> {
+    fn request_permission(
+        &mut self,
+        permission: CapturePermissionKind,
+    ) -> Result<(), CaptureError> {
         let mut state = self.0.lock().expect("platform state");
-        if state.grant_on_request {
-            state.double_shift = CapabilityState::Available;
-            state.selected_text = CapabilityState::Available;
+        match permission {
+            CapturePermissionKind::InputMonitoring if state.grant_input_on_request => {
+                state.double_shift = CapabilityState::Available;
+            }
+            CapturePermissionKind::Accessibility if state.grant_accessibility_on_request => {
+                state.selected_text = CapabilityState::Available;
+            }
+            _ => {}
         }
-        Ok(state.grant_on_request)
+        Ok(())
     }
 
     fn selected_text(&mut self) -> Result<Option<String>, CaptureError> {
-        Ok(self.0.lock().expect("platform state").selected.clone())
-    }
-
-    fn remember_focus_owner(&mut self) {
-        self.0.lock().expect("platform state").remembers += 1;
-    }
-
-    fn restore_focus_owner(&mut self) {
-        self.0.lock().expect("platform state").restores += 1;
+        let mut state = self.0.lock().expect("platform state");
+        state.reads += 1;
+        match &state.selected {
+            Ok(value) => Ok(value.clone()),
+            Err(CaptureError::PermissionDenied) => Err(CaptureError::PermissionDenied),
+            Err(_) => Err(CaptureError::SelectionFailed),
+        }
     }
 
     fn reset_gesture(&mut self) {
@@ -100,107 +106,146 @@ impl PlatformCapturePort for FakePlatform {
     }
 }
 
-#[derive(Default)]
-struct WindowState {
-    requests: Vec<CaptureRequest>,
-    focuses: usize,
-    hides: usize,
-    shutdowns: usize,
-}
-
-struct FakeWindow(Arc<Mutex<WindowState>>);
-
 type CoordinatorFixture = (
     CaptureCoordinator,
     Arc<Mutex<ShortcutState>>,
     Arc<Mutex<FakePlatformState>>,
-    Arc<Mutex<WindowState>>,
 );
-
-impl CaptureWindowPort for FakeWindow {
-    fn open(&mut self, request: &CaptureRequest) -> Result<(), CaptureError> {
-        self.0
-            .lock()
-            .expect("window state")
-            .requests
-            .push(request.clone());
-        Ok(())
-    }
-
-    fn focus(&mut self) -> Result<(), CaptureError> {
-        self.0.lock().expect("window state").focuses += 1;
-        Ok(())
-    }
-
-    fn hide(&mut self) -> Result<(), CaptureError> {
-        self.0.lock().expect("window state").hides += 1;
-        Ok(())
-    }
-
-    fn shutdown(&mut self) {
-        self.0.lock().expect("window state").shutdowns += 1;
-    }
-}
 
 fn coordinator(
     double_shift: CapabilityState,
     selected_text: CapabilityState,
-    selected: Option<&str>,
+    selected: Result<Option<&str>, CaptureError>,
 ) -> CoordinatorFixture {
     let shortcuts = Arc::new(Mutex::new(ShortcutState::default()));
+    let selected = selected.map(|value| value.map(str::to_owned));
     let platform = Arc::new(Mutex::new(FakePlatformState {
         double_shift,
         selected_text,
-        selected: selected.map(str::to_owned),
-        grant_on_request: false,
+        selected,
+        grant_input_on_request: false,
+        grant_accessibility_on_request: false,
         starts: 0,
-        remembers: 0,
-        restores: 0,
+        reads: 0,
         resets: 0,
         shutdowns: 0,
     }));
-    let window = Arc::new(Mutex::new(WindowState::default()));
     let mut coordinator = CaptureCoordinator::new(
         Box::new(FakeShortcut(Arc::clone(&shortcuts))),
         Box::new(FakePlatform(Arc::clone(&platform))),
-        Box::new(FakeWindow(Arc::clone(&window))),
     );
     coordinator.initialize();
-    (coordinator, shortcuts, platform, window)
+    (coordinator, shortcuts, platform)
 }
 
 #[test]
-fn capture_coordinator_prefills_only_when_authorized() {
-    let (mut available, _, _, available_window) = coordinator(
+fn capture_selection_returns_exact_non_empty_body() {
+    let (mut coordinator, _, platform) = coordinator(
         CapabilityState::Available,
         CapabilityState::Available,
-        Some("private draft"),
+        Ok(Some("  private draft\n")),
     );
-    let request = available
-        .trigger(CaptureTrigger::DoubleShift, 1_000)
-        .expect("available capture")
-        .expect("new request");
-    assert_eq!(request.prefill, "private draft");
-    assert_eq!(available_window.lock().expect("window").requests.len(), 1);
+    let action = coordinator
+        .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+        .expect("available capture");
+    match action {
+        Some(CaptureAction::CreateNote { body }) => assert_eq!(body, "  private draft\n"),
+        _ => panic!("expected one note action"),
+    }
+    assert_eq!(platform.lock().expect("platform").reads, 1);
+}
+
+#[test]
+fn empty_denied_and_unsupported_selection_are_no_ops() {
+    for selected in [Ok(None), Ok(Some("")), Ok(Some(" \n\t "))] {
+        let (mut coordinator, _, _) = coordinator(
+            CapabilityState::Available,
+            CapabilityState::Available,
+            selected,
+        );
+        assert!(coordinator
+            .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+            .expect("capture")
+            .is_none());
+    }
 
     for status in [CapabilityState::Denied, CapabilityState::Unsupported] {
-        let (mut fallback, _, _, fallback_window) = coordinator(status, status, None);
-        let request = fallback
-            .trigger(CaptureTrigger::InApp, 2_000)
-            .expect("fallback capture")
-            .expect("new request");
-        assert!(request.prefill.is_empty());
-        assert_eq!(request.capabilities.selected_text, status);
-        assert_eq!(fallback_window.lock().expect("window").requests.len(), 1);
+        let (mut coordinator, _, platform) = coordinator(status, status, Ok(Some("ignored")));
+        assert!(coordinator
+            .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+            .expect("capture")
+            .is_none());
+        assert_eq!(platform.lock().expect("platform").reads, 0);
+    }
+
+    let (mut coordinator, _, _) = coordinator(
+        CapabilityState::Available,
+        CapabilityState::Available,
+        Err(CaptureError::PermissionDenied),
+    );
+    assert!(coordinator
+        .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+        .expect("denied capture")
+        .is_none());
+    assert_eq!(
+        coordinator.capabilities().selected_text,
+        CapabilityState::Denied
+    );
+}
+
+#[test]
+fn editor_sources_never_read_selected_text() {
+    for (index, source) in [
+        CaptureTrigger::StandardShortcut,
+        CaptureTrigger::CommandDoubleShift,
+        CaptureTrigger::InApp,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let (mut coordinator, _, platform) = coordinator(
+            CapabilityState::Available,
+            CapabilityState::Available,
+            Ok(Some("must not be read")),
+        );
+        let action = coordinator
+            .trigger(source, 1_000 + index as u64 * 200)
+            .expect("editor action");
+        assert!(matches!(action, Some(CaptureAction::OpenEditor { .. })));
+        assert_eq!(platform.lock().expect("platform").reads, 0);
     }
 }
 
 #[test]
-fn capture_coordinator_registration_conflict_restores_one_previous_shortcut() {
-    let (mut coordinator, shortcuts, _, _) = coordinator(
+fn enhanced_triggers_fail_closed_without_input_monitoring() {
+    let (mut coordinator, _, platform) = coordinator(
+        CapabilityState::Denied,
+        CapabilityState::Available,
+        Ok(Some("must not be read")),
+    );
+    assert!(coordinator
+        .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+        .expect("denied selection gesture")
+        .is_none());
+    assert!(coordinator
+        .trigger(CaptureTrigger::CommandDoubleShift, 1_010)
+        .expect("denied editor gesture")
+        .is_none());
+    assert!(matches!(
+        coordinator
+            .trigger(CaptureTrigger::StandardShortcut, 1_020)
+            .expect("portable fallback"),
+        Some(CaptureAction::OpenEditor { .. })
+    ));
+    assert_eq!(platform.lock().expect("platform").reads, 0);
+}
+
+#[test]
+fn registration_conflict_restores_one_previous_shortcut() {
+    let (mut coordinator, shortcuts, _) = coordinator(
         CapabilityState::Unsupported,
         CapabilityState::Unsupported,
-        None,
+        Ok(None),
     );
     shortcuts
         .lock()
@@ -227,14 +272,14 @@ fn capture_coordinator_registration_conflict_restores_one_previous_shortcut() {
 }
 
 #[test]
-fn capture_coordinator_deduplicates_overlapping_global_sources_and_keeps_focus() {
-    let (mut coordinator, _, platform, window) = coordinator(
+fn overlapping_sources_are_deduplicated_without_an_extra_action() {
+    let (mut coordinator, _, platform) = coordinator(
         CapabilityState::Available,
         CapabilityState::Available,
-        Some("one"),
+        Ok(Some("one")),
     );
     assert!(coordinator
-        .trigger(CaptureTrigger::DoubleShift, 1_000)
+        .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
         .expect("first")
         .is_some());
     assert!(coordinator
@@ -242,53 +287,48 @@ fn capture_coordinator_deduplicates_overlapping_global_sources_and_keeps_focus()
         .expect("duplicate")
         .is_none());
     assert!(coordinator
-        .trigger(CaptureTrigger::DoubleShift, 1_200)
+        .trigger(CaptureTrigger::CommandDoubleShift, 1_200)
         .expect("later trigger")
         .is_some());
-
-    let window = window.lock().expect("window");
-    assert_eq!(window.requests.len(), 2);
-    assert_eq!(window.focuses, 1);
     assert_eq!(platform.lock().expect("platform").resets, 1);
 }
 
 #[test]
-fn capture_coordinator_restores_the_previous_focus_owner_after_hiding() {
-    let (mut coordinator, _, platform, window) = coordinator(
-        CapabilityState::Unsupported,
-        CapabilityState::Unsupported,
-        None,
-    );
-
-    coordinator
-        .trigger(CaptureTrigger::StandardShortcut, 1_000)
-        .expect("trigger capture");
-    coordinator.hide().expect("hide capture");
-
-    let platform = platform.lock().expect("platform state");
-    assert_eq!(platform.remembers, 1);
-    assert_eq!(platform.restores, 1);
-    assert_eq!(window.lock().expect("window state").hides, 1);
-}
-
-#[test]
-fn capture_coordinator_permission_retry_starts_listener_once() {
-    let (mut coordinator, _, platform, _) = coordinator(
+fn permission_retry_starts_listener_once() {
+    let (mut coordinator, _, platform) = coordinator(
         CapabilityState::Denied,
         CapabilityState::Denied,
-        Some("selection"),
+        Ok(Some("selection")),
     );
-    platform.lock().expect("platform").grant_on_request = true;
-    let capabilities = coordinator.request_permission().expect("permission retry");
+    platform.lock().expect("platform").grant_input_on_request = true;
+    let capabilities = coordinator
+        .request_permission(CapturePermissionKind::InputMonitoring)
+        .expect("input monitoring retry");
     assert_eq!(capabilities.double_shift, CapabilityState::Available);
+    assert_eq!(capabilities.input_monitoring, CapabilityState::Available);
+    assert_eq!(capabilities.selected_text, CapabilityState::Denied);
+    assert_eq!(capabilities.accessibility, CapabilityState::Denied);
+    assert_eq!(platform.lock().expect("platform").starts, 1);
+
+    platform
+        .lock()
+        .expect("platform")
+        .grant_accessibility_on_request = true;
+    let capabilities = coordinator
+        .request_permission(CapturePermissionKind::Accessibility)
+        .expect("accessibility retry");
     assert_eq!(capabilities.selected_text, CapabilityState::Available);
+    assert_eq!(capabilities.accessibility, CapabilityState::Available);
     assert_eq!(platform.lock().expect("platform").starts, 1);
 }
 
 #[test]
-fn capture_coordinator_shutdown_is_idempotent_and_unregisters_everything() {
-    let (mut coordinator, shortcuts, platform, window) =
-        coordinator(CapabilityState::Available, CapabilityState::Available, None);
+fn shutdown_is_idempotent_and_unregisters_everything() {
+    let (mut coordinator, shortcuts, platform) = coordinator(
+        CapabilityState::Available,
+        CapabilityState::Available,
+        Ok(None),
+    );
     coordinator.shutdown();
     coordinator.shutdown();
     assert!(matches!(
@@ -297,7 +337,6 @@ fn capture_coordinator_shutdown_is_idempotent_and_unregisters_everything() {
     ));
     assert!(shortcuts.lock().expect("shortcut").active.is_empty());
     assert_eq!(platform.lock().expect("platform").shutdowns, 1);
-    assert_eq!(window.lock().expect("window").shutdowns, 1);
 }
 
 #[test]
@@ -306,17 +345,19 @@ fn capture_errors_never_contain_selected_content() {
     for error in [
         CaptureError::PermissionDenied,
         CaptureError::SelectionFailed,
-        CaptureError::WindowUnavailable,
+        CaptureError::MainEditorUnavailable,
     ] {
         assert!(!error.to_string().contains(content));
     }
 }
 
 #[test]
-fn capture_contract_serialization_has_stable_capability_names() {
+fn capture_contract_serialization_has_stable_names() {
     let capabilities = CaptureCapabilities {
         platform: PlatformKind::LinuxWayland,
         standard_shortcut: CapabilityState::Available,
+        input_monitoring: CapabilityState::Unsupported,
+        accessibility: CapabilityState::Unsupported,
         double_shift: CapabilityState::Unsupported,
         selected_text: CapabilityState::Denied,
         active_shortcut: DEFAULT_CAPTURE_SHORTCUT.to_owned(),
@@ -326,10 +367,17 @@ fn capture_contract_serialization_has_stable_capability_names() {
         serde_json::json!({
             "platform": "linuxWayland",
             "standardShortcut": "available",
+            "inputMonitoring": "unsupported",
+            "accessibility": "unsupported",
             "doubleShift": "unsupported",
             "selectedText": "denied",
             "activeShortcut": DEFAULT_CAPTURE_SHORTCUT,
         })
+    );
+    assert_eq!(
+        serde_json::to_value(CaptureEditorRequest { request_id: 7 })
+            .expect("serialize editor request"),
+        serde_json::json!({ "requestId": 7 })
     );
 }
 
@@ -342,9 +390,10 @@ fn export_capture_bindings() {
     let declarations = [
         CapabilityState::decl(&config),
         PlatformKind::decl(&config),
+        CapturePermissionKind::decl(&config),
         CaptureCapabilities::decl(&config),
-        CaptureTrigger::decl(&config),
-        CaptureRequest::decl(&config),
+        CaptureEditorRequest::decl(&config),
+        CaptureStatusEvent::decl(&config),
         CaptureIpcError::decl(&config),
     ];
     let mut bindings =

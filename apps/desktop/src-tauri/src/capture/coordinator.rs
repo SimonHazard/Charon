@@ -1,6 +1,6 @@
 use super::{
-    CapabilityState, CaptureCapabilities, CaptureError, CaptureRequest, CaptureTrigger,
-    PlatformKind,
+    CapabilityState, CaptureAction, CaptureCapabilities, CaptureError, CapturePermissionKind,
+    CaptureTrigger, PlatformKind,
 };
 
 pub const DEFAULT_CAPTURE_SHORTCUT: &str = "CmdOrCtrl+Shift+Space";
@@ -13,54 +13,44 @@ pub trait ShortcutPort: Send {
 
 pub trait PlatformCapturePort: Send {
     fn platform(&self) -> PlatformKind;
-    fn double_shift_state(&self) -> CapabilityState;
-    fn selected_text_state(&self) -> CapabilityState;
+    fn input_monitoring_state(&self) -> CapabilityState;
+    fn accessibility_state(&self) -> CapabilityState;
     fn start(&mut self) -> Result<(), CaptureError>;
-    fn request_permission(&mut self) -> Result<bool, CaptureError>;
+    fn request_permission(&mut self, permission: CapturePermissionKind)
+        -> Result<(), CaptureError>;
     fn selected_text(&mut self) -> Result<Option<String>, CaptureError>;
-    fn remember_focus_owner(&mut self) {}
-    fn restore_focus_owner(&mut self) {}
     fn reset_gesture(&mut self);
-    fn shutdown(&mut self);
-}
-
-pub trait CaptureWindowPort: Send {
-    fn open(&mut self, request: &CaptureRequest) -> Result<(), CaptureError>;
-    fn focus(&mut self) -> Result<(), CaptureError>;
-    fn hide(&mut self) -> Result<(), CaptureError>;
     fn shutdown(&mut self);
 }
 
 pub struct CaptureCoordinator {
     shortcut: Box<dyn ShortcutPort>,
     platform: Box<dyn PlatformCapturePort>,
-    window: Box<dyn CaptureWindowPort>,
     capabilities: CaptureCapabilities,
     initialized: bool,
+    listener_started: bool,
     shutdown: bool,
     next_request_id: u32,
     last_trigger_at: Option<u64>,
 }
 
 impl CaptureCoordinator {
-    pub fn new(
-        shortcut: Box<dyn ShortcutPort>,
-        platform: Box<dyn PlatformCapturePort>,
-        window: Box<dyn CaptureWindowPort>,
-    ) -> Self {
+    pub fn new(shortcut: Box<dyn ShortcutPort>, platform: Box<dyn PlatformCapturePort>) -> Self {
         let capabilities = CaptureCapabilities {
             platform: platform.platform(),
             standard_shortcut: CapabilityState::Unsupported,
-            double_shift: platform.double_shift_state(),
-            selected_text: platform.selected_text_state(),
+            input_monitoring: platform.input_monitoring_state(),
+            accessibility: platform.accessibility_state(),
+            double_shift: CapabilityState::Unsupported,
+            selected_text: CapabilityState::Unsupported,
             active_shortcut: DEFAULT_CAPTURE_SHORTCUT.to_owned(),
         };
         Self {
             shortcut,
             platform,
-            window,
             capabilities,
             initialized: false,
+            listener_started: false,
             shutdown: false,
             next_request_id: 1,
             last_trigger_at: None,
@@ -78,11 +68,7 @@ impl CaptureCoordinator {
                 Err(_) => CapabilityState::Error,
             };
         self.refresh_platform_states();
-        if self.capabilities.double_shift == CapabilityState::Available
-            && self.platform.start().is_err()
-        {
-            self.capabilities.double_shift = CapabilityState::Error;
-        }
+        self.start_listener_if_available();
     }
 
     pub fn capabilities(&self) -> CaptureCapabilities {
@@ -117,16 +103,21 @@ impl CaptureCoordinator {
         Ok(self.capabilities())
     }
 
-    pub fn request_permission(&mut self) -> Result<CaptureCapabilities, CaptureError> {
+    pub fn refresh_capabilities(&mut self) -> Result<CaptureCapabilities, CaptureError> {
         self.ensure_active()?;
-        let granted = self.platform.request_permission()?;
         self.refresh_platform_states();
-        if granted
-            && self.capabilities.double_shift == CapabilityState::Available
-            && self.platform.start().is_err()
-        {
-            self.capabilities.double_shift = CapabilityState::Error;
-        }
+        self.start_listener_if_available();
+        Ok(self.capabilities())
+    }
+
+    pub fn request_permission(
+        &mut self,
+        permission: CapturePermissionKind,
+    ) -> Result<CaptureCapabilities, CaptureError> {
+        self.ensure_active()?;
+        self.platform.request_permission(permission)?;
+        self.refresh_platform_states();
+        self.start_listener_if_available();
         Ok(self.capabilities())
     }
 
@@ -134,56 +125,38 @@ impl CaptureCoordinator {
         &mut self,
         trigger: CaptureTrigger,
         timestamp_ms: u64,
-    ) -> Result<Option<CaptureRequest>, CaptureError> {
+    ) -> Result<Option<CaptureAction>, CaptureError> {
         self.ensure_active()?;
         if trigger == CaptureTrigger::StandardShortcut {
             self.platform.reset_gesture();
+        }
+        if matches!(
+            trigger,
+            CaptureTrigger::DoubleShiftCapture | CaptureTrigger::CommandDoubleShift
+        ) && self.capabilities.double_shift != CapabilityState::Available
+        {
+            return Ok(None);
+        }
+        if self.last_trigger_at.is_some_and(|last| timestamp_ms < last) {
+            self.last_trigger_at = None;
         }
         if self
             .last_trigger_at
             .is_some_and(|last| timestamp_ms.saturating_sub(last) <= DUPLICATE_TRIGGER_WINDOW_MS)
         {
             self.last_trigger_at = Some(timestamp_ms);
-            self.window.focus()?;
             return Ok(None);
         }
         self.last_trigger_at = Some(timestamp_ms);
-        self.platform.remember_focus_owner();
 
-        let prefill = if self.capabilities.selected_text == CapabilityState::Available {
-            match self.platform.selected_text() {
-                Ok(Some(text)) => text,
-                Ok(None) => String::new(),
-                Err(CaptureError::PermissionDenied) => {
-                    self.capabilities.selected_text = CapabilityState::Denied;
-                    self.capabilities.double_shift = CapabilityState::Denied;
-                    String::new()
-                }
-                Err(_) => {
-                    self.capabilities.selected_text = CapabilityState::Error;
-                    String::new()
-                }
-            }
-        } else {
-            String::new()
-        };
-
-        let request = CaptureRequest {
-            request_id: self.next_request_id,
-            trigger,
-            prefill,
-            capabilities: self.capabilities(),
-        };
-        self.next_request_id = self.next_request_id.wrapping_add(1).max(1);
-        self.window.open(&request)?;
-        Ok(Some(request))
-    }
-
-    pub fn hide(&mut self) -> Result<(), CaptureError> {
-        self.ensure_active()?;
-        self.window.hide()?;
-        self.platform.restore_focus_owner();
-        Ok(())
+        match trigger {
+            CaptureTrigger::DoubleShiftCapture => self.capture_selection(),
+            CaptureTrigger::StandardShortcut
+            | CaptureTrigger::CommandDoubleShift
+            | CaptureTrigger::InApp => Ok(Some(CaptureAction::OpenEditor {
+                request_id: self.take_request_id(),
+            })),
+        }
     }
 
     pub fn shutdown(&mut self) {
@@ -195,13 +168,51 @@ impl CaptureCoordinator {
             let _ = self.shortcut.unregister(&self.capabilities.active_shortcut);
         }
         self.platform.shutdown();
-        self.window.shutdown();
         self.capabilities.standard_shortcut = CapabilityState::Unsupported;
     }
 
+    fn capture_selection(&mut self) -> Result<Option<CaptureAction>, CaptureError> {
+        if self.capabilities.selected_text != CapabilityState::Available {
+            return Ok(None);
+        }
+        match self.platform.selected_text() {
+            Ok(Some(body)) if !body.trim().is_empty() => {
+                Ok(Some(CaptureAction::CreateNote { body }))
+            }
+            Ok(_) => Ok(None),
+            Err(CaptureError::PermissionDenied) => {
+                self.capabilities.selected_text = CapabilityState::Denied;
+                self.capabilities.accessibility = CapabilityState::Denied;
+                Ok(None)
+            }
+            Err(_) => {
+                self.capabilities.selected_text = CapabilityState::Error;
+                Ok(None)
+            }
+        }
+    }
+
+    fn take_request_id(&mut self) -> u32 {
+        let request_id = self.next_request_id;
+        self.next_request_id = self.next_request_id.wrapping_add(1).max(1);
+        request_id
+    }
+
     fn refresh_platform_states(&mut self) {
-        self.capabilities.double_shift = self.platform.double_shift_state();
-        self.capabilities.selected_text = self.platform.selected_text_state();
+        self.capabilities.input_monitoring = self.platform.input_monitoring_state();
+        self.capabilities.accessibility = self.platform.accessibility_state();
+        self.capabilities.double_shift = self.capabilities.input_monitoring;
+        self.capabilities.selected_text = self.capabilities.accessibility;
+    }
+
+    fn start_listener_if_available(&mut self) {
+        if self.listener_started || self.capabilities.double_shift != CapabilityState::Available {
+            return;
+        }
+        match self.platform.start() {
+            Ok(()) => self.listener_started = true,
+            Err(_) => self.capabilities.double_shift = CapabilityState::Error,
+        }
     }
 
     fn ensure_active(&self) -> Result<(), CaptureError> {

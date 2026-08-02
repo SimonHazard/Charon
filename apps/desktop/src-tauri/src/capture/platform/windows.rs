@@ -1,4 +1,6 @@
-use crate::capture::{CapabilityState, CaptureError, PlatformCapturePort, PlatformKind};
+use crate::capture::{
+    CapabilityState, CaptureError, CapturePermissionKind, PlatformCapturePort, PlatformKind,
+};
 
 pub struct WindowsCaptureAdapter;
 
@@ -7,11 +9,11 @@ impl PlatformCapturePort for WindowsCaptureAdapter {
         PlatformKind::Windows
     }
 
-    fn double_shift_state(&self) -> CapabilityState {
+    fn input_monitoring_state(&self) -> CapabilityState {
         CapabilityState::Unsupported
     }
 
-    fn selected_text_state(&self) -> CapabilityState {
+    fn accessibility_state(&self) -> CapabilityState {
         CapabilityState::Unsupported
     }
 
@@ -19,8 +21,11 @@ impl PlatformCapturePort for WindowsCaptureAdapter {
         Err(CaptureError::ListenerUnavailable)
     }
 
-    fn request_permission(&mut self) -> Result<bool, CaptureError> {
-        Ok(false)
+    fn request_permission(
+        &mut self,
+        _permission: CapturePermissionKind,
+    ) -> Result<(), CaptureError> {
+        Ok(())
     }
 
     fn selected_text(&mut self) -> Result<Option<String>, CaptureError> {

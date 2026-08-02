@@ -238,93 +238,12 @@
   border-left: 1px solid var(--border-subtle);
 }
 
-.capture-window {
-  display: grid;
-  min-height: 100dvh;
-  place-items: center;
-  overflow: hidden;
-  padding: 0.75rem;
-  background: var(--canvas);
-}
-
-.capture-surface {
-  display: flex;
-  width: min(100%, 34rem);
-  max-height: calc(100dvh - 1.5rem);
-  flex-direction: column;
-  gap: 1rem;
-  overflow: auto;
-  padding: 1rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-surface);
-  transform-origin: center 35%;
-}
-
-.capture-heading {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.capture-heading p {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.capture-surface textarea {
-  min-height: 9rem;
-  max-height: 42dvh;
-  resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  line-height: 1.5;
-}
-
-.capture-section-trigger {
-  width: 100%;
-  justify-content: space-between;
-}
-
-.capture-section-popover {
-  width: min(32rem, calc(100vw - 2rem));
-  padding: 0;
-}
-
-.capture-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.capture-status {
-  display: flex;
-  min-height: 2rem;
-  align-items: center;
-  gap: 0.5rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-}
-
-.capture-status > svg {
-  width: 1rem;
-  flex: none;
-}
-
-.capture-status > span {
-  flex: 1;
-}
-
-.capture-status[data-state="denied"],
-.capture-status[data-state="error"] {
-  color: var(--warning);
-}
-
 .shortcut-help-list {
   display: flex;
+  max-height: min(32rem, 70vh);
   flex-direction: column;
   gap: 0.25rem;
+  overflow-y: auto;
 }
 
 .shortcut-help-row {
@@ -335,12 +254,36 @@
   padding: 0.35rem 0;
 }
 
+.shortcut-help-action {
+  margin-bottom: 0.25rem;
+  padding: 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.shortcut-help-action > span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .note-screen {
   display: flex;
   min-height: 0;
   flex: 1;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.note-capture-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.note-capture-input [data-slot="input-group"] {
+  background: var(--surface);
 }
 
 .note-toolbar {
@@ -636,10 +579,6 @@
     background: var(--surface-elevated);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-  }
-
-  .capture-surface {
-    border-color: var(--text-muted);
   }
 }
 

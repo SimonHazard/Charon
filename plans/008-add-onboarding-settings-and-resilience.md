@@ -21,17 +21,21 @@
 ## Why this matters
 
 A local native app still needs clear consent, recoverable setup, and transparent
-capabilities. The user must understand where files live, why macOS may request
-Accessibility, what works on their Linux session, and whether update checks make
-a network request. Settings and diagnostics should reduce support cost without
-leaking prompt content or hiding platform limitations.
+capabilities. The user must understand where files live, why macOS may separately
+request Input Monitoring and Accessibility, how direct Accessibility and the
+bounded source Copy fallback acquire external selections, what transient
+clipboard exposure means, what works on their Linux session, and whether update
+checks make a network request. Settings and diagnostics should
+reduce support cost without leaking prompt content or hiding platform
+limitations.
 
 ## Current state
 
 - Theme and locale persist in the WebView; native shortcut/window/workspace state
   has no unified preference schema.
 - CaptureCoordinator reports runtime capabilities and Workspace reports health.
-- `/settings` and first-run/no-workspace states are placeholders.
+- `/settings` and comprehensive onboarding states are placeholders. Plan 007
+  provides a safe default Workspace plus a minimal directory-chooser fallback.
 - Privacy contract forbids analytics, telemetry, crash upload, content logging,
   and automatic external communication except explicit update checks.
 
@@ -111,14 +115,22 @@ atomic-failure tests pass; generated bindings are current.
 
 ### Step 2: Build progressive first-run onboarding
 
-Show onboarding only when no valid Workspace is open. Keep it short and skippable
-until a directory is required:
+Show onboarding around the already-open default Workspace, or when no valid
+Workspace can be opened. Keep it short and skippable until a directory is
+required:
 
-1. Explain local-only files and choose/create a Workspace.
+1. Explain the visible local default and offer choosing another Workspace.
 2. Show the standard fallback shortcut and test button.
-3. On macOS only, explain exact Accessibility benefits before a user clicks
-   Request; denial is not a dead end.
-4. Confirm privacy, theme, and language choices.
+3. On macOS only, explain Input Monitoring for detecting double Shift and offer
+   its explicit Request action.
+4. Separately explain Accessibility for reading the current accessible
+   selection and, when that fails, invoking one source Copy under ADR 0010.
+   Disclose that selected text can briefly reach the system clipboard and an
+   installed clipboard manager, and that restoration occurs only when no
+   concurrent write happened. Protected, unsafe, blocked, and unsupported
+   surfaces remain unavailable. Then offer the explicit Request action. Denial
+   of either permission is not a dead end.
+5. Confirm privacy, theme, and language choices.
 
 Never request permissions on mount. If reopening the last Workspace fails, keep
 the path private and offer Choose another, Retry, or Inspect recovery details.
@@ -141,8 +153,15 @@ Build sections for General, Appearance & language, Capture shortcuts, Workspace
 & backups, Privacy & updates, and Diagnostics. Use FieldGroup and semantic
 descriptions. The shortcut recorder must reject reserved/invalid accelerators,
 show a conflict before saving, re-register atomically, and always provide Reset.
-Display double Shift as a capability badge with platform-specific explanation,
-not a checkbox when unsupported.
+Display silent double Shift and Command-double-Shift as related capability
+badges with platform-specific explanations, not checkboxes when unsupported.
+The portable accelerator recorder configures main empty-editor reveal. Do not
+add the deferred Copper-like simple presentation mode in this plan.
+On macOS, show Input Monitoring and Accessibility as separate states. Explain
+that Charon tries the bounded public AX path first and then may invoke one
+source Copy with conditional pasteboard restoration. Do not maintain a bundle-
+identifier allowlist or claim access to canvas, protected, blocked, unsafe, or
+otherwise unavailable content. Do not add a clipboard-history surface.
 
 Workspace change warns about unsaved drafts and closes the old watcher only after
 the new workspace validates. Theme and language changes preview immediately and
@@ -195,11 +214,11 @@ appear in serialized output.
 
 ### Step 6: Harden native app lifecycle
 
-Use single-instance to focus the existing main or capture window. Restore only
-safe main-window size/position with bounds checking; never restore the capture
-window as visible. On quit, flush pending Workspace writes, stop watcher/global
-listeners, and persist preferences. On unexpected window close, preserve drafts
-and allow reopen from the platform-supported app lifecycle.
+Use single-instance to focus the existing main window. Restore only safe main-
+window size/position with bounds checking. On quit, flush pending Workspace
+writes, stop watcher/global listeners, and persist preferences. On unexpected
+window close, preserve editor and capture-input drafts and allow reopen from the
+platform-supported app lifecycle.
 
 **Verify**: manual `bun run tauri:dev` smoke starts a second instance, switches
 Workspace, closes/reopens, and quits with one watcher/listener and no lost saved
@@ -210,6 +229,9 @@ data; automated lifecycle units pass.
 - Rust tests for preference schema, migration, atomicity, corrupt backup, and
   diagnostics redaction.
 - Component tests for all onboarding/settings/recovery/capability states.
+- Permission-copy tests distinguish Input Monitoring from Accessibility,
+  disclose ADR 0010's transient clipboard behavior and conditional restoration,
+  and avoid promising access to every source.
 - Interaction tests reverse step/dialog motion mid-flight and assert final focus,
   state, and exactly-once side effects in normal and reduced-motion modes.
 - Accessibility checks for field labeling, step announcement, dialog focus,

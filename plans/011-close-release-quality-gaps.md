@@ -116,7 +116,10 @@ project for layout-critical tests. Cover:
 2. Keyboard-only search, range/select-all-visible, bulk complete, trash, undo.
 3. Merge preview/cancel/confirm/undo.
 4. Copy each preset and preserve native textarea copy.
-5. Capture open/prefill/save/dirty-close/retry with simulated capabilities.
+5. Main input, silent selected-text capture, empty-editor reveal, dirty-draft
+   preservation, public-AX primary acquisition, bounded source-Copy fallback,
+   pasteboard restoration/concurrent-write protection, unavailable-source no-op,
+   and retry with simulated capabilities.
 6. Switch EN/FR and all three themes without losing a draft.
 7. External conflict and crash-recovery decisions.
 8. Optional Stats off; if on, accessible charts and isolated error fallback.
@@ -141,6 +144,17 @@ Document manual VoiceOver on macOS and Orca on Linux protocol. Include full
 keyboard journey and high-contrast checks. Fix the product code only when a test
 or documented manual failure reproduces the issue.
 
+The macOS native checklist must repeat Plan 007's dated application-family and
+pasteboard-race matrix on the release candidate: AppKit editable text,
+Safari/WebKit static text, Chromium/Electron static text including Codex, code
+editor text, Preview PDF text, secure/blocked content, and one canvas surface.
+Record exact app and OS versions, build identifier, acquisition path, whether
+one note was created, whether source focus remained unchanged, and whether the
+pre-existing pasteboard was restored or a concurrent write was preserved.
+Inspect linked symbols/source to confirm no private API, automatic Paste,
+arbitrary input, clipboard monitoring, OCR, or bundle-identifier allowlist
+entered the release path. ADR 0010's one bounded synthetic Copy is expected.
+
 **Verify**: Accessibility command exits 0; `docs/RELEASE_CHECKLIST.md` has an unchecked manual row per target until a human records evidence.
 
 ### Step 4: Establish measured performance budgets
@@ -150,8 +164,10 @@ Add deterministic benchmarks or test harnesses with generous regression budgets:
 - derive/search/filter 20,000 notes under 50ms median on the reference dev host;
 - selection range and command dispatch under 16ms median;
 - visible DOM note rows under 150 at any scroll position;
-- quick-capture window content interactive within 250ms after native show event
-  on the reference macOS smoke build;
+- direct-AX selected-text capture dispatch under 100ms and bounded source-Copy
+  capture under 700ms after the completed gesture, with the main empty editor
+  interactive within 250ms after an editor-reveal event on the reference macOS
+  smoke build;
 - Workspace single-note commit under 100ms median on local temp storage and no
   O(n) full-body rewrite beyond manifest cost;
 - initial Notes JS gzip budget agreed and recorded; chart code absent when flag off.
@@ -177,8 +193,10 @@ runaway render loop, or apply layout animation to virtual rows.
 
 Automate transaction failure injection, disk-full/permission-denied simulation,
 corrupt preferences/manifest, watcher burst, stale revision, clipboard denial,
+pasteboard snapshot/timeout/restore failure, concurrent clipboard write,
 listener registration conflict, and capture permission denial. Confirm no
-acknowledged save disappears and last valid snapshots stay available.
+acknowledged save disappears, no newer clipboard value is overwritten, and last
+valid Workspace snapshots stay available.
 
 Create `check-secrets.ts` to scan built/log/test artifacts for fixture sentinel
 note content, clipboard content, selected text, absolute home paths, tokens, and
@@ -220,6 +238,9 @@ FIXME, skipped test, `only`, or unbounded ignore remains in release code.
   reduced motion/transparency/contrast behavior.
 - [ ] Performance/bundle budgets pass with recorded method and host.
 - [ ] Fault injection proves recoverability and listener/watcher cleanup.
+- [ ] The release-candidate macOS matrix proves AX-first hybrid selection
+  capture, bounded Copy behavior, exact safe restoration, concurrent-write
+  preservation, unavailable-source no-op, and no focus theft.
 - [ ] Privacy scan finds no content, paths, secrets, or private keys in artifacts.
 - [ ] EN/FR parity and generated bindings are current.
 - [ ] Astro static output, metadata, real media, links, privacy, and Core Web Vitals pass.
@@ -229,8 +250,9 @@ FIXME, skipped test, `only`, or unbounded ignore remains in release code.
 
 ## STOP conditions
 
-- Any test demonstrates data loss, silent overwrite, clipboard/content logging,
-  false global shortcut triggers, or an unsupported platform claim.
+- Any test demonstrates Workspace data loss, overwrite of a concurrent clipboard
+  value, clipboard/content logging, false global shortcut triggers, or an
+  unsupported platform claim.
 - The site advertises an unavailable download, emits a tracker request, uses fake
   product media, or diverges from the shared theme contract.
 - A P1 user journey has no deterministic automated layer and no feasible manual gate.

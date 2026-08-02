@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as CaptureRouteImport } from './routes/capture'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StatsRouteImport } from './routes/stats'
@@ -18,11 +17,6 @@ import { Route as StatsRouteImport } from './routes/stats'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CaptureRoute = CaptureRouteImport.update({
-  id: '/capture',
-  path: '/capture',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotesRoute = NotesRouteImport.update({
@@ -43,14 +37,12 @@ const StatsRoute = StatsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/capture': typeof CaptureRoute
   '/notes': typeof NotesRoute
   '/settings': typeof SettingsRoute
   '/stats': typeof StatsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/capture': typeof CaptureRoute
   '/notes': typeof NotesRoute
   '/settings': typeof SettingsRoute
   '/stats': typeof StatsRoute
@@ -58,22 +50,20 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/capture': typeof CaptureRoute
   '/notes': typeof NotesRoute
   '/settings': typeof SettingsRoute
   '/stats': typeof StatsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/capture' | '/notes' | '/settings' | '/stats'
+  fullPaths: '/' | '/notes' | '/settings' | '/stats'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/capture' | '/notes' | '/settings' | '/stats'
-  id: '__root__' | '/' | '/capture' | '/notes' | '/settings' | '/stats'
+  to: '/' | '/notes' | '/settings' | '/stats'
+  id: '__root__' | '/' | '/notes' | '/settings' | '/stats'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CaptureRoute: typeof CaptureRoute
   NotesRoute: typeof NotesRoute
   SettingsRoute: typeof SettingsRoute
   StatsRoute: typeof StatsRoute
@@ -86,13 +76,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/capture': {
-      id: '/capture'
-      path: '/capture'
-      fullPath: '/capture'
-      preLoaderRoute: typeof CaptureRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notes': {
@@ -121,7 +104,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CaptureRoute: CaptureRoute,
   NotesRoute: NotesRoute,
   SettingsRoute: SettingsRoute,
   StatsRoute: StatsRoute,
