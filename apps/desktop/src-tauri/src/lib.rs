@@ -1,4 +1,5 @@
 pub mod clipboard;
+pub mod capture;
 mod ipc;
 pub mod workspace;
 
