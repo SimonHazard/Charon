@@ -53,7 +53,7 @@ turning animation into decoration or coupling Astro to a React runtime.
 
 - Use `shadcn` for component docs and Base UI composition rules.
 - Use `design-taste-frontend` only to verify that the shared token contract can
-  support Plan 009's landing page. It is not the interaction guide for the dense
+  support the landing page now owned by Plan 013. It is not the interaction guide for the dense
   desktop product.
 - Use `apple-design` for the desktop motion contract, spring tuning, material
   hierarchy, interruption behavior, and reduced-motion/transparency fallbacks.
@@ -142,7 +142,7 @@ layers; never stack blurred surfaces. Provide opaque semantic-token fallbacks
 with stronger separators.
 
 Make `apps/site/src/styles/global.css` import the package export and render a
-minimal token swatch check only in tests. Plan 009 owns the actual site UI.
+minimal token swatch check only in tests. Plan 013 owns the actual site UI.
 
 **Verify**: `bun run test:desktop -- theme` -> invalid saved values fall back to light; all three theme attributes and reduced-motion behavior pass. `bun run build:site` -> shared CSS resolves with no duplicated theme definition.
 
@@ -273,6 +273,7 @@ Ensure event listeners unsubscribe exactly once on workspace switch/unmount.
 
 - Review all future components in all three themes and both locales.
 - Change shared tokens through `@charon/theme`; do not patch desktop and site independently.
-- Keep chart colors as semantic tokens so Plan 010 inherits theme behavior.
+- Chart colors were part of this historical plan; Plan 009 removes them after
+  ADR 0011 rejects Insights.
 - Product UI can be compact, but touch/click targets and keyboard focus must not
   be sacrificed for density.

@@ -128,7 +128,7 @@ change; Charon remains a Tauri application.
   selection;
 - private Accessibility APIs, opaque text-marker decoding, recursive tree scans,
   OCR, screen capture, bundle-specific extraction, or a privileged helper;
-- auto-start, stable release signing, or distribution work from Plan 012;
+- auto-start, stable release signing, or distribution work from Plan 015;
 - claiming enhanced Windows, X11, or Wayland capture without their own native
   adapter and physical target evidence.
 
@@ -350,7 +350,7 @@ Physically test:
 - restart registers one listener, one worker, and one accelerator.
 
 Record which cases used direct AX versus Copy fallback. A passing ad-hoc debug
-build is development evidence only; Plan 012 must repeat the matrix on the
+build is development evidence only; Plan 015 must repeat the matrix on the
 stable Developer ID signed artifact.
 
 **Verify**: `docs/platform-support.md` contains no blank or optimistic result;
