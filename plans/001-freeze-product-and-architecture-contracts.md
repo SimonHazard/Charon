@@ -104,6 +104,13 @@ v1 domain model:
 Include acceptance journeys for quick capture, editing, search, keyboard range
 selection, bulk completion, bulk trash, undo, merge preview, copy as list,
 theme/language switching, workspace recovery, and permission denial.
+The original quick-capture baseline defined selected text as the current
+selection exposed through public platform accessibility APIs across native,
+web-engine, editor, and PDF applications. Physical Plan 007 evidence later
+proved that baseline insufficient for Chrome/Codex. ADR 0010 now supersedes the
+blanket clipboard/synthetic-Copy prohibition with one bounded, disclosed Copy
+fallback after direct Accessibility fails. Private APIs, automatic Paste,
+arbitrary input, clipboard monitoring, OCR, and screen capture remain forbidden.
 
 Add a public-site journey: a visitor understands the product and privacy promise,
 watches a real capture/copy demo, switches EN/FR and theme, verifies platform
@@ -151,7 +158,11 @@ dependencies and configs.
 Create ADR 0002 with a support table:
 
 - macOS 14+: double Shift and selected-text capture after Accessibility consent;
-  standard fallback accelerator always available.
+  standard fallback accelerator always available. ADR 0006 later refined the
+  gesture into silent selected-text capture and Command-double-Shift main-editor
+  reveal. ADR 0009 later expanded acquisition from the focused editable element
+  to the public Accessibility selection ladder, including standard ranges and
+  web text-marker ranges on bounded accessible ancestors.
 - Linux X11: standard global accelerator; double Shift only if a proved native
   adapter passes smoke tests.
 - Linux Wayland: do not promise modifier-only global shortcuts; keep a visible
@@ -186,7 +197,8 @@ Create `docs/UX.md` for a dense desktop product, not a landing page:
 - Semantic CSS tokens only. Surface radius 14px, field radius 10px, compact
   control radius 8px. Borders and spacing create hierarchy.
 - Main shell: 240px section rail, flexible note work area, optional contextual
-  inspector. Quick capture: centered 560px window.
+  inspector. The original centered 560px quick-window baseline was superseded
+  by ADR 0006; capture now remains in the main Workspace surface.
 - Density 6/10, visual variance 5/10, motion 4/10. Movement is restrained but
   physical: immediate press feedback, critically damped spring transitions,
   interruptible/reversible state changes, and transform/opacity animation only.
@@ -257,6 +269,9 @@ support, monorepo map, the planned stack, and links to every document. Create
   `bun run check`, `cargo test`, and update the plan status.
 - A rule to create an ADR before changing persistence, privacy, shortcut support,
   or the experimental chart boundary.
+- The later ADR 0010 exception permits exactly one synthetic platform Copy after
+  an explicit selected-text capture gesture; automatic Paste and all other
+  keystroke injection remain forbidden.
 - A rule to use `apple-design` for desktop gestures/motion and to reject
   `transition: all`, gesture state implemented with timers, animation input locks,
   raw scroll listeners, and fixed keyframe timelines for interruptible behavior.
@@ -299,5 +314,9 @@ support, monorepo map, the planned stack, and links to every document. Create
 - Reviewers should challenge domain semantics now, not after migrations exist.
 - Revisit ADR 0002 when Wayland exposes a stable desktop portal for the required
   modifier-only sequence.
+- ADR 0010 records the accepted 2026-08-03 revision from public-AX-only capture
+  to a bounded synthetic-Copy fallback. Treat that later accepted ADR and the
+  current product/privacy contracts as authoritative over this plan's original
+  greenfield baseline.
 - Revisit ADR 0003 after TanStack Charts reaches a stable non-zero release and
   the integration has one release cycle of production evidence.

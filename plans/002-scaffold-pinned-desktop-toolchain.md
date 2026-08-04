@@ -144,7 +144,8 @@ Desktop receives Router, Router plugin, Hotkeys, Virtual, Tauri API/plugins,
 React, Vite, TypeScript 7.0.2, Tailwind Vite, Paraglide, Base UI, Tabler icons,
 shadcn runtime dependencies, `motion` 12.43.0, Zod, Vitest, Testing Library,
 jsdom, Playwright, and Biome as appropriate. Add Tauri process only for the
-updater restart path. Do not add Charts yet; Plan 010 owns it. Motion is a
+updater restart path. Do not add Charts; the 2026-08-04 pivot recorded in
+`plans/README.md` rejects Insights. Motion is a
 desktop dependency only; do not add React, Motion, or an island to Astro and do
 not add a runtime dependency to `@charon/theme`.
 

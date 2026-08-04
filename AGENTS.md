@@ -19,9 +19,10 @@ Before changing anything, read in this order:
 Use the accepted vocabulary exactly. `Workspace` is the durable domain,
 transaction, filesystem, migration, conflict, and recovery boundary.
 `CaptureCoordinator` owns shortcuts, native permissions, selected-text capture,
-and quick-window fallback. `ClipboardComposer` owns deterministic CopyPreset
-formatting and explicit clipboard writes. `Selection` is ordered, ephemeral, and
-never persisted.
+including ADR 0010's bounded capture-specific Copy transaction, and main-editor
+fallback. `ClipboardComposer` owns deterministic CopyPreset formatting and
+explicit clipboard writes. `Selection` is ordered, ephemeral, and never
+persisted.
 
 ## Toolchain and dependency rules
 
@@ -71,8 +72,11 @@ never persisted.
 
 - Preserve local-only behavior: no account, sync, analytics, telemetry, crash
   upload, content upload, or undisclosed network access.
-- Copying is explicit. Never add automatic paste or keystroke injection into a
-  third-party application.
+- Copying is explicit. Never add automatic paste or arbitrary keystroke
+  injection into a third-party application. ADR 0010 permits exactly one
+  synthetic platform Copy command after an explicit selected-text capture
+  gesture, inside its bounded snapshot, change-count, timeout, disclosure, and
+  restoration contract; no other input injection is permitted.
 - Delete means recoverable trash. Permanent deletion is a separate confirmed
   command. Merge requires preview and confirmation and trashes sources in the
   same recoverable transaction that creates the composite.

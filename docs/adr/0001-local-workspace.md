@@ -15,7 +15,7 @@ and test.
 
 ## Decision
 
-Rust is the sole domain and filesystem authority. A `Workspace` is one selected
+Rust is the sole domain and filesystem authority. A `Workspace` is one local
 directory containing `charon.workspace.json`, `notes/<uuid>.md`, and `backups/`.
 Replacement writes use a same-directory temporary file followed by atomic
 rename. Multi-file commands carry recovery metadata and never expose a partial
@@ -42,6 +42,9 @@ adapters, never the reverse.
 - External edits require explicit reconciliation and conflict UX.
 - SQLite, direct React filesystem access, entity repositories, and generic
   service wrappers are rejected for v1.
+
+ADR 0007 supersedes only the first-run location decision: Charon may create a
+safe default under Documents while keeping this directory boundary unchanged.
 
 ## Revisit when
 

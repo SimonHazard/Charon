@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-
+import { useCaptureEditor } from '@/app/capture-editor-context';
 import { AppProviders } from '@/app/providers';
 import { useWorkspace, WorkspaceProvider } from '@/app/workspace-context';
 import type {
@@ -38,6 +39,23 @@ function ReadyNotes() {
   return workspace.snapshot ? <NoteScreen snapshot={workspace.snapshot} /> : null;
 }
 
+let captureRequestId = 0;
+let emitCaptureRequest: (() => void) | undefined;
+let setNotesMounted: ((mounted: boolean) => void) | undefined;
+
+function CaptureRequestBridge() {
+  const { receive } = useCaptureEditor();
+  emitCaptureRequest = () => receive({ requestId: ++captureRequestId });
+  return null;
+}
+
+function RemountableReadyNotes() {
+  const workspace = useWorkspace();
+  const [mounted, setMounted] = useState(true);
+  setNotesMounted = setMounted;
+  return mounted && workspace.snapshot ? <NoteScreen snapshot={workspace.snapshot} /> : null;
+}
+
 function setupClient() {
   let current = initial;
   const execute = vi.fn(async (command: WorkspaceCommand): Promise<WorkspaceCommandResult> => {
@@ -63,6 +81,18 @@ function setupClient() {
             : candidate,
         ),
       };
+    } else if (command.type === 'createNote') {
+      current = {
+        ...current,
+        revision: current.revision + 1,
+        notes: [
+          ...current.notes,
+          {
+            ...note(`created-${current.revision}`, command.body, command.sortKey),
+            sectionId: command.sectionId,
+          },
+        ],
+      };
     }
     return {
       snapshot: current,
@@ -78,13 +108,14 @@ function setupClient() {
   return { client, execute };
 }
 
-function renderScreen(client: WorkspaceClient) {
+function renderScreen(client: WorkspaceClient, withCaptureRequest = false) {
   vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
   return render(
     <AppProviders>
       <WorkspaceProvider client={client}>
         <ReadyNotes />
+        {withCaptureRequest ? <CaptureRequestBridge /> : null}
       </WorkspaceProvider>
     </AppProviders>,
   );
@@ -132,5 +163,85 @@ describe('note screen workflows', () => {
       type: 'batchTrash',
       noteIds: ['two', 'three'],
     });
+  });
+
+  it('creates one normal note from the compact input in the active section', async () => {
+    const user = userEvent.setup();
+    const { client, execute } = setupClient();
+    renderScreen(client);
+    const input = await screen.findByRole('textbox', { name: 'Add a note to Ideas' });
+    await user.type(input, 'Captured inline{Enter}');
+    await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+    expect(execute.mock.calls[0]?.[0]).toMatchObject({
+      type: 'createNote',
+      sectionId: 'section',
+      body: 'Captured inline',
+    });
+  });
+
+  it('opens an unpersisted empty editor and preserves its dirty draft on repeated requests', async () => {
+    const user = userEvent.setup();
+    const { client, execute } = setupClient();
+    renderScreen(client, true);
+    await act(async () => emitCaptureRequest?.());
+    const editor = await screen.findByRole('textbox', { name: 'Markdown body' });
+    expect(document.activeElement).toBe(editor);
+    expect((editor as HTMLTextAreaElement).value).toBe('');
+    expect(execute).not.toHaveBeenCalled();
+
+    await user.type(editor, 'Unsaved thought');
+    await act(async () => emitCaptureRequest?.());
+    expect((editor as HTMLTextAreaElement).value).toBe('Unsaved thought');
+    expect(document.activeElement).toBe(editor);
+    expect(execute).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Save now' }));
+    await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
+    expect(execute.mock.calls[0]?.[0]).toMatchObject({
+      type: 'createNote',
+      sectionId: 'section',
+      body: 'Unsaved thought',
+    });
+  });
+
+  it('replaces a clean existing-note editor with an empty draft on a capture request', async () => {
+    const user = userEvent.setup();
+    const { client, execute } = setupClient();
+    renderScreen(client, true);
+    const first = await screen.findByRole('button', { name: /First.*Ideas.*Open/ });
+    await user.dblClick(first);
+    expect(
+      ((await screen.findByRole('textbox', { name: 'Markdown body' })) as HTMLTextAreaElement)
+        .value,
+    ).toBe('First');
+
+    await act(async () => emitCaptureRequest?.());
+
+    const editor = await screen.findByRole('textbox', { name: 'Markdown body' });
+    expect((editor as HTMLTextAreaElement).value).toBe('');
+    expect(document.activeElement).toBe(editor);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('consumes an editor request so remounting Notes does not replay it', async () => {
+    const { client } = setupClient();
+    render(
+      <AppProviders>
+        <WorkspaceProvider client={client}>
+          <RemountableReadyNotes />
+          <CaptureRequestBridge />
+        </WorkspaceProvider>
+      </AppProviders>,
+    );
+
+    await act(async () => emitCaptureRequest?.());
+    expect(await screen.findByRole('textbox', { name: 'Markdown body' })).toBeTruthy();
+
+    await act(async () => setNotesMounted?.(false));
+    expect(screen.queryByRole('textbox', { name: 'Markdown body' })).toBeNull();
+    await act(async () => setNotesMounted?.(true));
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'Markdown body' })).toBeNull(),
+    );
   });
 });

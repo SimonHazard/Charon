@@ -20,10 +20,11 @@ import {
   type WorkspaceClient,
 } from '@/lib/ipc/workspace-client';
 import { isTauriRuntime } from '@/lib/platform';
+import { m } from '@/paraglide/messages.js';
 
 export type WorkspaceViewState =
   | { status: 'loading'; snapshot: WorkspaceSnapshot | null; error: null }
-  | { status: 'empty'; snapshot: null; error: null }
+  | { status: 'empty'; snapshot: null; error: WorkspaceIpcError | null }
   | { status: 'ready'; snapshot: WorkspaceSnapshot; error: null }
   | { status: 'warning'; snapshot: WorkspaceSnapshot; error: WorkspaceIpcError }
   | { status: 'error'; snapshot: null; error: WorkspaceIpcError };
@@ -38,6 +39,9 @@ export type WorkspaceCommandDraft = {
 type WorkspaceContextValue = WorkspaceViewState & {
   executeWorkspaceCommand(command: WorkspaceCommandDraft): Promise<WorkspaceCommandResult>;
   refreshWorkspace(): Promise<WorkspaceSnapshot>;
+  chooseWorkspace(): Promise<void>;
+  canChooseWorkspace: boolean;
+  isChoosingWorkspace: boolean;
 };
 
 const browserClient: WorkspaceClient = {
@@ -58,7 +62,12 @@ export function WorkspaceProvider({
   children,
   client = isTauriRuntime() ? tauriWorkspaceClient : browserClient,
   workspaceKey = 'current',
-}: PropsWithChildren<{ client?: WorkspaceClient; workspaceKey?: string }>) {
+  defaultSectionName = m.workspace_default_section(),
+}: PropsWithChildren<{
+  client?: WorkspaceClient;
+  workspaceKey?: string;
+  defaultSectionName?: string;
+}>) {
   const [state, setState] = useState<WorkspaceViewState>({
     status: 'loading',
     snapshot: null,
@@ -66,6 +75,9 @@ export function WorkspaceProvider({
   });
   const snapshotRef = useRef<WorkspaceSnapshot | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const defaultSectionNameRef = useRef(defaultSectionName);
+  defaultSectionNameRef.current = defaultSectionName;
+  const [isChoosingWorkspace, setIsChoosingWorkspace] = useState(false);
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
     snapshotRef.current = snapshot;
@@ -133,6 +145,26 @@ export function WorkspaceProvider({
     [applySnapshot, client],
   );
 
+  const chooseWorkspace = useCallback(async () => {
+    if (!client.chooseDirectory || !client.openOrCreate) return;
+    setIsChoosingWorkspace(true);
+    try {
+      const path = await client.chooseDirectory();
+      if (!path) return;
+      const snapshot = await client.openOrCreate(path, defaultSectionName);
+      applySnapshot(snapshot);
+    } catch (error) {
+      const workspaceError = asWorkspaceError(error);
+      setState((current) =>
+        current.snapshot
+          ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
+          : { status: 'empty', snapshot: null, error: workspaceError },
+      );
+    } finally {
+      setIsChoosingWorkspace(false);
+    }
+  }, [applySnapshot, client, defaultSectionName]);
+
   useEffect(() => {
     void workspaceKey;
     let active = true;
@@ -140,12 +172,33 @@ export function WorkspaceProvider({
     setState({ status: 'loading', snapshot: null, error: null });
     snapshotRef.current = null;
     writeQueueRef.current = Promise.resolve();
+    setIsChoosingWorkspace(false);
 
     const connect = async () => {
       try {
-        const snapshot = await client.snapshot();
+        let snapshot: WorkspaceSnapshot;
+        try {
+          snapshot = await client.snapshot();
+        } catch (error) {
+          const workspaceError = asWorkspaceError(error);
+          if (workspaceError.code !== 'not_open' || !client.bootstrapDefault) throw workspaceError;
+          snapshot = await client.bootstrapDefault(defaultSectionNameRef.current);
+        }
         if (!active) return;
         applySnapshot(snapshot);
+      } catch (error) {
+        if (!active) return;
+        const workspaceError = asWorkspaceError(error);
+        setState((current) =>
+          workspaceError.code === 'not_open'
+            ? { status: 'empty', snapshot: null, error: null }
+            : current.snapshot
+              ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
+              : { status: 'empty', snapshot: null, error: workspaceError },
+        );
+      }
+
+      try {
         unsubscribe = await client.subscribe((event) => {
           if (!active) return;
           setState((current) => {
@@ -160,10 +213,10 @@ export function WorkspaceProvider({
         if (!active) return;
         const workspaceError = asWorkspaceError(error);
         setState((current) =>
-          workspaceError.code === 'not_open'
-            ? { status: 'empty', snapshot: null, error: null }
-            : current.snapshot
-              ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
+          current.snapshot
+            ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
+            : current.status === 'empty'
+              ? current
               : { status: 'error', snapshot: null, error: workspaceError },
         );
       }
@@ -177,7 +230,16 @@ export function WorkspaceProvider({
   }, [applySnapshot, client, workspaceKey]);
 
   return (
-    <WorkspaceContext.Provider value={{ ...state, executeWorkspaceCommand, refreshWorkspace }}>
+    <WorkspaceContext.Provider
+      value={{
+        ...state,
+        executeWorkspaceCommand,
+        refreshWorkspace,
+        chooseWorkspace,
+        canChooseWorkspace: Boolean(client.chooseDirectory && client.openOrCreate),
+        isChoosingWorkspace,
+      }}
+    >
       {children}
     </WorkspaceContext.Provider>
   );

@@ -240,8 +240,10 @@
 
 .shortcut-help-list {
   display: flex;
+  max-height: min(32rem, 70vh);
   flex-direction: column;
   gap: 0.25rem;
+  overflow-y: auto;
 }
 
 .shortcut-help-row {
@@ -252,12 +254,36 @@
   padding: 0.35rem 0;
 }
 
+.shortcut-help-action {
+  margin-bottom: 0.25rem;
+  padding: 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+
+.shortcut-help-action > span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
 .note-screen {
   display: flex;
   min-height: 0;
   flex: 1;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.note-capture-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.note-capture-input [data-slot="input-group"] {
+  background: var(--surface);
 }
 
 .note-toolbar {

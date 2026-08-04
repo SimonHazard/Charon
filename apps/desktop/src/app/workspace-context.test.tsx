@@ -30,6 +30,90 @@ function ApiObserver() {
 }
 
 describe('workspace context', () => {
+  it('bootstraps a localized default workspace when none is open', async () => {
+    const bootstrapDefault = vi.fn(async () => snapshot(1));
+    const client: WorkspaceClient = {
+      snapshot: async () =>
+        Promise.reject({
+          code: 'not_open',
+          messageKey: 'workspace_error_not_open',
+        }),
+      bootstrapDefault,
+      subscribe: async () => () => undefined,
+    };
+
+    render(
+      <WorkspaceProvider client={client} defaultSectionName="Boîte de réception">
+        <Observer />
+      </WorkspaceProvider>,
+    );
+
+    await screen.findByText('ready:1');
+    expect(bootstrapDefault).toHaveBeenCalledWith('Boîte de réception');
+  });
+
+  it('keeps directory choice available when default bootstrap fails', async () => {
+    const chooseDirectory = vi.fn(async () => '/local/Notes');
+    const openOrCreate = vi.fn(async () => snapshot(3));
+    const client: WorkspaceClient = {
+      snapshot: async () =>
+        Promise.reject({
+          code: 'not_open',
+          messageKey: 'workspace_error_not_open',
+        }),
+      bootstrapDefault: async () =>
+        Promise.reject({
+          code: 'io',
+          messageKey: 'workspace_error_io',
+        }),
+      chooseDirectory,
+      openOrCreate,
+      subscribe: async () => () => undefined,
+    };
+
+    render(
+      <WorkspaceProvider client={client} defaultSectionName="Inbox">
+        <ApiObserver />
+      </WorkspaceProvider>,
+    );
+
+    await screen.findByText('empty:none');
+    expect(workspaceApi?.canChooseWorkspace).toBe(true);
+    await act(async () => {
+      await workspaceApi?.chooseWorkspace();
+    });
+    expect(chooseDirectory).toHaveBeenCalledTimes(1);
+    expect(openOrCreate).toHaveBeenCalledWith('/local/Notes', 'Inbox');
+    expect(screen.getByText('ready:3')).toBeTruthy();
+  });
+
+  it('leaves the empty state unchanged when directory choice is cancelled', async () => {
+    const openOrCreate = vi.fn(async () => snapshot(3));
+    const client: WorkspaceClient = {
+      snapshot: async () =>
+        Promise.reject({
+          code: 'not_open',
+          messageKey: 'workspace_error_not_open',
+        }),
+      chooseDirectory: async () => null,
+      openOrCreate,
+      subscribe: async () => () => undefined,
+    };
+
+    render(
+      <WorkspaceProvider client={client}>
+        <ApiObserver />
+      </WorkspaceProvider>,
+    );
+
+    await screen.findByText('empty:none');
+    await act(async () => {
+      await workspaceApi?.chooseWorkspace();
+    });
+    expect(openOrCreate).not.toHaveBeenCalled();
+    expect(screen.getByText('empty:none')).toBeTruthy();
+  });
+
   it('loads, accepts newer events, ignores stale events, and cleans up once', async () => {
     let listener: WorkspaceListener | undefined;
     const unsubscribe = vi.fn();
@@ -77,6 +161,29 @@ describe('workspace context', () => {
     );
     await screen.findByText('ready:4');
     await waitFor(() => expect(firstCleanup).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not reconnect an open workspace when the localized default name changes', async () => {
+    const readSnapshot = vi.fn(async () => snapshot(2));
+    const client: WorkspaceClient = {
+      snapshot: readSnapshot,
+      subscribe: async () => () => undefined,
+    };
+    const view = render(
+      <WorkspaceProvider client={client} defaultSectionName="Inbox">
+        <Observer />
+      </WorkspaceProvider>,
+    );
+    await screen.findByText('ready:2');
+
+    view.rerender(
+      <WorkspaceProvider client={client} defaultSectionName="Boîte de réception">
+        <Observer />
+      </WorkspaceProvider>,
+    );
+
+    expect(screen.getByText('ready:2')).toBeTruthy();
+    expect(readSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it('retains the last valid snapshot when subscription setup reports an error', async () => {

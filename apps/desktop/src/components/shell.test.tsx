@@ -43,9 +43,11 @@ describe('shell states', () => {
     expect(await screen.findByText('Choose a workspace')).toBeTruthy();
   });
 
-  it('renders a blocking error when no valid snapshot exists', async () => {
+  it('keeps folder choice enabled when default workspace access fails', async () => {
     const client: WorkspaceClient = {
       snapshot: async () => Promise.reject({ code: 'io', messageKey: 'workspace_error_io' }),
+      chooseDirectory: async () => null,
+      openOrCreate: async () => Promise.reject({ code: 'io', messageKey: 'workspace_error_io' }),
       subscribe: async () => () => undefined,
     };
     render(
@@ -55,8 +57,11 @@ describe('shell states', () => {
         </WorkspaceProvider>
       </AppProviders>,
     );
-    expect(await screen.findByText('Workspace unavailable')).toBeTruthy();
+    expect(await screen.findByText('Choose a workspace')).toBeTruthy();
     expect(screen.getByText(/local files could not be read or written/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose folder' }).hasAttribute('disabled')).toBe(
+      false,
+    );
   });
 
   it('defines the 760px rail handoff and fixed 240px desktop rail', () => {

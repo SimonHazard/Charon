@@ -1,5 +1,6 @@
 import type { ThemeName } from '@charon/theme/theme-contract';
 import { createContext, type PropsWithChildren, useContext, useState } from 'react';
+import { CaptureEditorProvider } from '@/app/capture-editor-context';
 import { CommandProvider } from '@/app/commands/command-provider';
 import { type AppLocale, applyLocale, readLocale } from '@/app/locale';
 import { readTheme, saveTheme } from '@/app/theme';
@@ -32,8 +33,10 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <PreferencesContext.Provider value={{ theme, locale, setTheme, setLocale }}>
       <MotionSystem>
-        <WorkspaceProvider>
-          <CommandProvider>{children}</CommandProvider>
+        <WorkspaceProvider defaultSectionName={m.workspace_default_section()}>
+          <CaptureEditorProvider>
+            <CommandProvider>{children}</CommandProvider>
+          </CaptureEditorProvider>
         </WorkspaceProvider>
       </MotionSystem>
     </PreferencesContext.Provider>

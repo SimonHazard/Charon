@@ -7,6 +7,14 @@ export const motionProfiles = {
   gestureRelease: { type: 'spring', stiffness: 300, damping: 26, mass: 0.9 },
 } as const;
 
+export const surfaceMotionStates = {
+  hidden: { opacity: 0, scale: 0.985 },
+  reducedHidden: { opacity: 0, scale: 1 },
+  visible: { opacity: 1, scale: 1 },
+} as const;
+
+export const reducedSurfaceTransition = { duration: 0.12 } as const;
+
 export function MotionSystem({ children }: PropsWithChildren) {
   return createElement(
     LazyMotion,

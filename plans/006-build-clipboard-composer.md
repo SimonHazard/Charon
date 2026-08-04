@@ -71,9 +71,11 @@ the same exact output without reading clipboard history or injecting input.
 
 **Out of scope**:
 
-- Clipboard monitoring/history, automatic paste, synthetic keystrokes, selected
-  text capture, HTML/rich clipboard payloads, cloud templates, AI rewriting,
-  and changing note status as an implicit side effect of ordinary copy.
+- Clipboard monitoring/history, automatic paste, selected-text acquisition,
+  HTML/rich clipboard output, cloud templates, AI rewriting, and changing note
+  status as an implicit side effect of ordinary copy. ADR 0010's later bounded
+  synthetic-Copy fallback belongs exclusively to Plan 007's native
+  `CaptureCoordinator`; it does not enter `ClipboardComposer`.
 
 ## Git workflow
 
@@ -115,10 +117,12 @@ does not receive a clipboard handle. Expose `clipboard_compose_and_write` and
 `clipboard_preview` commands with generated DTOs. Map permission/platform
 failures to typed codes and never log copied content.
 
-Grant only clipboard write permission for `main` and later `capture` windows.
-Do not grant read or clipboard-monitor permissions. Ensure the command validates
-that requested IDs are present in the passed/current Workspace snapshot and
-uses the selected order.
+Grant ClipboardComposer write permission only to the `main` window. ADR 0006
+later rejected a dedicated capture window. Plan 007's capture-specific native
+adapter may read and conditionally restore the macOS pasteboard only under ADR
+0010; do not expose that access to the WebView or add read/monitor methods to
+ClipboardComposer. Ensure the command validates that requested IDs are present
+in the passed/current Workspace snapshot and uses the selected order.
 
 **Verify**: `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked clipboard::adapter` -> success, denied write, empty input, and no-write-on-compose-error pass; `rg -n "clipboard.*read|read.*clipboard" apps/desktop/src-tauri/capabilities` -> no matches.
 
@@ -174,7 +178,8 @@ runs exactly one batch mutation.
 ## Done criteria
 
 - [ ] Five presets produce deterministic, documented Markdown.
-- [ ] Clipboard access is write-only and composed content never reaches logs.
+- [ ] ClipboardComposer access is write-only and composed content never reaches
+  logs; Plan 007's separate native transaction is outside this module.
 - [ ] Cmd/Ctrl+C respects editable fields and selection order.
 - [ ] Preview and direct copy use the same Rust composer.
 - [ ] UI never imports the Tauri clipboard plugin directly.
@@ -196,5 +201,8 @@ runs exactly one batch mutation.
   before changing whitespace or prefixes.
 - Keep the writer replaceable for tests, but do not create a generic clipboard
   service with unused read/history methods.
+- ADR 0010 does not reopen this completed module. Capture-specific pasteboard
+  snapshot/read/restore remains a private macOS adapter owned by
+  `CaptureCoordinator`.
 - Copy-and-complete is deferred because `docs/PRODUCT.md` does not list it as a
   v1 journey or command; ordinary copy remains side-effect free.
