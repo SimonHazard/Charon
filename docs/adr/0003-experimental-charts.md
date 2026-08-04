@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted as optional and experimental.
+Superseded in full by ADR 0011. Insights and TanStack Charts are intentionally
+rejected for v1, not deferred as an optional feature.
 
 ## Context
 

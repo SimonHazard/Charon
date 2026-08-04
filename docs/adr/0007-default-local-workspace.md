@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted for v1.
+Accepted for v1. ADR 0011 preserves the safe visible default, explicit chooser,
+validation, local-only bootstrap, and one-directory boundary. It supersedes the
+initial-Section naming paragraph and the reference to former Plan 008 settings
+work.
 
 ## Context
 

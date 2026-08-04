@@ -4,7 +4,10 @@
 
 Accepted for v1. This ADR supersedes only the quick-capture-window and focus-
 restoration portions of ADR 0002. ADR 0002 remains authoritative for platform
-capability tiers, permission gates, and the standard accelerator.
+capability tiers, permission gates, and the standard accelerator. ADR 0011
+preserves the one-surface and silent unmodified-capture decisions but supersedes
+the active-Section fallback, Command-double-Shift, empty-editor fallback, Notes-
+work-area input, and possible Copper-like mode.
 
 ## Context
 

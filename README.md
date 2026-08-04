@@ -1,39 +1,72 @@
 # Charon
 
-Charon is a local-first, keyboard-first desktop scratchpad for capturing prompt
-ideas and turning fragments into deliberate Markdown. It combines quick capture,
-sections, search, ordered selection, bulk actions, recoverable merge and trash,
-and deterministic copy presets without hiding user content in a service.
+Charon is a rapid local capture shelf for AI-agent users: turn one useful
+selection or manual entry into one ordinary Markdown Note, enrich it lightly,
+and copy deterministic agent-ready Markdown without sending content to a
+service.
 
 This repository contains the desktop application, static product site, shared
 theme contract, accepted ADRs, and ordered implementation plans.
 
+## Core journeys
+
+- On a proved macOS adapter, select non-empty text and press Shift twice to
+  create exactly one local Note without showing or focusing Charon.
+- On every platform, press `CmdOrCtrl+Shift+Space` to reveal Charon and focus the
+  always-visible bottom composer; Enter creates one Note and empty input does
+  nothing.
+- Search Note bodies and lightweight Tags, switch between Open and Done, and
+  select visible Notes for bulk status, agent-ready copy, or confirmed permanent
+  deletion.
+- Expand one Note into a large Write/Preview editor, edit Tags, and explicitly
+  import regular files as Note-owned managed Attachments inside the Workspace.
+- Choose `Copy as Markdown` to copy deterministic bodies, optional Tags, and
+  optional canonical local paths to managed Attachment copies. Charon never
+  copies Attachment bytes, uploads, or pastes.
+
+Solarized is the first-run theme. Light and Dark remain choices. The desktop is
+one single-column shelf with no persistent navigation rail; compact Preferences
+shows the current Notes folder, theme, language, and capture permissions.
+
 ## Privacy promise
 
-Notes remain as local Markdown files in a user-controlled Workspace, defaulting
-to the visible `Documents/Charon` folder. Charon has no
-account, cloud sync, analytics, telemetry, crash upload, or automatic paste into
-other applications. Clipboard, Input Monitoring, and Accessibility access are
-used only for explicit features with visible permission and fallback behavior.
-On macOS, double Shift first reads the public Accessibility selection and may
-invoke one bounded Copy transaction when the foreground application exposes its
-selection only through its normal Copy command. Optional, user-controlled update
-checks are the only planned desktop network request.
+Notes and managed Attachment copies remain inside one user-controlled local
+`Workspace`, defaulting safely to the visible `Documents/Charon` folder. Charon
+has no account, cloud sync, analytics, telemetry, crash upload, automatic Paste,
+or content upload. The user may explicitly choose another validated local
+Workspace.
 
-See the full [privacy contract](docs/PRIVACY.md).
+On macOS, unmodified double Shift first reads the public Accessibility selection
+and may invoke one bounded source-application Copy transaction when the
+foreground application exposes its selection only through its ordinary Copy
+command. Selected text may briefly enter the system clipboard and be visible to
+a clipboard manager; safe restoration never overwrites a concurrent write.
+
+Permanent Delete always requires a count-specific confirmation. After a
+successful commit, Charon retains neither deleted Markdown nor managed
+Attachment bytes in active files or normal completed transaction backups.
+Operating-system snapshots, external backups, and synchronized-folder history
+remain outside Charon's erasure guarantee. Schema v1 migration preserves active
+Note bodies byte-exactly and moves already-trashed bodies into a visible user-
+owned legacy Markdown archive.
+
+See the full [privacy contract](docs/PRIVACY.md) and
+[ADR 0011](docs/adr/0011-rapid-capture-product.md).
 
 ## Platform support
 
 | Tier | Platform | Contract |
 | --- | --- | --- |
-| Tier 1 enhanced | macOS 14+ | Silent capture first uses public Accessibility selection data, then a disclosed bounded Copy fallback for compatible foreground applications; Input Monitoring and Accessibility consent are required. Command-double-Shift editor reveal needs Input Monitoring only. |
-| Tier 1 standard | Linux X11 | Standard global accelerator. Double Shift requires a proved native adapter and smoke tests. |
-| Fallback | Linux Wayland | Main Notes input and in-app editor command. Modifier-only global shortcuts are not promised. |
-| Test-gated | Windows | Standard accelerator first. Enhanced capture requires signed-build smoke tests. |
+| Enhanced, evidence-gated | macOS 14+ | Unmodified double Shift uses public Accessibility first, then ADR 0010's disclosed bounded Copy fallback. Input Monitoring and Accessibility are separate permissions. Plan 007 proved the development adapter; the refactored and stable signed artifacts must repeat the physical matrix before release advertising. |
+| Standard, evidence-gated | Linux X11 | Visible bottom composer is the safe fallback. The standard global accelerator requires target evidence; modifier-only capture is not claimed. |
+| Visible fallback | Linux Wayland | Visible bottom composer only until compositor and portal evidence proves more. Modifier-only capture is not promised. |
+| Standard, evidence-gated | Windows | Visible bottom composer is the safe fallback. Standard global activation and any enhanced capture require signed-build evidence. |
 
-`CmdOrCtrl+Shift+Space` is the default standard fallback everywhere and opens a
-new empty editor in the main window. The
-platform detail and claim gates live in
+`CmdOrCtrl+Shift+Space` is the portable command contract everywhere: when
+invoked, it reveals Charon and focuses the bottom composer. Global operating-
+system delivery remains evidence-gated. Platform evidence and claim gates live
+in
+[the support ledger](docs/platform-support.md) and
 [ADR 0002](docs/adr/0002-platform-capture.md).
 
 ## Repository layout
@@ -47,20 +80,21 @@ packages/
 ```
 
 Both applications may import `@charon/theme`; they never import each other.
-Root Bun scripts will orchestrate workspace checks while each app owns its
-runtime dependencies and configuration.
+Brand assets, localization, native types, and UI components remain app-owned.
+Root Bun scripts orchestrate workspace checks while each app owns runtime
+dependencies and configuration.
 
 ## Stack
 
 - Bun workspaces with exact dependency pins and one root lockfile.
-- Tauri 2 with Rust as domain and filesystem authority.
-- React 19, Vite, TanStack Router, TanStack Hotkeys, TanStack Virtual, Base UI,
-  Motion, Tabler icons, Tailwind CSS, and Paraglide in the desktop app.
-- Versioned Rust to TypeScript IPC DTOs generated by `ts-rs`.
-- Astro static output for localized public pages and real app media.
-- An optional, feature-flagged Insights route reserved behind a local adapter.
+- Tauri 2 with Rust as domain, migration, managed-Attachment, and filesystem
+  authority.
+- React 19, Vite, Base UI, Motion, Tabler icons, Tailwind CSS, and Paraglide in
+  the desktop app.
+- Versioned Rust-to-TypeScript IPC DTOs generated by `ts-rs`.
+- Astro static output for localized public pages and real application media.
 
-The manifests and lockfiles are authoritative for installed versions; the fixed
+The manifests and lockfiles are authoritative for installed versions. The fixed
 version ledger and execution order remain in [plans/README.md](plans/README.md).
 
 ## Contracts
@@ -70,22 +104,21 @@ version ledger and execution order remain in [plans/README.md](plans/README.md).
 - [Desktop UX](docs/UX.md)
 - [Public site](docs/SITE.md)
 - [Privacy](docs/PRIVACY.md)
+- [Platform evidence](docs/platform-support.md)
 - [ADR 0001: Local Markdown Workspace](docs/adr/0001-local-workspace.md)
 - [ADR 0002: Platform capture capability ladder](docs/adr/0002-platform-capture.md)
-- [ADR 0003: Experimental charts boundary](docs/adr/0003-experimental-charts.md)
 - [ADR 0004: Bun monorepo and static Astro site](docs/adr/0004-bun-monorepo-and-astro-site.md)
 - [ADR 0005: Fluid desktop motion](docs/adr/0005-fluid-desktop-motion.md)
-- [ADR 0006: Focus-preserving capture](docs/adr/0006-focus-preserving-capture.md)
-- [ADR 0007: Default local Workspace](docs/adr/0007-default-local-workspace.md)
-- [ADR 0008: macOS capture permissions and signing identity](docs/adr/0008-macos-capture-permissions-and-signing.md)
-- [ADR 0009: Public Accessibility selection acquisition](docs/adr/0009-public-accessibility-selection.md)
-- [ADR 0010: Bounded synthetic Copy selection fallback](docs/adr/0010-bounded-copy-selection-fallback.md)
+- [ADRs 0008-0010: proved macOS capture contracts](docs/adr/0008-macos-capture-permissions-and-signing.md)
+- [ADR 0011: Rapid-capture product foundation](docs/adr/0011-rapid-capture-product.md)
 - [Implementation plans](plans/README.md)
 
 ## Core vocabulary
 
-`Workspace` is the durable transaction and recovery boundary.
-`CaptureCoordinator` owns platform capture capabilities, direct Accessibility
-acquisition, and the bounded capture-specific Copy fallback.
-`ClipboardComposer` owns deterministic formatting and explicit clipboard writes.
-React owns ephemeral view state and never accesses note files directly.
+`Workspace` is the durable filesystem, transaction, migration, conflict, and
+recovery boundary. `CaptureCoordinator` owns shortcuts, native permissions, and
+selected-text acquisition including ADR 0010's bounded capture-specific Copy
+fallback. `ClipboardComposer` owns the one deterministic explicit
+`Copy as Markdown` write. `Selection` is ordered, ephemeral, reconciled to the
+current Open or Done result, and never persisted. A managed `Attachment` is a
+bounded regular-file copy owned by one Note inside the Workspace.

@@ -5,7 +5,10 @@
 Accepted for v1. The quick-window and focus-restoration portions are superseded
 by ADR 0006. ADR 0010 supersedes the earlier no-clipboard/no-synthetic-Copy
 restriction only for its bounded explicit capture transaction; the capability
-ladder and permission gates remain active.
+ladder and permission gates remain active. ADR 0011 supersedes the configurable
+shortcut catalog, the empty-editor and Command-double-Shift journeys, and
+references to the old Notes input: the one portable accelerator now reveals
+Charon and focuses the bottom composer, and Command-double-Shift is removed.
 
 ## Context
 

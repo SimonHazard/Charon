@@ -1,17 +1,18 @@
 # Platform capture support
 
-This document is the evidence ledger for ADRs 0002, 0006, 0008, 0009, and
-0010. A capability is `supported` only after the exact final build passes its
-complete physical matrix. Runtime capability reporting remains authoritative.
+This document is the evidence ledger for ADRs 0002, 0006, 0008, 0009, 0010,
+and 0011. A capability is `supported` only after the exact final build passes
+its complete physical matrix. Runtime capability reporting remains
+authoritative.
 
 ## Current support state
 
-| Platform | Standard editor reveal | Modifier gestures | Selected-text acquisition | Product status |
+| Platform | Portable composer focus | Modifier capture | Selected-text acquisition | Product status |
 | --- | --- | --- | --- | --- |
-| macOS 14+ | Supported by the final Plan 007 ad-hoc debug matrix | Native passive double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development support is proved. Plan 012 must repeat the matrix on the stable Developer ID signed and notarized artifact before release advertising. |
-| Linux X11 | Pinned Tauri implementation compiles; no physical X11 evidence | Not implemented | Not implemented | Main Notes input and in-app editor command only; global claims unproved. |
-| Linux Wayland | Compositor/portal dependent; no local evidence | No universal modifier-only protocol accepted | Not implemented | Main Notes input and in-app editor command only. |
-| Windows | Pinned Tauri implementation compiles; no signed Windows evidence | Not implemented | Not implemented | Main Notes input and in-app editor command only; global claims unproved. |
+| macOS 14+ | `CmdOrCtrl+Shift+Space` global activation passed in Plan 007; ADR 0011 retargets it to the bottom composer and requires regression evidence after implementation | Native passive unmodified double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development capture support is proved. Plan 012 repeats the refactored physical matrix; Plan 015 repeats it on the stable Developer ID signed and notarized artifact before release advertising. |
+| Linux X11 | Pinned Tauri implementation compiles; physical global-activation evidence remains required | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. |
+| Linux Wayland | Compositor and portal dependent; no local global-activation evidence | No universal modifier-only protocol accepted | Not implemented | Visible bottom composer only; no modifier-only claim. |
+| Windows | Pinned Tauri implementation compiles; no signed Windows evidence | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. |
 
 The macOS fallback does not create a Linux or Windows support claim. Each target
 needs its own accessibility, input, clipboard, focus, permission, and signed-
@@ -51,7 +52,6 @@ Environment first recorded on 2026-07-31 and finally accepted on 2026-08-04:
 - TCC and Charon's localized permission state both confirmed Input Monitoring
   and Accessibility before the final matrix. Charon was restarted once after
   the grant so the passive listener could register.
-- Command held throughout double Shift physically revealed Charon's main editor.
 - Direct AX acquisition physically worked in TextEdit/AppKit and the editable
   Chrome URL field.
 - Static selected text in a Chrome page and selected Codex conversation text did
@@ -91,8 +91,7 @@ without adding content instrumentation.
 | Case | Final result | Acquisition or observation |
 | --- | --- | --- |
 | Fresh launch opens or safely creates the visible default Workspace | Passed | Visible default Workspace opened safely |
-| Portable accelerator reveals the main empty editor from another app | Passed | Charon revealed one focused empty editor; no note |
-| Command-double-Shift reveals one empty editor and creates no note | Passed | Physical hardware gesture; dirty draft remained protected |
+| Portable accelerator activates Charon from another app | Passed for the Plan 007 surface | ADR 0011 now requires reveal plus bottom-composer focus; Plan 012 must verify that refactored target |
 | False-positive gestures do not trigger | Passed | Shift+letter, repeat, hold, mixed Shift, Command change, and three taps were no-ops |
 | Empty selection creates nothing | Passed | No note and no Charon surface |
 | TextEdit/AppKit selection creates one note and leaves clipboard unchanged | Passed | Direct AX, proved before the hybrid fallback and preserved by AX-first ordering |
@@ -107,16 +106,18 @@ without adding content instrumentation.
 | Unchanged, blocked, or slow Copy creates nothing safely | Passed | Bounded no-op |
 | Secure field and canvas-only source create nothing | Passed | Secure/inaccessible no-op |
 | Clipboard-manager disclosure matches observed behavior | Passed | Transient selection may be observed; Charon retains no history |
-| Manual Notes input creates one note and preserves failure text | Passed | One versioned Workspace command; failed draft retained |
+| Manual capture input creates one note and preserves failure text | Passed for the Plan 007 surface | One versioned Workspace command; Plan 012 must repeat against the bottom composer |
 | Restart registers one listener, worker, and accelerator | Passed | One action per gesture after restart |
 
-Ad-hoc debug evidence is development-only. Plan 012 must repeat the same matrix
-on the stable Developer ID signed and notarized artifact before the macOS feature
-is advertised as release-supported.
+Ad-hoc debug evidence is development-only. Plan 012 must repeat the matrix after
+the single-shelf refactor, and Plan 015 must repeat it on the stable Developer ID
+signed and notarized artifact before macOS capture is advertised as release-
+supported.
 
 ## References
 
 - [ADR 0010](adr/0010-bounded-copy-selection-fallback.md)
+- [ADR 0011](adr/0011-rapid-capture-product.md)
 - [Tin SelectionCapture.swift](https://github.com/enzofrasca/tin/blob/main/Tin/Services/SelectionCapture.swift)
 - [Apple DTS Input Monitoring request guidance](https://developer.apple.com/forums/thread/828052)
 - [Apple Accessibility trust API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)

@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted for desktop interaction design.
+Accepted for desktop interaction design. ADR 0011 removes product surfaces used
+by some examples but preserves these motion, material, and accessibility
+invariants for the single shelf and expanded editor.
 
 ## Context
 

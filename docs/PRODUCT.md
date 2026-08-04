@@ -1,205 +1,248 @@
 # Charon product contract
 
-## Users
+This contract implements [ADR 0011](adr/0011-rapid-capture-product.md).
 
-Charon is a local-first, keyboard-first desktop scratchpad for people who build
-prompts, collect implementation ideas, and turn rough fragments into deliberate
-work. Its primary users are developers, designers, researchers, writers, and
-agent users who want capture speed without giving a service their notes.
+## Product promise and users
 
-The product assumes one person, one local workspace, and frequent short editing
-sessions. It must remain understandable to a person who never learns its file
-layout, while keeping that layout transparent to a person who wants to inspect,
-back up, or move it.
+Charon is a rapid local capture shelf for people who work with AI agents. It
+turns one useful selection or one short manual entry into one ordinary Markdown
+Note, then lets the user find it, enrich it lightly, and copy deterministic
+agent-ready Markdown without giving a service access to their content.
+
+Its primary users are developers, designers, researchers, writers, and agent
+users who want keyboard speed, transparent files, and a small surface. Charon
+assumes one person, one active local Workspace, and frequent short sessions. It
+must remain understandable without filesystem knowledge while keeping every
+durable Note visible to users, editors, backup tools, and local agents.
 
 ## Jobs
 
-- Capture a thought without leaving the current task for long.
-- Organize fragments into named sections without imposing a project-management
-  system.
-- Find, select, complete, copy, merge, trash, and restore notes quickly from the
-  keyboard.
-- Compose selected notes into predictable Markdown for a prompt, issue, or
-  document, without silently pasting into another application.
-- Keep durable content in readable local files and recover safely from invalid
-  data, external edits, or lost permissions.
-- Choose English or French and a comfortable light, dark, or Solarized theme
-  without changing the meaning of any command.
+- Capture non-empty selected text without showing Charon or taking source focus
+  on a proved macOS adapter.
+- Create a Note manually from an always-visible bottom composer on every
+  platform.
+- Search Markdown bodies and Tags, switch between Open and Done, and select
+  visible Notes for a small set of bulk actions.
+- Expand one Note to write or preview Markdown, edit lightweight Tags, and add
+  or remove locally managed Attachments.
+- Copy one deterministic agent-ready Markdown document containing Note bodies,
+  Tags, and managed local Attachment paths without copying file bytes or
+  pasting into another application.
+- Permanently delete Notes only after an explicit count-specific confirmation,
+  with an honest account of what Charon can and cannot erase.
+- Keep content in readable local files and recover safely from invalid data,
+  interrupted transactions, migration, external edits, or lost permissions.
+- Choose English or French, Solarized by default, or the optional Light and Dark
+  themes without changing command meaning.
+- Inspect the current Notes folder and choose another validated local Workspace.
 
 ## Domain model
 
 ### Workspace
 
-A `Workspace` is exactly one local directory plus one schema version.
-It is the transaction and recovery boundary for every durable operation. Charon
-never silently combines directories and never relocates one without an explicit
-user choice. On first launch it opens or creates a visible default in
-`Documents/Charon`, without modifying an unrelated directory that already uses
-that name. The user can choose another location explicitly.
-
-### Section
-
-A `Section` has a stable UUID, a user-visible name, a sort key, and created and
-updated timestamps. Renaming or reordering a section does not change its UUID.
+A `Workspace` is exactly one local directory plus one schema version. It is the
+persistence, transaction, migration, conflict, and recovery boundary for every
+durable operation. Charon never combines directories or relocates one without
+explicit choice. First launch safely opens or creates the visible
+`Documents/Charon` default without modifying an unrelated directory already at
+that path. A compact Preferences surface shows the active folder and offers an
+explicit chooser; only a successfully validated choice is remembered.
 
 ### Note
 
-A `Note` has a stable UUID, a section UUID, a Markdown body, an `open` or `done`
-status, a sort key, created and updated timestamps, an optional completed
-timestamp, and an optional `trashedAt` timestamp. Completion does not trash a
-note. Moving a note between sections preserves its UUID.
+A `Note` belongs to the flat Workspace collection. It has a stable UUID, a
+Markdown body, an `open` or `done` status, created and updated timestamps, an
+optional completion timestamp, an ordered set of Tags, and zero or more
+Note-owned Attachments. Changing status, text, Tags, or Attachments preserves
+identity. Active ordering is deterministic and is not manually persisted.
+
+### Tag
+
+A `Tag` is an optional short text label stored directly on one Note. A Note has
+at most 16 Tags; after trimming, each contains 1-48 Unicode scalar values and no
+control or line-break character. Tags are searched and displayed as quiet chips.
+Uniqueness on a Note is case-insensitive, while first-entered spelling and order
+are preserved. Tags have no IDs, colors, nesting, global registry, management
+destination, or navigation hierarchy.
+
+### Attachment
+
+An `Attachment` is a regular non-symlink file outside the Workspace explicitly
+chosen by the user. A Note owns at most 20 Attachments of at most 100 MiB each.
+Rust copies each file to
+`attachments/<note-id>/<attachment-id>[.<safe-extension>]` and persists its
+UUID, validated display basename, generated relative managed path, and creation
+timestamp, never the external source path. Charon does not execute content,
+preview arbitrary formats, adopt unexpected files, upload bytes, or share assets
+across Notes. Removing an Attachment or its Note permanently removes the managed
+file through the same transaction and completed-backup cleanup contract as
+permanent deletion.
 
 ### Selection
 
-A `Selection` is an ephemeral, ordered sequence of note IDs. It follows the
-current visible ordering, is never persisted, and is cleared or reconciled when
-its notes leave the current result set.
+A `Selection` is an ephemeral ordered sequence of Note IDs reconciled to the
+current Open or Done result. It is never persisted and exists only for bulk
+status changes, `Copy as Markdown`, and permanent deletion.
 
-### CopyPreset
+### Copy as Markdown
 
-A `CopyPreset` is one of `plain`, `bulleted`, `numbered`, `task-list`, or
-`sectioned`. Formatting is deterministic for a given ordered selection. Copying
-changes only the clipboard, never note state.
+`Copy as Markdown` is the single explicit composition command. One selected
+Note has no invented heading. Multiple Notes receive `## Note 1`, `## Note 2`,
+and so on in Selection order, separated by `\n\n---\n\n`; surplus blank lines
+beside separators are normalized without otherwise changing bodies. When
+present, `**Tags:**` contains Tags as safely delimited inline-code spans in
+stored order. `**Attachments:**` contains one bullet per Attachment in
+creation/UUID order with its safe display name and canonical absolute managed
+path as safely delimited inline code. Any invalid or missing managed reference
+fails before the clipboard changes. Copying changes only the system clipboard,
+never Note state, and never reads or copies Attachment bytes, uploads, or
+pastes. The action discloses that local managed paths enter the clipboard.
 
-### Merge
+### Permanent delete
 
-A `Merge` creates one composite note in a chosen section, then moves every
-source note to trash in the same recoverable transaction. The user must see a
-preview and explicitly confirm before the transaction. Cancelling changes
-nothing. Undo restores the sources and removes the composite.
-
-### Delete
-
-The ordinary `Delete` command moves notes to trash and remains undoable.
-Permanent deletion is a separate command, available only in trash, with an
-explicit confirmation that names its irreversible effect.
+Delete is a separate, irreversible batch command whose concise confirmation
+names the number of Notes. After a successful commit, active Workspace files and
+normal Charon transaction backups retain neither the deleted Markdown nor its
+managed Attachment bytes. An incomplete crash-recovery record may exist only
+until startup deterministically finishes or rolls back the bounded transaction
+and removes the record. Operating-system snapshots, external backup tools, and
+synchronized folders are outside Charon's erasure guarantee.
 
 ## V1 journeys
 
-### Quick capture
+### Selected-text capture
 
 With non-empty text selected in another application, the user presses Shift
-twice. Charon creates exactly one normal note in the active section without
-showing a window or taking focus. On macOS, Charon first tries public
-Accessibility direct text, standard ranges, and web text-marker ranges through
-bounded focused and pointer-targeted candidate chains. When those return no
-usable text, the explicit gesture may invoke the unchanged foreground
-application's normal Copy command once, read the resulting text, and restore
-the previous pasteboard only when no concurrent clipboard write occurred. This
-bounded compatibility fallback covers applications such as Chrome and Codex
-that can copy a selection without publishing it through the usable AX chain.
+twice. On a proved macOS adapter, Charon creates exactly one ordinary open Note
+without showing a window or taking focus. It first tries the bounded public
+Accessibility ladder from ADR 0009. If that returns no usable text, the explicit
+gesture may run ADR 0010's one bounded source-application Copy transaction,
+read only a newly produced string, and restore the previous pasteboard only
+when no concurrent write occurred.
+
 Empty, whitespace-only, unavailable, malformed, protected, canvas-only, denied,
-timed-out, or safety-rejected selection creates nothing.
+timed-out, or safety-rejected input creates nothing. Acquisition never uses
+private APIs, automatic Paste, arbitrary input injection, clipboard history,
+OCR, screen capture, unbounded Accessibility scans, or application-specific
+extraction. On macOS, gesture detection requires Input Monitoring and text
+acquisition separately requires Accessibility. The standard accelerator and
+manual composer remain available after denial.
 
-Holding Command while pressing Shift twice reveals the main Charon window and
-opens the full editor with an empty draft ready to type. The portable
-`CmdOrCtrl+Shift+Space` fallback performs that same visible journey. Manual fast
-capture uses a compact input in the current Notes work area; Enter creates one
-normal note and empty input does nothing.
+### Manual capture and portable fallback
 
-On macOS, detecting either double-Shift gesture requires Input Monitoring;
-reading the selection for silent capture additionally requires Accessibility.
-Accessibility also permits the one disclosed synthetic Copy fallback after
-direct acquisition fails. Both are explicit, optional permissions. The standard
-accelerator and manual input remain available when either permission is denied.
-Selected-text acquisition never uses private APIs, automatic Paste, arbitrary
-input injection, clipboard monitoring/history, OCR, screen capture, unbounded
-Accessibility scans, or bundle-specific extraction. During the fallback,
-selected text briefly reaches the system clipboard and may be visible to an
-installed clipboard manager before safe restoration.
+The composer is always visible at the bottom of the shelf. It names the active
+local Notes folder context, preserves failed input, creates exactly one open
+Note on Enter, and ignores empty input. On every platform, invoking
+`CmdOrCtrl+Shift+Space` reveals Charon and focuses that composer. It does not
+open a second window or empty editor. The platform support ledger separately
+gates whether the operating system can deliver that accelerator globally.
 
-### Editing
+### Search and Open/Done
 
-The user opens a note with Enter, edits plain Markdown, previews it safely, and
-saves without changing its stable identity or ordering unexpectedly. Escape
-closes the editor only after draft-loss handling is clear.
+The user invokes search with `CmdOrCtrl+F`. Results match Markdown bodies and
+Tags, update without losing keyboard focus, use deterministic ordering, and
+make an empty result explicit. Open and Done filters occupy the top chrome and
+never create separate product destinations.
 
-### Search
+### Selection and status
 
-The user searches note bodies and section names. Results update without losing
-keyboard focus, preserve deterministic ordering, and make it clear when no
-notes match. Clearing search returns to the prior section context.
+Arrow keys move the active Note without changing Selection. Space toggles the
+active Note, Shift plus navigation extends a contiguous range, and
+`CmdOrCtrl+A` selects the current visible result. Bulk status changes are one
+transaction and move Notes predictably between Open and Done. Selection is
+reconciled when the visible result changes.
 
-### Keyboard range selection
+### Editing and enrichment
 
-The user navigates with arrow keys, presses Space to toggle one note, then holds
-Shift while navigating to extend a contiguous range from the selection anchor.
-The selected state is visible in every theme and announced accessibly.
+Enter or the row's hover/focus pencil expands one Note from its live shelf
+position into a large editor. Write/Preview, Markdown editing, Tag editing, and
+the Attachment list and import action live in that one surface. Autosave and
+draft preservation make failure explicit without changing identity. Escape
+closes only after pending input is safe.
 
-### Bulk completion
+The expansion uses transform and opacity based shared layout, remains
+interruptible and reversible, starts from the current presentation value, and
+never locks input. Reduced motion uses a short crossfade or static swap.
 
-The user selects visible open notes and invokes Complete. All selected notes
-become `done` in one transaction, receive completion timestamps, and can be
-undone together.
+### Attachment import and removal
 
-### Bulk trash
+The user explicitly opens a file picker. Rust validates a bounded regular
+non-symlink file, copies it into the Note-owned managed directory, and commits
+metadata and bytes together. Validation, collision, filesystem, and interrupted-
+copy errors retain the editor input and offer a contextual retry. Removal opens
+one concise confirmation naming the managed file, then permanently cleans its
+bytes and completed normal transaction backup in the same transaction.
 
-The user selects notes and presses Delete. A recoverable transaction assigns
-`trashedAt`, removes them from the active view, and offers one grouped undo.
-Nothing is permanently erased by this action.
+### Agent-ready copy
 
-### Undo
+The user chooses `Copy as Markdown` from the compact Actions button on one Note
+or on an ordered Selection. Charon writes the exact deterministic body, optional
+Tags, and optional managed Attachment names and canonical absolute paths. It
+confirms completion, does not read file bytes, and never uploads, pastes, or
+changes a Note.
 
-After a recoverable mutation, the user can invoke Undo from the keyboard or the
-visible acknowledgement. Undo applies the inverse transaction, reports any
-external conflict instead of overwriting it, and restores focus predictably.
+### Irreversible deletion
 
-### Merge preview
+Delete always opens one concise confirmation naming the selected Note count and
+stating that Charon provides no undo. Cancel changes nothing. Success removes
+the Notes and managed Attachments under the permanent-delete contract, clears
+or reconciles Selection, and moves focus to the nearest surviving Note or the
+composer. Failure preserves the current result and offers a contextual recovery
+action.
 
-The user selects two or more notes, chooses Merge, reviews the exact composite
-Markdown and destination section, then confirms. Charon creates the composite
-and trashes the sources atomically; cancel leaves the Workspace untouched.
+### Schema v1 migration
 
-### Copy as list
+Before schema v2 mutation, Charon validates schema v1 and stages a bounded pre-
+migration recovery record. Every active v1 Note keeps its UUID, status,
+timestamps, and body byte-exactly; Tags and Attachments start empty. Already-
+trashed bodies are neither restored nor destroyed: they move to
+`legacy-trash-v1/notes/<uuid>.md` beside an explanatory README, archived
+metadata without bodies, and original v1 manifest metadata, outside the active
+collection. Charon reports the archive location; the user may inspect, move, or
+delete it with ordinary filesystem tools. An existing archive path stops before
+mutation. Interrupted migration resolves to a complete v1 or v2 state and
+removes the bounded recovery record before normal mutation resumes.
 
-The user selects notes in a deliberate order and chooses a CopyPreset, or uses
-the saved default. Charon previews when requested, writes deterministic Markdown
-to the clipboard, confirms completion, and this CopyPreset journey never injects
-or pastes keystrokes.
+### Theme, language, and folder choice
 
-### Theme and language switching
+Solarized is the first-run theme and maps the approved Charon Prune, Lavender,
+and Cream identity through semantic roles. Light and Dark remain choices. Theme
+and English/French language changes update the current surface without restart
+or focus loss. Preferences shows the active Workspace and remembers a new
+folder only after Rust validates it successfully; no Note content is stored in
+preferences.
 
-The user changes among light, graphite dark, and Solarized themes and switches
-between English and French. The current screen updates without restart, focus is
-preserved, and all user-facing application strings come from the selected
-Paraglide catalog.
+### Recovery and permission denial
 
-### Workspace recovery
-
-When the manifest, a note, or an interrupted write is invalid, Charon stops
-mutating the Workspace, identifies the affected files, preserves originals and
-backups, and offers a recovery path. It never silently discards user content or
-claims success while some notes were skipped.
-
-### Permission denial
-
-If filesystem, Input Monitoring, Accessibility, selected-text capture, or clipboard access is
-denied, Charon explains which feature is affected and why. It offers the
-standard shortcut, visible main-window input, or retry path while
-the core local note workflow remains usable.
+Invalid files, external conflicts, interrupted transactions, denied filesystem
+access, denied capture permissions, and clipboard failures appear beside the
+affected operation. Errors are content-free, preserve input, identify the local
+scope, and offer retry, chooser, or recovery. Removing a generic Error page does
+not remove these states.
 
 ### Public site
 
-A visitor can understand the product and local-only privacy promise, watch a
-real capture-and-copy demo, switch between English and French and between
-themes, verify the current platform support tier, and reach a real signed
-download or GitHub Release. The static site performs no tracking and never
-presents a fake application UI or an unverified download.
+A visitor can understand the one-gesture-to-one-Note workflow, local-only
+privacy, Tags, managed Attachments, agent-ready copy, honest platform tiers, and
+visible local files. The static site uses the approved brand direction and real
+application media, performs no tracking, and links only to verified signed
+downloads or real GitHub Releases.
 
 ## Non-goals
 
-- Accounts, cloud sync, collaboration, shared workspaces, or a hosted database.
+- Accounts, cloud sync, collaboration, shared workspaces, or hosted storage.
 - Analytics, telemetry, crash upload, advertising, or behavioral profiling.
-- Automatic paste, arbitrary keystroke injection, or autonomous interaction
-  with third-party applications. ADR 0010's single synthetic Copy command after
-  an explicit capture gesture is the only narrow exception.
-- Full WYSIWYG editing, rich project management, reminders, or team workflows.
-- A cross-framework component library, dynamic marketing backend, CMS, forms,
-  or newsletter.
-- Guaranteed modifier-only global shortcuts on platforms where the operating
-  system does not expose a proven native capability.
-- Insights or charts as a dependency of capture, editing, search, copy, or
-  recovery.
-- A second quick-capture window or a special Quick Note entity.
-- A Copper-like compact presentation mode in v1; it remains an optional future
-  view over the same commands and Workspace.
+- Automatic Paste, arbitrary keystroke injection, autonomous third-party app
+  interaction, or another network request beyond disclosed optional updates.
+- Hierarchical organization, manual ordering, multiple product routes, project
+  management, reminders, or team workflows.
+- Colored, nested, globally managed, or navigation-oriented Tags.
+- External-path Attachments, symlink following, arbitrary preview, execution,
+  upload, or a cross-Note asset library.
+- Multiple clipboard formats or automatic delivery of Attachment bytes to an
+  agent.
+- A second capture window, compact alternate mode, generic Error destination,
+  or configurable shortcut catalog.
+- Modifier-only capture claims on Linux or Windows before native signed-build
+  evidence passes the accepted gates.
+- Charts or analytics-style product surfaces in v1.
