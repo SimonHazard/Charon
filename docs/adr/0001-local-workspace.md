@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted for v1.
+Accepted for v1. ADR 0011 supersedes only the v1 manifest/Section/Trash shape
+in the first Decision paragraph and the corresponding structure assumption in
+the first Consequences bullet. Rust authority, the Workspace boundary, atomic
+writes, recovery, typed IPC, dependency direction, and adapter seams remain.
 
 ## Context
 
@@ -45,6 +48,9 @@ adapters, never the reverse.
 
 ADR 0007 supersedes only the first-run location decision: Charon may create a
 safe default under Documents while keeping this directory boundary unchanged.
+ADR 0011 later replaces the active model with flat schema v2 Notes and managed
+Attachments while preserving that same directory, authority, and durability
+boundary.
 
 ## Revisit when
 
