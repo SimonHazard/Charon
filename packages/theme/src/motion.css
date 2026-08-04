@@ -1,26 +1,33 @@
 :root {
-  --motion-duration-feedback: 90ms;
-  --motion-duration-surface: 360ms;
-  --motion-easing-feedback: cubic-bezier(0.2, 0, 0, 1);
-  --motion-easing-surface: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-duration-direct: 90ms;
+  --motion-easing-direct: cubic-bezier(0.2, 0, 0, 1);
   --motion-press-scale: 0.98;
+
+  --motion-duration-surface: 360ms;
+  --motion-easing-surface: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-surface-distance: 16px;
-  --motion-duration-direct: var(--motion-duration-feedback);
-  --motion-easing-direct: var(--motion-easing-feedback);
+
+  --motion-gesture-release-response: 400ms;
+  --motion-gesture-release-damping: 0.8;
+
   --material-blur: 18px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --motion-duration-feedback: 0ms;
-    --motion-duration-surface: 120ms;
+    --motion-duration-direct: 0ms;
     --motion-press-scale: 1;
+    --motion-duration-surface: 120ms;
+    --motion-surface-distance: 0px;
+    --motion-gesture-release-response: 0ms;
+    --motion-gesture-release-damping: 1;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --material-titlebar: var(--canvas);
+    --material-titlebar: var(--material-titlebar-solid);
+    --material-transient: var(--material-transient-solid);
     --material-blur: 0px;
   }
 }

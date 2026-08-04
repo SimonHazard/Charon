@@ -1,7 +1,4 @@
 ---
-import { Image } from 'astro:assets';
-
-import charonMark from '../../assets/charon-mark.svg';
 import '../../styles/global.css';
 ---
 
@@ -11,11 +8,14 @@ import '../../styles/global.css';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="generator" content={Astro.generator} />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/brand/charon-app-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Charon — socle desktop local</title>
   </head>
   <body>
     <main class="smoke-shell">
-      <Image src={charonMark} alt="" width={64} height={64} />
+      <img src="/brand/charon-icon-lavender.svg" alt="" width="64" height="64" />
       <p class="eyebrow">Route française statique</p>
       <h1>Charon</h1>
       <p>La chaîne d’outils desktop locale est prête.</p>

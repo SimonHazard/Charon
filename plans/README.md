@@ -28,7 +28,7 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 006 | Build ClipboardComposer and copy workflows | P1 | M | 005 | DONE |
 | 007 | Build focus-preserving selected-text capture and native shortcuts | P1 | XL | 003-006 | DONE |
 | 008 | [Refound Charon around rapid capture](./008-freeze-rapid-capture-product.md) | P1 | M | 001-007 | DONE |
-| 009 | [Integrate the approved brand and Solarized-first token system](./009-integrate-brand-and-solarized-system.md) | P1 | M | 008 | TODO |
+| 009 | [Integrate the approved brand and Solarized-first token system](./009-integrate-brand-and-solarized-system.md) | P1 | M | 008 | DONE |
 | 010 | [Simplify the Workspace and agent-ready copy domain](./010-simplify-workspace-and-copy-domain.md) | P1 | XL | 008 | TODO |
 | 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | TODO |
 | 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | TODO |
