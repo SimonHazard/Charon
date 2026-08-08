@@ -16,7 +16,9 @@ pub struct WorkspaceRuntime {
 }
 
 #[tauri::command]
-pub fn workspace_choose_directory(app: AppHandle) -> Result<Option<String>, WorkspaceIpcError> {
+pub async fn workspace_choose_directory(
+    app: AppHandle,
+) -> Result<Option<String>, WorkspaceIpcError> {
     app.dialog()
         .file()
         .blocking_pick_folder()
@@ -243,9 +245,13 @@ fn emit_pending(app: &AppHandle, workspace: &mut Workspace) {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::future::Future;
 
-    use super::{execute_capture_note, open_or_create_workspace, resolve_default_workspace_path};
-    use crate::workspace::Workspace;
+    use super::{
+        execute_capture_note, open_or_create_workspace, resolve_default_workspace_path,
+        workspace_choose_directory,
+    };
+    use crate::workspace::{Workspace, WorkspaceIpcError};
     use tempfile::tempdir;
 
     #[test]
@@ -265,6 +271,18 @@ mod tests {
     fn capture_note_rejects_whitespace() {
         let mut workspace = Workspace::in_memory().expect("workspace");
         assert!(!execute_capture_note(&mut workspace, "  \n".to_owned()).expect("capture note"));
+    }
+
+    #[test]
+    fn workspace_chooser_remains_async_for_the_native_dialog_event_loop() {
+        fn assert_async_command<F, Fut>(_command: F)
+        where
+            F: FnOnce(tauri::AppHandle) -> Fut,
+            Fut: Future<Output = Result<Option<String>, WorkspaceIpcError>>,
+        {
+        }
+
+        assert_async_command(workspace_choose_directory);
     }
 
     #[test]
