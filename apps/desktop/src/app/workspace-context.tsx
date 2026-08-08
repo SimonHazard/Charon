@@ -20,7 +20,6 @@ import {
   type WorkspaceClient,
 } from '@/lib/ipc/workspace-client';
 import { isTauriRuntime } from '@/lib/platform';
-import { m } from '@/paraglide/messages.js';
 
 export type WorkspaceViewState =
   | { status: 'loading'; snapshot: WorkspaceSnapshot | null; error: null }
@@ -62,11 +61,9 @@ export function WorkspaceProvider({
   children,
   client = isTauriRuntime() ? tauriWorkspaceClient : browserClient,
   workspaceKey = 'current',
-  defaultSectionName = m.workspace_default_section(),
 }: PropsWithChildren<{
   client?: WorkspaceClient;
   workspaceKey?: string;
-  defaultSectionName?: string;
 }>) {
   const [state, setState] = useState<WorkspaceViewState>({
     status: 'loading',
@@ -75,8 +72,6 @@ export function WorkspaceProvider({
   });
   const snapshotRef = useRef<WorkspaceSnapshot | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const defaultSectionNameRef = useRef(defaultSectionName);
-  defaultSectionNameRef.current = defaultSectionName;
   const [isChoosingWorkspace, setIsChoosingWorkspace] = useState(false);
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
@@ -151,7 +146,7 @@ export function WorkspaceProvider({
     try {
       const path = await client.chooseDirectory();
       if (!path) return;
-      const snapshot = await client.openOrCreate(path, defaultSectionName);
+      const snapshot = await client.openOrCreate(path);
       applySnapshot(snapshot);
     } catch (error) {
       const workspaceError = asWorkspaceError(error);
@@ -163,7 +158,7 @@ export function WorkspaceProvider({
     } finally {
       setIsChoosingWorkspace(false);
     }
-  }, [applySnapshot, client, defaultSectionName]);
+  }, [applySnapshot, client]);
 
   useEffect(() => {
     void workspaceKey;
@@ -182,7 +177,7 @@ export function WorkspaceProvider({
         } catch (error) {
           const workspaceError = asWorkspaceError(error);
           if (workspaceError.code !== 'not_open' || !client.bootstrapDefault) throw workspaceError;
-          snapshot = await client.bootstrapDefault(defaultSectionNameRef.current);
+          snapshot = await client.bootstrapDefault();
         }
         if (!active) return;
         applySnapshot(snapshot);

@@ -1,433 +1,573 @@
 use std::fs;
 use std::path::Path;
-use std::thread;
-use std::time::{Duration, Instant};
 
 use charon_desktop_lib::workspace::{
-    NoteDto, NoteStatus, SectionDto, Workspace, WorkspaceChangedEvent, WorkspaceCommand,
-    WorkspaceCommandResult, WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind,
-    WorkspaceIpcError, WorkspaceSnapshot,
+    AttachmentDto, MigrationFailure, NoteDto, NoteStatus, StorageFailure, Workspace,
+    WorkspaceChangedEvent, WorkspaceCommand, WorkspaceCommandResult, WorkspaceError,
+    WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceIpcError,
+    WorkspaceSnapshot,
 };
+use serde_json::json;
+use tempfile::tempdir;
 use ts_rs::{Config, TS};
 
-fn exercise_contract(mut workspace: Workspace) {
+fn exercise_flat_contract(mut workspace: Workspace) {
     let initial = workspace.snapshot().expect("initial snapshot");
-    assert_eq!(initial.schema_version, 1);
-    assert_eq!(initial.sections.len(), 1);
-    let section_id = initial.sections[0].id.clone();
-
+    assert_eq!(initial.schema_version, 2);
+    assert!(initial.notes.is_empty());
     let created = workspace
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: initial.revision,
-            section_id: section_id.clone(),
-            body: "portable **Markdown**".to_owned(),
-            sort_key: 10,
+            body: "  exact body\n".to_owned(),
         })
-        .expect("create note");
-    let note_id = created.snapshot.notes[0].id.clone();
-    assert_eq!(created.snapshot.notes[0].body, "portable **Markdown**");
-
-    let completed = workspace
-        .execute(WorkspaceCommand::BatchSetStatus {
+        .expect("create");
+    let id = created.snapshot.notes[0].id.clone();
+    assert_eq!(created.snapshot.notes[0].body, "  exact body\n");
+    let tagged = workspace
+        .execute(WorkspaceCommand::SetNoteTags {
             expected_revision: created.snapshot.revision,
-            note_ids: vec![note_id.clone()],
-            status: NoteStatus::Done,
+            note_id: id.clone(),
+            tags: vec![" Research ".to_owned(), "Agent".to_owned()],
         })
-        .expect("complete note");
-    assert_eq!(completed.snapshot.notes[0].status, NoteStatus::Done);
-    assert!(completed.snapshot.notes[0].completed_at.is_some());
-
-    let trashed = workspace
-        .execute(WorkspaceCommand::BatchTrash {
-            expected_revision: completed.snapshot.revision,
-            note_ids: vec![note_id],
-        })
-        .expect("trash note");
-    assert!(trashed.snapshot.notes[0].trashed_at.is_some());
-
-    let restored = workspace
-        .execute(WorkspaceCommand::Undo {
-            expected_revision: trashed.snapshot.revision,
-            transaction_id: trashed.undo_token.expect("undo token"),
-        })
-        .expect("undo trash");
-    assert!(restored.snapshot.notes[0].trashed_at.is_none());
-    assert_eq!(restored.snapshot.revision, 4);
-
-    let stale = workspace.execute(WorkspaceCommand::RenameSection {
-        expected_revision: 0,
-        section_id,
-        name: "Stale".to_owned(),
-    });
-    assert!(matches!(
-        stale,
-        Err(charon_desktop_lib::workspace::WorkspaceError::StaleRevision { .. })
-    ));
-}
-
-#[test]
-fn workspace_same_command_contract_runs_against_memory_and_real_storage() {
-    exercise_contract(Workspace::in_memory("Inbox".to_owned()).expect("memory Workspace"));
-    let root = tempfile::tempdir().expect("real Workspace directory");
-    exercise_contract(Workspace::create(root.path(), "Inbox".to_owned()).expect("real Workspace"));
-}
-
-#[test]
-fn workspace_all_command_variants_preserve_domain_invariants() {
-    let mut workspace = Workspace::in_memory("Inbox".to_owned()).expect("memory Workspace");
-    let initial = workspace.snapshot().expect("initial snapshot");
-    let first_section = initial.sections[0].id.clone();
-
-    let created_section = workspace
-        .execute(WorkspaceCommand::CreateSection {
-            expected_revision: initial.revision,
-            name: "Second".to_owned(),
-            sort_key: 10,
-        })
-        .expect("create section");
-    let second_section = created_section
-        .snapshot
-        .sections
-        .iter()
-        .find(|section| section.id != first_section)
-        .expect("second section")
-        .id
-        .clone();
-    let renamed = workspace
-        .execute(WorkspaceCommand::RenameSection {
-            expected_revision: created_section.snapshot.revision,
-            section_id: second_section.clone(),
-            name: "Renamed".to_owned(),
-        })
-        .expect("rename section");
-    let reordered_section = workspace
-        .execute(WorkspaceCommand::ReorderSection {
-            expected_revision: renamed.snapshot.revision,
-            section_id: second_section.clone(),
-            sort_key: -10,
-        })
-        .expect("reorder section");
-
-    let created_first = workspace
-        .execute(WorkspaceCommand::CreateNote {
-            expected_revision: reordered_section.snapshot.revision,
-            section_id: first_section.clone(),
-            body: "first".to_owned(),
-            sort_key: 0,
-        })
-        .expect("create first note");
-    let first_note = created_first.snapshot.notes[0].id.clone();
-    let updated = workspace
-        .execute(WorkspaceCommand::UpdateNote {
-            expected_revision: created_first.snapshot.revision,
-            note_id: first_note.clone(),
-            body: "first updated".to_owned(),
-        })
-        .expect("update note");
-    let moved = workspace
-        .execute(WorkspaceCommand::MoveNote {
-            expected_revision: updated.snapshot.revision,
-            note_id: first_note.clone(),
-            section_id: second_section.clone(),
-            sort_key: 5,
-        })
-        .expect("move note");
-    let reordered_note = workspace
-        .execute(WorkspaceCommand::ReorderNote {
-            expected_revision: moved.snapshot.revision,
-            note_id: first_note.clone(),
-            sort_key: -5,
-        })
-        .expect("reorder note");
-    let completed = workspace
+        .expect("tags");
+    assert_eq!(tagged.snapshot.notes[0].tags, ["Research", "Agent"]);
+    let done = workspace
         .execute(WorkspaceCommand::SetNoteStatus {
-            expected_revision: reordered_note.snapshot.revision,
-            note_id: first_note.clone(),
+            expected_revision: tagged.snapshot.revision,
+            note_ids: vec![id.clone()],
             status: NoteStatus::Done,
         })
-        .expect("set note status");
-    let trashed = workspace
-        .execute(WorkspaceCommand::TrashNote {
-            expected_revision: completed.snapshot.revision,
-            note_id: first_note.clone(),
+        .expect("done");
+    assert!(done.snapshot.notes[0].completed_at.is_some());
+    let reopened = workspace
+        .execute(WorkspaceCommand::SetNoteStatus {
+            expected_revision: done.snapshot.revision,
+            note_ids: vec![id.clone()],
+            status: NoteStatus::Open,
         })
-        .expect("trash note");
-    let restored = workspace
-        .execute(WorkspaceCommand::RestoreNote {
-            expected_revision: trashed.snapshot.revision,
-            note_id: first_note.clone(),
+        .expect("reopen");
+    assert!(reopened.snapshot.notes[0].completed_at.is_none());
+    let deleted = workspace
+        .execute(WorkspaceCommand::DeleteNotes {
+            expected_revision: reopened.snapshot.revision,
+            note_ids: vec![id],
         })
-        .expect("restore note");
-
-    let created_second = workspace
-        .execute(WorkspaceCommand::CreateNote {
-            expected_revision: restored.snapshot.revision,
-            section_id: first_section.clone(),
-            body: "second".to_owned(),
-            sort_key: 1,
-        })
-        .expect("create second note");
-    let second_note = created_second
-        .snapshot
-        .notes
-        .iter()
-        .find(|note| note.id != first_note)
-        .expect("second note")
-        .id
-        .clone();
-    let batch_moved = workspace
-        .execute(WorkspaceCommand::BatchMove {
-            expected_revision: created_second.snapshot.revision,
-            note_ids: vec![first_note.clone(), second_note.clone()],
-            destination_section_id: first_section.clone(),
-        })
-        .expect("batch move");
-    let batch_completed = workspace
-        .execute(WorkspaceCommand::BatchSetStatus {
-            expected_revision: batch_moved.snapshot.revision,
-            note_ids: vec![first_note.clone(), second_note.clone()],
-            status: NoteStatus::Done,
-        })
-        .expect("batch complete");
-    let batch_trashed = workspace
-        .execute(WorkspaceCommand::BatchTrash {
-            expected_revision: batch_completed.snapshot.revision,
-            note_ids: vec![first_note.clone(), second_note.clone()],
-        })
-        .expect("batch trash");
-    let batch_restored = workspace
-        .execute(WorkspaceCommand::BatchRestore {
-            expected_revision: batch_trashed.snapshot.revision,
-            note_ids: vec![first_note.clone(), second_note.clone()],
-        })
-        .expect("batch restore");
-    let merged = workspace
-        .execute(WorkspaceCommand::MergeNotes {
-            expected_revision: batch_restored.snapshot.revision,
-            note_ids: vec![first_note.clone(), second_note.clone()],
-            destination_section_id: first_section,
-            sort_key: 0,
-        })
-        .expect("merge notes");
-    let composite = merged
-        .snapshot
-        .notes
-        .iter()
-        .find(|note| note.id != first_note && note.id != second_note)
-        .expect("composite note");
-    assert_eq!(composite.body, "first updated\n\n---\n\nsecond");
-    assert_eq!(composite.status, NoteStatus::Open);
-
-    let deleted_first = workspace
-        .execute(WorkspaceCommand::PermanentlyDeleteNote {
-            expected_revision: merged.snapshot.revision,
-            note_id: first_note,
-        })
-        .expect("permanently delete first source");
-    assert!(deleted_first.undo_token.is_none());
-    let deleted_second = workspace
-        .execute(WorkspaceCommand::PermanentlyDeleteNote {
-            expected_revision: deleted_first.snapshot.revision,
-            note_id: second_note,
-        })
-        .expect("permanently delete second source");
-    let deleted_section = workspace
-        .execute(WorkspaceCommand::DeleteSection {
-            expected_revision: deleted_second.snapshot.revision,
-            section_id: second_section,
-        })
-        .expect("delete empty section");
-    assert_eq!(deleted_section.snapshot.sections.len(), 1);
-    assert_eq!(deleted_section.snapshot.notes.len(), 1);
+        .expect("delete");
+    assert!(deleted.snapshot.notes.is_empty());
 }
 
 #[test]
-fn workspace_real_storage_is_human_readable_and_reopens() {
-    let root = tempfile::tempdir().expect("Workspace directory");
-    let mut workspace =
-        Workspace::create(root.path(), "Inbox".to_owned()).expect("create Workspace");
-    let initial = workspace.snapshot().expect("snapshot");
-    workspace
-        .execute(WorkspaceCommand::CreateNote {
-            expected_revision: initial.revision,
-            section_id: initial.sections[0].id.clone(),
-            body: "# Ordinary Markdown\n".to_owned(),
-            sort_key: 0,
-        })
-        .expect("create note");
-    drop(workspace);
+fn memory_and_real_filesystem_share_the_flat_contract() {
+    exercise_flat_contract(Workspace::in_memory().expect("memory"));
+    let root = tempdir().expect("temp Workspace");
+    exercise_flat_contract(Workspace::create(root.path()).expect("real"));
+    assert!(fs::read_dir(root.path().join("backups"))
+        .expect("backups")
+        .next()
+        .is_none());
+}
 
-    let manifest =
-        fs::read_to_string(root.path().join("charon.workspace.json")).expect("readable manifest");
-    assert!(manifest.contains("\"schemaVersion\": 1"));
-    assert!(!manifest.contains("Ordinary Markdown"));
-    let note_files = fs::read_dir(root.path().join("notes"))
-        .expect("notes directory")
-        .collect::<Result<Vec<_>, _>>()
-        .expect("note entries");
-    assert_eq!(note_files.len(), 1);
+#[test]
+fn managed_attachments_have_memory_and_real_parity() {
+    let mut memory = Workspace::in_memory_with_attachment_sources(vec![(
+        "source-a".to_owned(),
+        "brief.PDF".to_owned(),
+        b"attachment sentinel".to_vec(),
+    )])
+    .expect("memory");
+    exercise_attachment_contract(&mut memory, "source-a".to_owned());
+
+    let workspace_root = tempdir().expect("Workspace");
+    let source_root = tempdir().expect("source");
+    let source = source_root.path().join("brief.PDF");
+    fs::write(&source, b"attachment sentinel").expect("source bytes");
+    let mut real = Workspace::create(workspace_root.path()).expect("real");
+    exercise_attachment_contract(&mut real, source.to_string_lossy().into_owned());
+    let all = read_tree(workspace_root.path());
+    assert!(!all
+        .windows(b"attachment sentinel".len())
+        .any(|window| window == b"attachment sentinel"));
+    assert!(fs::read_dir(workspace_root.path().join("backups"))
+        .expect("backups")
+        .next()
+        .is_none());
+}
+
+#[test]
+fn attachment_import_rejects_unsafe_sources_atomically() {
+    let workspace_root = tempdir().expect("Workspace");
+    let source_root = tempdir().expect("source");
+    let source = source_root.path().join("safe.txt");
+    fs::write(&source, "safe").expect("source");
+    let mut workspace = Workspace::create(workspace_root.path()).expect("Workspace");
+    let created = workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "note".to_owned(),
+        })
+        .expect("create");
+    let note_id = created.snapshot.notes[0].id.clone();
+    let duplicate = workspace.execute(WorkspaceCommand::ImportNoteAttachments {
+        expected_revision: 1,
+        note_id: note_id.clone(),
+        source_paths: vec![
+            source.to_string_lossy().into_owned(),
+            source.to_string_lossy().into_owned(),
+        ],
+    });
+    assert!(duplicate.is_err());
+    assert_eq!(workspace.snapshot().expect("unchanged").revision, 1);
+    let inside = workspace_root.path().join("inside.txt");
+    fs::write(&inside, "inside").expect("inside");
+    assert!(workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id: note_id.clone(),
+            source_paths: vec![inside.to_string_lossy().into_owned()]
+        })
+        .is_err());
+    assert!(workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id,
+            source_paths: vec![source_root.path().to_string_lossy().into_owned()]
+        })
+        .is_err());
+    assert_eq!(workspace.snapshot().expect("still unchanged").revision, 1);
+
+    let missing = source_root.path().join("missing.txt");
+    let note_id = workspace.snapshot().expect("snapshot").notes[0].id.clone();
+    assert!(workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id,
+            source_paths: vec![
+                source.to_string_lossy().into_owned(),
+                missing.to_string_lossy().into_owned(),
+            ],
+        })
+        .is_err());
     assert_eq!(
-        fs::read_to_string(note_files[0].path()).expect("Markdown body"),
-        "# Ordinary Markdown\n"
-    );
-    assert_eq!(
-        Workspace::open(root.path())
-            .expect("reopen Workspace")
+        workspace
             .snapshot()
-            .expect("reopened snapshot")
-            .notes
-            .len(),
+            .expect("partial import rolled back")
+            .revision,
         1
     );
+    assert!(fs::read_dir(workspace_root.path().join("attachments"))
+        .expect("attachments")
+        .next()
+        .is_none());
 }
 
 #[test]
-fn workspace_rejects_an_unsupported_schema_without_mutating_files() {
-    let root = tempfile::tempdir().expect("Workspace directory");
-    drop(Workspace::create(root.path(), "Inbox".to_owned()).expect("create Workspace"));
-    let path = root.path().join("charon.workspace.json");
-    let original = fs::read_to_string(&path).expect("manifest");
-    let unsupported = original.replace("\"schemaVersion\": 1", "\"schemaVersion\": 2");
-    fs::write(&path, &unsupported).expect("external schema edit");
-    let result = Workspace::open(root.path());
-    assert!(matches!(
-        result,
-        Err(charon_desktop_lib::workspace::WorkspaceError::UnsupportedSchema(2))
-    ));
-    assert_eq!(
-        fs::read_to_string(path).expect("preserved manifest"),
-        unsupported
-    );
-}
+fn same_name_attachments_are_distinct_and_external_deletion_is_a_health_issue() {
+    let workspace_root = tempdir().expect("Workspace");
+    let source_a = tempdir().expect("source a");
+    let source_b = tempdir().expect("source b");
+    let first = source_a.path().join("brief.txt");
+    let second = source_b.path().join("brief.txt");
+    fs::write(&first, b"first").expect("first");
+    fs::write(&second, b"second").expect("second");
+    let mut workspace = Workspace::create(workspace_root.path()).expect("Workspace");
+    let created = workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "note".to_owned(),
+        })
+        .expect("create");
+    let imported = workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id: created.snapshot.notes[0].id.clone(),
+            source_paths: vec![
+                first.to_string_lossy().into_owned(),
+                second.to_string_lossy().into_owned(),
+            ],
+        })
+        .expect("import same names");
+    let attachments = &imported.snapshot.notes[0].attachments;
+    assert_eq!(attachments.len(), 2);
+    assert_eq!(attachments[0].file_name, "brief.txt");
+    assert_eq!(attachments[1].file_name, "brief.txt");
+    assert_ne!(attachments[0].id, attachments[1].id);
+    assert_ne!(attachments[0].relative_path, attachments[1].relative_path);
 
-#[test]
-fn workspace_reports_unknown_markdown_as_an_import_candidate() {
-    let root = tempfile::tempdir().expect("Workspace directory");
-    drop(Workspace::create(root.path(), "Inbox".to_owned()).expect("create Workspace"));
-    fs::write(root.path().join("notes/external.md"), "external").expect("unknown Markdown file");
-    let mut workspace = Workspace::open(root.path()).expect("open Workspace");
-    let health = workspace.health().expect("Workspace health");
+    fs::remove_file(workspace_root.path().join(&attachments[0].relative_path))
+        .expect("simulate external deletion");
+    drop(workspace);
+    let mut reopened = Workspace::open(workspace_root.path()).expect("reopen");
+    let health = reopened.health().expect("health");
     assert!(!health.is_healthy);
-    assert!(health
-        .issues
-        .iter()
-        .any(|issue| issue.kind == WorkspaceHealthIssueKind::ImportCandidate));
+    assert!(health.issues.iter().any(|issue| {
+        issue.kind == WorkspaceHealthIssueKind::MissingAttachment
+            && issue.resource_id.as_deref() == Some(attachments[0].id.as_str())
+    }));
+}
+
+#[test]
+fn permanent_note_delete_removes_body_attachment_and_transaction_sentinels() {
+    let workspace_root = tempdir().expect("Workspace");
+    let source_root = tempdir().expect("source");
+    let source = source_root.path().join("private.bin");
+    fs::write(&source, b"private attachment sentinel").expect("source");
+    let mut workspace = Workspace::create(workspace_root.path()).expect("Workspace");
+    let created = workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "private note sentinel".to_owned(),
+        })
+        .expect("create");
+    let note_id = created.snapshot.notes[0].id.clone();
+    let imported = workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id: note_id.clone(),
+            source_paths: vec![source.to_string_lossy().into_owned()],
+        })
+        .expect("import");
+    let managed = imported.snapshot.notes[0].attachments[0]
+        .relative_path
+        .clone();
+    let deleted = workspace
+        .execute(WorkspaceCommand::DeleteNotes {
+            expected_revision: 2,
+            note_ids: vec![note_id.clone()],
+        })
+        .expect("permanent delete");
+    assert!(deleted.snapshot.notes.is_empty());
+    assert!(!workspace_root
+        .path()
+        .join(format!("notes/{note_id}.md"))
+        .exists());
+    assert!(!workspace_root.path().join(managed).exists());
+    assert!(fs::read_dir(workspace_root.path().join("backups"))
+        .expect("backups")
+        .next()
+        .is_none());
+    let bytes = read_tree(workspace_root.path());
+    assert!(!bytes
+        .windows(b"private note sentinel".len())
+        .any(|window| window == b"private note sentinel"));
+    assert!(!bytes
+        .windows(b"private attachment sentinel".len())
+        .any(|window| window == b"private attachment sentinel"));
+}
+
+#[test]
+fn every_real_filesystem_attachment_failure_is_atomic_and_recoverable() {
+    for failure in [
+        StorageFailure::AttachmentOpen,
+        StorageFailure::AttachmentRead,
+        StorageFailure::AttachmentWrite,
+        StorageFailure::ShortCopy,
+        StorageFailure::Sync,
+        StorageFailure::Rename,
+        StorageFailure::Manifest,
+        StorageFailure::Cleanup,
+    ] {
+        let workspace_root = tempdir().expect("Workspace");
+        let source_root = tempdir().expect("source");
+        let source = source_root.path().join("failure-sentinel.bin");
+        fs::write(&source, b"attachment failure sentinel").expect("source");
+        let mut workspace = Workspace::create(workspace_root.path()).expect("create Workspace");
+        let created = workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "stable note".to_owned(),
+            })
+            .expect("create note");
+        let note_id = created.snapshot.notes[0].id.clone();
+        drop(workspace);
+
+        let mut failing = Workspace::open_with_storage_failure(workspace_root.path(), failure)
+            .expect("open failing Workspace");
+        assert!(failing
+            .execute(WorkspaceCommand::ImportNoteAttachments {
+                expected_revision: 1,
+                note_id: note_id.clone(),
+                source_paths: vec![source.to_string_lossy().into_owned()],
+            })
+            .is_err());
+        drop(failing);
+
+        let mut recovered = Workspace::open(workspace_root.path()).expect("recover Workspace");
+        let snapshot = recovered.snapshot().expect("recovered snapshot");
+        assert!(snapshot.revision == 1 || snapshot.revision == 2);
+        assert_eq!(snapshot.notes.len(), 1);
+        assert_eq!(snapshot.notes[0].body, "stable note");
+        assert!(snapshot.notes[0].attachments.len() <= 1);
+        if let Some(attachment) = snapshot.notes[0].attachments.first() {
+            assert_eq!(
+                fs::read(workspace_root.path().join(&attachment.relative_path))
+                    .expect("managed attachment"),
+                b"attachment failure sentinel"
+            );
+        }
+        assert!(fs::read_dir(workspace_root.path().join("backups"))
+            .expect("backups")
+            .next()
+            .is_none());
+        let paths = tree_paths(workspace_root.path());
+        assert!(
+            !paths
+                .iter()
+                .any(|path| path.contains(".charon-") || path.ends_with(".tmp")),
+            "phase {failure:?} left temporary paths: {paths:?}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn attachment_import_never_follows_symlinks() {
+    use std::os::unix::fs::symlink;
+    let workspace_root = tempdir().expect("Workspace");
+    let source_root = tempdir().expect("source");
+    let target = source_root.path().join("target.txt");
+    let link = source_root.path().join("link.txt");
+    fs::write(&target, "secret").expect("target");
+    symlink(&target, &link).expect("link");
+    let mut workspace = Workspace::create(workspace_root.path()).expect("Workspace");
+    let created = workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "note".to_owned(),
+        })
+        .expect("create");
     assert!(workspace
-        .snapshot()
-        .expect("valid snapshot")
-        .notes
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id: created.snapshot.notes[0].id.clone(),
+            source_paths: vec![link.to_string_lossy().into_owned()]
+        })
+        .is_err());
+    assert!(workspace.snapshot().expect("unchanged").notes[0]
+        .attachments
         .is_empty());
 }
 
-#[test]
-fn workspace_watcher_reconciles_one_external_body_burst_and_ignores_self_writes() {
-    let root = tempfile::tempdir().expect("Workspace directory");
-    let mut workspace =
-        Workspace::create(root.path(), "Inbox".to_owned()).expect("create Workspace");
-    workspace.start_watching().expect("start watcher");
-    let initial = workspace.snapshot().expect("initial snapshot");
+fn exercise_attachment_contract(workspace: &mut Workspace, source: String) {
     let created = workspace
         .execute(WorkspaceCommand::CreateNote {
-            expected_revision: initial.revision,
-            section_id: initial.sections[0].id.clone(),
-            body: "initial".to_owned(),
-            sort_key: 0,
+            expected_revision: 0,
+            body: "note sentinel".to_owned(),
         })
-        .expect("create note");
-    workspace.take_events();
+        .expect("create");
+    let note_id = created.snapshot.notes[0].id.clone();
+    let imported = workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: created.snapshot.revision,
+            note_id: note_id.clone(),
+            source_paths: vec![source],
+        })
+        .expect("import");
+    let attachment = imported.snapshot.notes[0].attachments[0].clone();
+    assert_eq!(attachment.file_name, "brief.PDF");
+    assert!(attachment
+        .relative_path
+        .starts_with(&format!("attachments/{note_id}/")));
+    let removed = workspace
+        .execute(WorkspaceCommand::DeleteNoteAttachments {
+            expected_revision: imported.snapshot.revision,
+            note_id,
+            attachment_ids: vec![attachment.id],
+        })
+        .expect("remove");
+    assert!(removed.snapshot.notes[0].attachments.is_empty());
+}
 
-    // Polling sees the module's own final paths, but identical content must not
-    // produce another domain revision.
-    let settle_deadline = Instant::now() + Duration::from_millis(300);
-    while Instant::now() < settle_deadline {
+#[test]
+fn v1_migration_preserves_active_bytes_and_archives_legacy_trash() {
+    let root = tempdir().expect("Workspace");
+    fs::create_dir(root.path().join("notes")).expect("notes");
+    fs::create_dir(root.path().join("backups")).expect("backups");
+    let workspace_id = "b7cb56b9-748e-48c8-a23d-0bf5f2d61248";
+    let section_id = "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9";
+    let active_id = "fef8abcc-7047-4a35-a070-b6d9f0eca026";
+    let trash_id = "54ab01eb-ee1c-4c62-999e-147d9c0c8dab";
+    let manifest = json!({"schemaVersion":1,"workspaceId":workspace_id,"revision":7,"sections":[{"id":section_id,"name":"Inbox","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z"}],"notes":[{"id":active_id,"sectionId":section_id,"status":"open","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z","completedAt":null,"trashedAt":null},{"id":trash_id,"sectionId":section_id,"status":"open","sortKey":1,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z","completedAt":null,"trashedAt":"2026-07-31T12:00:00Z"}]});
+    fs::write(
+        root.path().join("charon.workspace.json"),
+        serde_json::to_vec_pretty(&manifest).expect("manifest"),
+    )
+    .expect("write manifest");
+    let active = b"\xEF\xBB\xBF  active\r\nbody  \n";
+    let trashed = b"legacy trash\n";
+    fs::write(root.path().join(format!("notes/{active_id}.md")), active).expect("active");
+    fs::write(root.path().join(format!("notes/{trash_id}.md")), trashed).expect("trash");
+    let mut workspace = Workspace::open(root.path()).expect("migrate");
+    let snapshot = workspace.snapshot().expect("snapshot");
+    assert_eq!(snapshot.schema_version, 2);
+    assert_eq!(snapshot.revision, 7);
+    assert_eq!(snapshot.notes.len(), 1);
+    assert_eq!(snapshot.notes[0].id, active_id);
+    assert_eq!(snapshot.notes[0].body.as_bytes(), active);
+    assert!(snapshot.legacy_archive_created);
+    assert_eq!(
+        fs::read(
+            root.path()
+                .join(format!("legacy-trash-v1/notes/{trash_id}.md"))
+        )
+        .expect("archived"),
+        trashed
+    );
+    let archive_manifest = fs::read_to_string(root.path().join("legacy-trash-v1/manifest.json"))
+        .expect("archive manifest");
+    assert!(!archive_manifest.contains("legacy trash"));
+    let before = fs::read(root.path().join("charon.workspace.json")).expect("before");
+    drop(workspace);
+    let _ = Workspace::open(root.path()).expect("idempotent reopen");
+    assert_eq!(
+        fs::read(root.path().join("charon.workspace.json")).expect("after"),
+        before
+    );
+}
+
+#[test]
+fn every_v1_migration_interruption_converges_on_real_filesystem() {
+    for failure in [
+        MigrationFailure::BeforeArchiveCreation,
+        MigrationFailure::AfterArchiveStaging,
+        MigrationFailure::AfterNoteMoves,
+        MigrationFailure::AfterManifestCommit,
+        MigrationFailure::BeforeCleanup,
+    ] {
+        let root = tempdir().expect("Workspace");
+        let active_id = "fef8abcc-7047-4a35-a070-b6d9f0eca026";
+        let trash_id = "54ab01eb-ee1c-4c62-999e-147d9c0c8dab";
+        fs::create_dir(root.path().join("notes")).expect("notes");
+        fs::create_dir(root.path().join("backups")).expect("backups");
+        let manifest = json!({
+            "schemaVersion": 1,
+            "workspaceId": "b7cb56b9-748e-48c8-a23d-0bf5f2d61248",
+            "revision": 7,
+            "sections": [{
+                "id": "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9",
+                "name": "Inbox",
+                "sortKey": 0,
+                "createdAt": "2026-07-30T12:00:00Z",
+                "updatedAt": "2026-07-30T12:00:00Z"
+            }],
+            "notes": [
+                {
+                    "id": active_id,
+                    "sectionId": "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9",
+                    "status": "open",
+                    "sortKey": 0,
+                    "createdAt": "2026-07-30T12:00:00Z",
+                    "updatedAt": "2026-07-30T12:00:00Z",
+                    "completedAt": null,
+                    "trashedAt": null
+                },
+                {
+                    "id": trash_id,
+                    "sectionId": "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9",
+                    "status": "open",
+                    "sortKey": 1,
+                    "createdAt": "2026-07-30T12:00:00Z",
+                    "updatedAt": "2026-07-30T12:00:00Z",
+                    "completedAt": null,
+                    "trashedAt": "2026-07-31T12:00:00Z"
+                }
+            ]
+        });
+        fs::write(
+            root.path().join("charon.workspace.json"),
+            serde_json::to_vec_pretty(&manifest).expect("manifest"),
+        )
+        .expect("write manifest");
+        fs::write(
+            root.path().join(format!("notes/{active_id}.md")),
+            b"active\r\n",
+        )
+        .expect("active");
+        fs::write(
+            root.path().join(format!("notes/{trash_id}.md")),
+            b"trashed\n",
+        )
+        .expect("trashed");
+
+        assert!(Workspace::open_with_migration_failure(root.path(), failure).is_err());
+        let mut recovered = Workspace::open(root.path()).expect("recover and converge");
+        let snapshot = recovered.snapshot().expect("snapshot");
+        assert_eq!(snapshot.schema_version, 2, "phase {failure:?}");
+        assert_eq!(snapshot.notes.len(), 1, "phase {failure:?}");
+        assert_eq!(snapshot.notes[0].body.as_bytes(), b"active\r\n");
         assert_eq!(
-            workspace.snapshot().expect("self-write snapshot").revision,
-            created.snapshot.revision
+            fs::read(
+                root.path()
+                    .join(format!("legacy-trash-v1/notes/{trash_id}.md"))
+            )
+            .expect("archived trash"),
+            b"trashed\n",
+            "phase {failure:?}"
         );
-        thread::sleep(Duration::from_millis(20));
-    }
-    assert!(workspace.take_events().is_empty());
-
-    let note_path = root
-        .path()
-        .join(format!("notes/{}.md", created.snapshot.notes[0].id));
-    fs::write(&note_path, "external one").expect("first external edit");
-    fs::write(&note_path, "external final").expect("second external edit");
-    wait_until(Duration::from_secs(2), || {
-        workspace
-            .snapshot()
-            .map(|snapshot| snapshot.notes[0].body == "external final")
-            .unwrap_or(false)
-    });
-    let snapshot = workspace.snapshot().expect("reconciled snapshot");
-    assert_eq!(snapshot.revision, created.snapshot.revision + 1);
-    assert_eq!(workspace.take_events().len(), 1);
-
-    fs::remove_file(note_path).expect("external deletion");
-    wait_until(Duration::from_secs(2), || {
-        workspace
-            .health()
-            .map(|health| !health.is_healthy)
-            .unwrap_or(false)
-    });
-    assert_eq!(
-        workspace.snapshot().expect("last valid snapshot").notes[0].body,
-        "external final"
-    );
-    workspace.stop_watching();
-}
-
-#[test]
-fn workspace_watcher_preserves_last_valid_state_for_an_invalid_manifest() {
-    let root = tempfile::tempdir().expect("Workspace directory");
-    let mut workspace =
-        Workspace::create(root.path(), "Inbox".to_owned()).expect("create Workspace");
-    workspace.start_watching().expect("start watcher");
-    let valid = workspace.snapshot().expect("valid snapshot");
-    fs::write(root.path().join("charon.workspace.json"), b"{")
-        .expect("corrupt manifest externally");
-    wait_until(Duration::from_secs(2), || {
-        workspace
-            .health()
-            .map(|health| {
-                health
-                    .issues
-                    .iter()
-                    .any(|issue| issue.kind == WorkspaceHealthIssueKind::InvalidManifest)
-            })
-            .unwrap_or(false)
-    });
-    assert_eq!(workspace.snapshot().expect("last valid snapshot"), valid);
-    assert_eq!(
-        fs::read_to_string(root.path().join("charon.workspace.json"))
-            .expect("corrupt manifest remains available for recovery"),
-        "{"
-    );
-    workspace.stop_watching();
-}
-
-fn wait_until(timeout: Duration, mut condition: impl FnMut() -> bool) {
-    let deadline = Instant::now() + timeout;
-    while !condition() {
-        assert!(Instant::now() < deadline, "bounded watcher poll timed out");
-        thread::sleep(Duration::from_millis(20));
+        assert!(fs::read_dir(root.path().join("backups"))
+            .expect("backups")
+            .next()
+            .is_none());
     }
 }
 
 #[test]
-fn workspace_ipc_tagged_union_serialization_is_stable() {
-    let command = WorkspaceCommand::BatchTrash {
-        expected_revision: 7,
-        note_ids: vec!["fef8abcc-7047-4a35-a070-b6d9f0eca026".to_owned()],
-    };
+fn migration_collision_stops_before_mutation() {
+    let root = tempdir().expect("Workspace");
+    fs::create_dir(root.path().join("notes")).expect("notes");
+    fs::create_dir(root.path().join("legacy-trash-v1")).expect("collision");
+    let manifest = json!({"schemaVersion":1,"workspaceId":"b7cb56b9-748e-48c8-a23d-0bf5f2d61248","revision":0,"sections":[{"id":"a4ad6d74-ea60-45df-a0ad-2c6f82c271f9","name":"Inbox","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z"}],"notes":[{"id":"54ab01eb-ee1c-4c62-999e-147d9c0c8dab","sectionId":"a4ad6d74-ea60-45df-a0ad-2c6f82c271f9","status":"open","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z","completedAt":null,"trashedAt":"2026-07-31T12:00:00Z"}]});
+    let original = serde_json::to_vec_pretty(&manifest).expect("manifest");
+    fs::write(root.path().join("charon.workspace.json"), &original).expect("write");
+    fs::write(
+        root.path()
+            .join("notes/54ab01eb-ee1c-4c62-999e-147d9c0c8dab.md"),
+        "keep",
+    )
+    .expect("body");
+    assert!(matches!(
+        Workspace::open(root.path()),
+        Err(WorkspaceError::LegacyArchiveCollision)
+    ));
     assert_eq!(
-        serde_json::to_value(command).expect("serialize command"),
-        serde_json::json!({
-            "type": "batchTrash",
-            "expectedRevision": 7,
-            "noteIds": ["fef8abcc-7047-4a35-a070-b6d9f0eca026"]
-        })
+        fs::read(root.path().join("charon.workspace.json")).expect("unchanged"),
+        original
     );
+}
+
+fn read_tree(root: &std::path::Path) -> Vec<u8> {
+    fn visit(path: &std::path::Path, output: &mut Vec<u8>) {
+        for entry in fs::read_dir(path).expect("read tree") {
+            let path = entry.expect("entry").path();
+            if path.is_dir() {
+                visit(&path, output);
+            } else {
+                output.extend(fs::read(path).expect("read file"));
+            }
+        }
+    }
+    let mut output = Vec::new();
+    visit(root, &mut output);
+    output
+}
+
+fn tree_paths(root: &std::path::Path) -> Vec<String> {
+    fn visit(root: &std::path::Path, path: &std::path::Path, output: &mut Vec<String>) {
+        for entry in fs::read_dir(path).expect("read tree") {
+            let path = entry.expect("entry").path();
+            output.push(
+                path.strip_prefix(root)
+                    .expect("relative path")
+                    .to_string_lossy()
+                    .replace('\\', "/"),
+            );
+            if path.is_dir() {
+                visit(root, &path, output);
+            }
+        }
+    }
+    let mut output = Vec::new();
+    visit(root, root, &mut output);
+    output
 }
 
 #[test]
@@ -437,7 +577,7 @@ fn export_bindings() {
     let config = Config::default().with_large_int("number");
     let declarations = [
         NoteStatus::decl(&config),
-        SectionDto::decl(&config),
+        AttachmentDto::decl(&config),
         NoteDto::decl(&config),
         WorkspaceSnapshot::decl(&config),
         WorkspaceHealthIssueKind::decl(&config),

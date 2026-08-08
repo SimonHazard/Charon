@@ -1,5 +1,5 @@
 import { IconArrowUp } from '@tabler/icons-react';
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
 import { useMessages } from '@/app/providers';
 import { Field, FieldError } from '@/components/ui/field';
@@ -8,21 +8,25 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-  InputGroupText,
 } from '@/components/ui/input-group';
 
-export function CaptureInput({
-  sectionName,
-  onCreate,
-}: {
-  sectionName: string;
-  onCreate(body: string): Promise<void>;
-}) {
+export type CaptureInputHandle = { focus(): void };
+
+export const CaptureInput = forwardRef<
+  CaptureInputHandle,
+  {
+    onCreate(body: string): Promise<void>;
+    onCreated?(): void;
+  }
+>(function CaptureInput({ onCreate, onCreated }, forwardedRef) {
   const m = useMessages();
   const [value, setValue] = useState('');
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const body = value.trim();
+
+  useImperativeHandle(forwardedRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 
   const submit = async () => {
     if (!body || pending) return;
@@ -31,6 +35,7 @@ export function CaptureInput({
     try {
       await onCreate(body);
       setValue('');
+      onCreated?.();
     } catch {
       setFailed(true);
     } finally {
@@ -48,18 +53,16 @@ export function CaptureInput({
     >
       <Field data-invalid={failed}>
         <InputGroup>
-          <InputGroupAddon align="inline-start">
-            <InputGroupText>{sectionName}</InputGroupText>
-          </InputGroupAddon>
           <InputGroupInput
             aria-invalid={failed}
-            aria-label={m.capture_input_label({ section: sectionName })}
+            aria-label={m.capture_input_label_flat()}
             disabled={pending}
             onChange={(event) => {
               setValue(event.target.value);
               setFailed(false);
             }}
             placeholder={m.capture_input_placeholder()}
+            ref={inputRef}
             value={value}
           />
           <InputGroupAddon align="inline-end">
@@ -77,4 +80,4 @@ export function CaptureInput({
       </Field>
     </form>
   );
-}
+});

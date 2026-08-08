@@ -17,7 +17,6 @@ export interface CaptureClient {
   open(): Promise<CaptureCapabilities>;
   requestPermission(permission: CapturePermissionKind): Promise<CaptureCapabilities>;
   setShortcut(shortcut: string): Promise<CaptureCapabilities>;
-  setActiveSection(sectionId: string | null): Promise<void>;
   editorReady(): Promise<void>;
   subscribeEditor(listener: CaptureEditorRequestListener): Promise<() => void>;
   subscribeStatus(listener: CaptureStatusListener): Promise<() => void>;
@@ -29,7 +28,6 @@ export const tauriCaptureClient: CaptureClient = {
   requestPermission: (permission) =>
     invoke<CaptureCapabilities>('capture_request_permission', { permission }),
   setShortcut: (shortcut) => invoke<CaptureCapabilities>('capture_set_shortcut', { shortcut }),
-  setActiveSection: (sectionId) => invoke<void>('capture_set_active_section', { sectionId }),
   editorReady: () => invoke<void>('capture_editor_ready'),
   subscribeEditor: async (listener) => {
     const unlisten = await listen<CaptureEditorRequest>('capture://editor-requested', (event) =>

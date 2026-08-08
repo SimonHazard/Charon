@@ -40,13 +40,11 @@ pub fn run() {
             ipc::workspace::workspace_execute,
             ipc::workspace::workspace_close,
             ipc::workspace::workspace_health,
-            ipc::clipboard::clipboard_preview,
             ipc::clipboard::clipboard_compose_and_write,
             ipc::capture::capture_capabilities,
             ipc::capture::capture_open,
             ipc::capture::capture_request_permission,
             ipc::capture::capture_set_shortcut,
-            ipc::capture::capture_set_active_section,
             ipc::capture::capture_editor_ready,
         ])
         .setup(|app| {

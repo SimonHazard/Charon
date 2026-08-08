@@ -2,36 +2,35 @@
 
 export type NoteStatus = 'open' | 'done';
 
-export type SectionDto = {
+export type AttachmentDto = {
   id: string;
-  name: string;
-  sortKey: number;
+  fileName: string;
+  relativePath: string;
   createdAt: string;
-  updatedAt: string;
 };
 
 export type NoteDto = {
   id: string;
-  sectionId: string;
   body: string;
   status: NoteStatus;
-  sortKey: number;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
-  trashedAt: string | null;
+  tags: Array<string>;
+  attachments: Array<AttachmentDto>;
 };
 
 export type WorkspaceSnapshot = {
   schemaVersion: number;
   workspaceId: string;
   revision: number;
-  sections: Array<SectionDto>;
   notes: Array<NoteDto>;
+  legacyArchiveCreated: boolean;
 };
 
 export type WorkspaceHealthIssueKind =
   | 'missing_note'
+  | 'missing_attachment'
   | 'invalid_note'
   | 'invalid_manifest'
   | 'import_candidate'
@@ -48,53 +47,25 @@ export type WorkspaceHealth = { isHealthy: boolean; issues: Array<WorkspaceHealt
 export type WorkspaceChangedEvent = { revision: number; snapshot: WorkspaceSnapshot };
 
 export type WorkspaceCommand =
-  | { type: 'createSection'; expectedRevision: number; name: string; sortKey: number }
-  | { type: 'renameSection'; expectedRevision: number; sectionId: string; name: string }
-  | { type: 'reorderSection'; expectedRevision: number; sectionId: string; sortKey: number }
-  | { type: 'deleteSection'; expectedRevision: number; sectionId: string }
-  | {
-      type: 'createNote';
-      expectedRevision: number;
-      sectionId: string;
-      body: string;
-      sortKey: number;
-    }
+  | { type: 'createNote'; expectedRevision: number; body: string }
   | { type: 'updateNote'; expectedRevision: number; noteId: string; body: string }
+  | { type: 'setNoteTags'; expectedRevision: number; noteId: string; tags: Array<string> }
   | {
-      type: 'moveNote';
+      type: 'importNoteAttachments';
       expectedRevision: number;
       noteId: string;
-      sectionId: string;
-      sortKey: number;
+      sourcePaths: Array<string>;
     }
-  | { type: 'reorderNote'; expectedRevision: number; noteId: string; sortKey: number }
-  | { type: 'setNoteStatus'; expectedRevision: number; noteId: string; status: NoteStatus }
-  | { type: 'trashNote'; expectedRevision: number; noteId: string }
-  | { type: 'restoreNote'; expectedRevision: number; noteId: string }
-  | { type: 'permanentlyDeleteNote'; expectedRevision: number; noteId: string }
   | {
-      type: 'mergeNotes';
+      type: 'deleteNoteAttachments';
       expectedRevision: number;
-      noteIds: Array<string>;
-      destinationSectionId: string;
-      sortKey: number;
+      noteId: string;
+      attachmentIds: Array<string>;
     }
-  | { type: 'batchSetStatus'; expectedRevision: number; noteIds: Array<string>; status: NoteStatus }
-  | { type: 'batchTrash'; expectedRevision: number; noteIds: Array<string> }
-  | { type: 'batchRestore'; expectedRevision: number; noteIds: Array<string> }
-  | {
-      type: 'batchMove';
-      expectedRevision: number;
-      noteIds: Array<string>;
-      destinationSectionId: string;
-    }
-  | { type: 'undo'; expectedRevision: number; transactionId: string };
+  | { type: 'setNoteStatus'; expectedRevision: number; noteIds: Array<string>; status: NoteStatus }
+  | { type: 'deleteNotes'; expectedRevision: number; noteIds: Array<string> };
 
-export type WorkspaceCommandResult = {
-  snapshot: WorkspaceSnapshot;
-  transactionId: string;
-  undoToken: string | null;
-};
+export type WorkspaceCommandResult = { snapshot: WorkspaceSnapshot; transactionId: string };
 
 export type WorkspaceIpcError = {
   code: string;

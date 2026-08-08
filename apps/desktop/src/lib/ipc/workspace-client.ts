@@ -13,20 +13,18 @@ export type WorkspaceListener = (event: WorkspaceChangedEvent) => void;
 
 export interface WorkspaceClient {
   snapshot(): Promise<WorkspaceSnapshot>;
-  bootstrapDefault?(initialSectionName: string): Promise<WorkspaceSnapshot>;
+  bootstrapDefault?(): Promise<WorkspaceSnapshot>;
   chooseDirectory?(): Promise<string | null>;
-  openOrCreate?(path: string, initialSectionName: string): Promise<WorkspaceSnapshot>;
+  openOrCreate?(path: string): Promise<WorkspaceSnapshot>;
   execute?(command: WorkspaceCommand): Promise<WorkspaceCommandResult>;
   subscribe(listener: WorkspaceListener): Promise<() => void>;
 }
 
 export const tauriWorkspaceClient: WorkspaceClient = {
   snapshot: () => invoke<WorkspaceSnapshot>('workspace_snapshot'),
-  bootstrapDefault: (initialSectionName) =>
-    invoke<WorkspaceSnapshot>('workspace_bootstrap_default', { initialSectionName }),
+  bootstrapDefault: () => invoke<WorkspaceSnapshot>('workspace_bootstrap_default'),
   chooseDirectory: () => invoke<string | null>('workspace_choose_directory'),
-  openOrCreate: (path, initialSectionName) =>
-    invoke<WorkspaceSnapshot>('workspace_open_or_create', { path, initialSectionName }),
+  openOrCreate: (path) => invoke<WorkspaceSnapshot>('workspace_open_or_create', { path }),
   execute: (command) => invoke<WorkspaceCommandResult>('workspace_execute', { command }),
   subscribe: async (listener) => {
     const unlisten = await listen<WorkspaceChangedEvent>('workspace://changed', (event) =>

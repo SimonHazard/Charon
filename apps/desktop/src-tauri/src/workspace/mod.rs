@@ -1,5 +1,6 @@
 mod command;
 mod error;
+mod migration;
 mod model;
 mod recovery;
 mod storage;
@@ -12,19 +13,25 @@ use uuid::Uuid;
 
 pub use command::{WorkspaceCommand, WorkspaceCommandResult};
 pub use error::{WorkspaceError, WorkspaceIpcError};
+#[doc(hidden)]
+pub use migration::MigrationFailure;
 pub use model::{
-    NoteDto, NoteStatus, SectionDto, WorkspaceChangedEvent, WorkspaceHealth, WorkspaceHealthIssue,
-    WorkspaceHealthIssueKind, WorkspaceSnapshot,
+    AttachmentDto, NoteDto, NoteStatus, WorkspaceChangedEvent, WorkspaceHealth,
+    WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceSnapshot,
 };
 
-use command::apply_command;
+use command::{apply_command, find_note, find_note_mut, validate_ids, AppliedCommand};
 use model::{
-    now_utc, validate_body, PersistedManifest, WorkspaceHealthIssueKind::ImportCandidate,
-    MAX_NOTE_BYTES,
+    now_utc, validate_body, PersistedAttachment, PersistedManifest,
+    WorkspaceHealthIssueKind::ImportCandidate, MAX_ATTACHMENTS_PER_NOTE, MAX_NOTE_BYTES,
 };
-use recovery::{commit, read_manifest, recover_incomplete, replace_manifest, undo};
+use recovery::{
+    commit, commit_with_new_attachments, read_manifest, recover_incomplete, replace_manifest,
+};
 use storage::MemoryWorkspaceStorage;
-use storage::{RealWorkspaceStorage, WorkspaceStorage};
+#[doc(hidden)]
+pub use storage::StorageFailure;
+use storage::{FailingWorkspaceStorage, RealWorkspaceStorage, WorkspaceStorage};
 use watch::WorkspaceWatcher;
 
 pub struct Workspace {
@@ -34,15 +41,13 @@ pub struct Workspace {
     health: WorkspaceHealth,
     watcher: Option<WorkspaceWatcher>,
     events: Vec<WorkspaceChangedEvent>,
+    cleanup_blocked: bool,
 }
 
 impl Workspace {
-    pub fn create(
-        path: impl AsRef<Path>,
-        initial_section_name: String,
-    ) -> Result<Self, WorkspaceError> {
+    pub fn create(path: impl AsRef<Path>) -> Result<Self, WorkspaceError> {
         let storage = RealWorkspaceStorage::create(path.as_ref())?;
-        Self::create_in(Box::new(storage), initial_section_name)
+        Self::create_in(Box::new(storage))
     }
 
     pub fn open(path: impl AsRef<Path>) -> Result<Self, WorkspaceError> {
@@ -51,16 +56,42 @@ impl Workspace {
     }
 
     #[doc(hidden)]
-    pub fn in_memory(initial_section_name: String) -> Result<Self, WorkspaceError> {
-        Self::create_in(
-            Box::new(MemoryWorkspaceStorage::new()),
-            initial_section_name,
-        )
+    pub fn open_with_storage_failure(
+        path: impl AsRef<Path>,
+        failure: StorageFailure,
+    ) -> Result<Self, WorkspaceError> {
+        let storage = RealWorkspaceStorage::open(path.as_ref())?;
+        Self::open_in(Box::new(FailingWorkspaceStorage::new(storage, failure)))
+    }
+
+    #[doc(hidden)]
+    pub fn open_with_migration_failure(
+        path: impl AsRef<Path>,
+        failure: MigrationFailure,
+    ) -> Result<Self, WorkspaceError> {
+        let storage = RealWorkspaceStorage::open(path.as_ref())?;
+        Self::open_in_with_migration_failure(Box::new(storage), failure)
+    }
+
+    #[doc(hidden)]
+    pub fn in_memory() -> Result<Self, WorkspaceError> {
+        Self::create_in(Box::new(MemoryWorkspaceStorage::new()))
+    }
+
+    #[doc(hidden)]
+    pub fn in_memory_with_attachment_sources(
+        sources: Vec<(String, String, Vec<u8>)>,
+    ) -> Result<Self, WorkspaceError> {
+        Self::create_in(Box::new(MemoryWorkspaceStorage::with_external_files(
+            sources,
+        )))
     }
 
     pub fn snapshot(&mut self) -> Result<WorkspaceSnapshot, WorkspaceError> {
+        self.retry_cleanup_if_needed()?;
         self.reconcile_external_changes()?;
-        self.manifest.snapshot(&self.bodies)
+        self.manifest
+            .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)
     }
 
     pub fn execute(
@@ -68,63 +99,67 @@ impl Workspace {
         command: WorkspaceCommand,
     ) -> Result<WorkspaceCommandResult, WorkspaceError> {
         self.reconcile_external_changes()?;
-        if let WorkspaceCommand::Undo {
-            expected_revision,
-            transaction_id,
-        } = &command
-        {
-            if *expected_revision != self.manifest.revision {
-                return Err(WorkspaceError::StaleRevision {
-                    expected: *expected_revision,
-                    actual: self.manifest.revision,
-                });
-            }
-            let (manifest, bodies, undo_transaction_id) = undo(
-                self.storage.as_ref(),
-                &self.manifest,
-                &self.bodies,
-                transaction_id,
-            )?;
-            self.manifest = manifest;
-            self.bodies = bodies;
-            let snapshot = self.manifest.snapshot(&self.bodies)?;
-            self.events.push(WorkspaceChangedEvent {
-                revision: snapshot.revision,
-                snapshot: snapshot.clone(),
-            });
-            return Ok(WorkspaceCommandResult {
-                snapshot,
-                transaction_id: undo_transaction_id.clone(),
-                undo_token: Some(undo_transaction_id),
+        if self.cleanup_blocked {
+            return Err(WorkspaceError::DeletionCleanupRequired {
+                transaction_id: "pending".to_owned(),
             });
         }
-
-        let applied = apply_command(
-            &self.manifest,
-            &self.bodies,
-            &command,
-            || Uuid::new_v4().to_string(),
-            now_utc,
-        )?;
-        let output = commit(
+        let (applied, new_attachments) = match &command {
+            WorkspaceCommand::ImportNoteAttachments {
+                expected_revision,
+                note_id,
+                source_paths,
+            } => self.prepare_attachment_import(*expected_revision, note_id, source_paths)?,
+            WorkspaceCommand::DeleteNoteAttachments {
+                expected_revision,
+                note_id,
+                attachment_ids,
+            } => (
+                self.prepare_attachment_delete(*expected_revision, note_id, attachment_ids)?,
+                HashMap::new(),
+            ),
+            _ => (
+                apply_command(
+                    &self.manifest,
+                    &self.bodies,
+                    &command,
+                    || Uuid::new_v4().to_string(),
+                    now_utc,
+                )?,
+                HashMap::new(),
+            ),
+        };
+        let output = commit_with_new_attachments(
             self.storage.as_ref(),
             &self.manifest,
             &self.bodies,
             &applied.manifest,
             &applied.bodies,
-        )?;
+            &new_attachments,
+        );
+        let output = match output {
+            Ok(output) => output,
+            Err(error @ WorkspaceError::DeletionCleanupRequired { .. }) => {
+                self.manifest = applied.manifest;
+                self.bodies = applied.bodies;
+                self.cleanup_blocked = true;
+                return Err(error);
+            }
+            Err(error) => return Err(error),
+        };
         self.manifest = applied.manifest;
         self.bodies = applied.bodies;
         self.health = self.scan_health();
-        let snapshot = self.manifest.snapshot(&self.bodies)?;
+        let snapshot = self
+            .manifest
+            .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)?;
         self.events.push(WorkspaceChangedEvent {
             revision: snapshot.revision,
             snapshot: snapshot.clone(),
         });
         Ok(WorkspaceCommandResult {
             snapshot,
-            transaction_id: output.transaction_id.clone(),
-            undo_token: applied.undoable.then_some(output.transaction_id),
+            transaction_id: output.transaction_id,
         })
     }
 
@@ -146,6 +181,7 @@ impl Workspace {
     }
 
     pub fn health(&mut self) -> Result<WorkspaceHealth, WorkspaceError> {
+        self.retry_cleanup_if_needed()?;
         self.reconcile_external_changes()?;
         Ok(self.health.clone())
     }
@@ -154,24 +190,20 @@ impl Workspace {
         std::mem::take(&mut self.events)
     }
 
-    fn create_in(
-        storage: Box<dyn WorkspaceStorage>,
-        initial_section_name: String,
-    ) -> Result<Self, WorkspaceError> {
+    pub(crate) fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        self.storage.canonical_managed_path(relative)
+    }
+
+    fn create_in(storage: Box<dyn WorkspaceStorage>) -> Result<Self, WorkspaceError> {
         if storage.exists("charon.workspace.json")? {
             return Err(WorkspaceError::Validation(
                 "a Workspace already exists in this directory".to_owned(),
             ));
         }
         storage.create_dir_all("notes")?;
+        storage.create_dir_all("attachments")?;
         storage.create_dir_all("backups")?;
-        model::validate_name(&initial_section_name)?;
-        let manifest = PersistedManifest::empty(
-            Uuid::new_v4().to_string(),
-            Uuid::new_v4().to_string(),
-            initial_section_name.trim().to_owned(),
-            now_utc(),
-        );
+        let manifest = PersistedManifest::empty(Uuid::new_v4().to_string());
         let bodies = HashMap::new();
         manifest.validate(&bodies)?;
         replace_manifest(storage.as_ref(), &Uuid::new_v4().to_string(), &manifest)?;
@@ -185,11 +217,16 @@ impl Workspace {
             },
             watcher: None,
             events: Vec::new(),
+            cleanup_blocked: false,
         })
     }
 
     fn open_in(storage: Box<dyn WorkspaceStorage>) -> Result<Self, WorkspaceError> {
+        migration::recover_incomplete_migration(storage.as_ref())?;
         recover_incomplete(storage.as_ref())?;
+        if migration::schema_version(storage.as_ref())? == 1 {
+            migration::migrate_v1(storage.as_ref())?;
+        }
         let (manifest, bodies, health) = load_state(storage.as_ref())?;
         Ok(Self {
             storage,
@@ -198,6 +235,28 @@ impl Workspace {
             health,
             watcher: None,
             events: Vec::new(),
+            cleanup_blocked: false,
+        })
+    }
+
+    fn open_in_with_migration_failure(
+        storage: Box<dyn WorkspaceStorage>,
+        failure: MigrationFailure,
+    ) -> Result<Self, WorkspaceError> {
+        migration::recover_incomplete_migration(storage.as_ref())?;
+        recover_incomplete(storage.as_ref())?;
+        if migration::schema_version(storage.as_ref())? == 1 {
+            migration::migrate_v1_with_failure(storage.as_ref(), failure)?;
+        }
+        let (manifest, bodies, health) = load_state(storage.as_ref())?;
+        Ok(Self {
+            storage,
+            manifest,
+            bodies,
+            health,
+            watcher: None,
+            events: Vec::new(),
+            cleanup_blocked: false,
         })
     }
 
@@ -345,7 +404,9 @@ impl Workspace {
     }
 
     fn push_external_event(&mut self) -> Result<(), WorkspaceError> {
-        let snapshot = self.manifest.snapshot(&self.bodies)?;
+        let snapshot = self
+            .manifest
+            .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)?;
         self.events.push(WorkspaceChangedEvent {
             revision: snapshot.revision,
             snapshot,
@@ -372,6 +433,128 @@ impl Workspace {
             current.kind != issue.kind || current.resource_id != issue.resource_id
         });
         self.health.issues.push(issue);
+    }
+
+    fn retry_cleanup_if_needed(&mut self) -> Result<(), WorkspaceError> {
+        if !self.cleanup_blocked {
+            return Ok(());
+        }
+        recover_incomplete(self.storage.as_ref())?;
+        let (manifest, bodies, health) = load_state(self.storage.as_ref())?;
+        self.manifest = manifest;
+        self.bodies = bodies;
+        self.health = health;
+        self.cleanup_blocked = false;
+        Ok(())
+    }
+
+    fn prepare_attachment_import(
+        &self,
+        expected_revision: u64,
+        note_id: &str,
+        source_paths: &[String],
+    ) -> Result<(AppliedCommand, HashMap<String, Vec<u8>>), WorkspaceError> {
+        if expected_revision != self.manifest.revision {
+            return Err(WorkspaceError::StaleRevision {
+                expected: expected_revision,
+                actual: self.manifest.revision,
+            });
+        }
+        validate_ids(&[note_id.to_owned()], "note")?;
+        if source_paths.is_empty() {
+            return Err(WorkspaceError::Validation(
+                "attachment source list cannot be empty".to_owned(),
+            ));
+        }
+        let note = find_note(&self.manifest, note_id)?;
+        if note.attachments.len().saturating_add(source_paths.len()) > MAX_ATTACHMENTS_PER_NOTE {
+            return Err(WorkspaceError::Validation(
+                "too many attachments".to_owned(),
+            ));
+        }
+        let mut sources = Vec::with_capacity(source_paths.len());
+        let mut identities = HashSet::new();
+        for path in source_paths {
+            let source = self.storage.read_external_regular(path)?;
+            if !identities.insert(source.identity.clone()) {
+                return Err(WorkspaceError::Validation(
+                    "duplicate attachment source".to_owned(),
+                ));
+            }
+            sources.push(source);
+        }
+        let timestamp = now_utc();
+        let mut next = self.manifest.clone();
+        let target = find_note_mut(&mut next, note_id)?;
+        let mut bytes = HashMap::new();
+        for source in sources {
+            let id = Uuid::new_v4().to_string();
+            let suffix = source
+                .extension
+                .as_deref()
+                .map(|value| format!(".{value}"))
+                .unwrap_or_default();
+            let relative_path = format!("attachments/{note_id}/{id}{suffix}");
+            bytes.insert(relative_path.clone(), source.bytes);
+            target.attachments.push(PersistedAttachment {
+                id,
+                file_name: source.file_name,
+                relative_path,
+                created_at: timestamp.clone(),
+            });
+        }
+        target.attachments.sort_by(|left, right| {
+            left.created_at
+                .cmp(&right.created_at)
+                .then(left.id.cmp(&right.id))
+        });
+        target.updated_at = timestamp;
+        next.revision += 1;
+        next.validate(&self.bodies)?;
+        Ok((
+            AppliedCommand {
+                manifest: next,
+                bodies: self.bodies.clone(),
+            },
+            bytes,
+        ))
+    }
+
+    fn prepare_attachment_delete(
+        &self,
+        expected_revision: u64,
+        note_id: &str,
+        attachment_ids: &[String],
+    ) -> Result<AppliedCommand, WorkspaceError> {
+        if expected_revision != self.manifest.revision {
+            return Err(WorkspaceError::StaleRevision {
+                expected: expected_revision,
+                actual: self.manifest.revision,
+            });
+        }
+        validate_ids(&[note_id.to_owned()], "note")?;
+        validate_ids(attachment_ids, "attachment")?;
+        let mut next = self.manifest.clone();
+        let note = find_note_mut(&mut next, note_id)?;
+        for id in attachment_ids {
+            if !note
+                .attachments
+                .iter()
+                .any(|attachment| attachment.id == *id)
+            {
+                return Err(WorkspaceError::NotFound("attachment".to_owned()));
+            }
+        }
+        let ids = attachment_ids.iter().collect::<HashSet<_>>();
+        note.attachments
+            .retain(|attachment| !ids.contains(&attachment.id));
+        note.updated_at = now_utc();
+        next.revision += 1;
+        next.validate(&self.bodies)?;
+        Ok(AppliedCommand {
+            manifest: next,
+            bodies: self.bodies.clone(),
+        })
     }
 }
 
@@ -410,7 +593,7 @@ fn load_state(
         .into_iter()
         .filter(|name| name.ends_with(".md") && !known.contains(name))
         .count();
-    let issues = if import_candidates == 0 {
+    let mut issues = if import_candidates == 0 {
         Vec::new()
     } else {
         vec![WorkspaceHealthIssue {
@@ -419,6 +602,19 @@ fn load_state(
             message_key: "workspace_health_import_candidate".to_owned(),
         }]
     };
+    for note in &manifest.notes {
+        for attachment in &note.attachments {
+            if !storage.exists(&attachment.relative_path)?
+                || storage.read(&attachment.relative_path).is_err()
+            {
+                issues.push(WorkspaceHealthIssue {
+                    kind: WorkspaceHealthIssueKind::MissingAttachment,
+                    resource_id: Some(attachment.id.clone()),
+                    message_key: "workspace_health_missing_attachment".to_owned(),
+                });
+            }
+        }
+    }
     Ok((
         manifest,
         bodies,
@@ -435,26 +631,21 @@ mod tests {
 
     #[test]
     fn memory_workspace_runs_complete_command_contract() {
-        let mut workspace = Workspace::in_memory("Inbox".to_owned()).expect("memory workspace");
+        let mut workspace = Workspace::in_memory().expect("memory workspace");
         let initial = workspace.snapshot().expect("initial snapshot");
-        let section_id = initial.sections[0].id.clone();
         let created = workspace
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: initial.revision,
-                section_id,
                 body: "hello".to_owned(),
-                sort_key: 0,
             })
             .expect("create note");
         assert_eq!(created.snapshot.notes.len(), 1);
-        assert!(created.undo_token.is_some());
-        let restored = workspace
-            .execute(WorkspaceCommand::Undo {
+        let deleted = workspace
+            .execute(WorkspaceCommand::DeleteNotes {
                 expected_revision: created.snapshot.revision,
-                transaction_id: created.undo_token.expect("undo token"),
+                note_ids: vec![created.snapshot.notes[0].id.clone()],
             })
-            .expect("undo");
-        assert!(restored.snapshot.notes.is_empty());
-        assert_eq!(restored.snapshot.revision, 2);
+            .expect("delete");
+        assert!(deleted.snapshot.notes.is_empty());
     }
 }

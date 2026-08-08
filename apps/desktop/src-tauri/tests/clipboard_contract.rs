@@ -2,67 +2,70 @@ use std::fs;
 use std::path::Path;
 
 use charon_desktop_lib::clipboard::{
-    compose, ClipboardIpcError, ComposeNote, ComposeOptions, ComposeRequest, ComposedClipboard,
-    CopyPreset,
+    compose, ClipboardIpcError, ComposeAttachment, ComposeNote, ComposeRequest, ComposedClipboard,
 };
 use ts_rs::{Config, TS};
 
-fn request(preset: CopyPreset) -> ComposeRequest {
-    ComposeRequest {
-        notes: vec![
-            ComposeNote {
-                id: "first".to_owned(),
-                section_name: "Inbox".to_owned(),
-                body: "First\r\nline".to_owned(),
-                selection_order: 0,
+fn note(id: &str, body: &str) -> ComposeNote {
+    ComposeNote {
+        id: id.to_owned(),
+        body: body.to_owned(),
+        tags: Vec::new(),
+        attachments: Vec::new(),
+    }
+}
+
+#[test]
+fn request_serialization_contains_only_revision_and_ordered_ids() {
+    let value = serde_json::to_value(ComposeRequest {
+        expected_revision: 4,
+        note_ids: vec!["b".to_owned(), "a".to_owned()],
+    })
+    .expect("serialize");
+    assert_eq!(
+        value,
+        serde_json::json!({"expectedRevision":4,"noteIds":["b","a"]})
+    );
+}
+
+#[test]
+fn one_and_many_notes_have_the_canonical_shape() {
+    assert_eq!(compose(&[note("one", "Body\n")]).expect("single"), "Body\n");
+    assert_eq!(
+        compose(&[note("two", "\nSecond\n\n"), note("one", "First")]).expect("many"),
+        "## Note 1\n\nSecond\n\n---\n\n## Note 2\n\nFirst"
+    );
+}
+
+#[test]
+fn tags_and_attachments_are_deterministic_and_markdown_safe() {
+    let value = ComposeNote {
+        id: "note".to_owned(),
+        body: "Body".to_owned(),
+        tags: vec!["Research".to_owned(), "a``b".to_owned()],
+        attachments: vec![
+            ComposeAttachment {
+                id: "b".to_owned(),
+                file_name: "later.txt".to_owned(),
+                absolute_path: "/workspace/later.txt".to_owned(),
+                created_at: "2026-01-02T00:00:00Z".to_owned(),
             },
-            ComposeNote {
-                id: "second".to_owned(),
-                section_name: "Later".to_owned(),
-                body: "Deuxième 🍎".to_owned(),
-                selection_order: 1,
+            ComposeAttachment {
+                id: "a".to_owned(),
+                file_name: "first`file.txt".to_owned(),
+                absolute_path: "/workspace/first``file.txt".to_owned(),
+                created_at: "2026-01-01T00:00:00Z".to_owned(),
             },
         ],
-        preset,
-        options: ComposeOptions::default(),
-    }
+    };
+    assert_eq!(compose(&[value]).expect("compose"), "Body\n\n**Tags:** ` Research ` ``` a``b ```\n\n**Attachments:**\n- `` first`file.txt ``: ``` /workspace/first``file.txt ```\n- ` later.txt `: ` /workspace/later.txt `");
 }
 
 #[test]
-fn clipboard_contract_serialization_uses_stable_preset_names() {
-    assert_eq!(
-        serde_json::to_value(CopyPreset::TaskList).expect("serialize preset"),
-        serde_json::json!("task-list")
-    );
-    assert_eq!(
-        serde_json::to_value(request(CopyPreset::Sectioned)).expect("serialize request")["notes"]
-            [0]["selectionOrder"],
-        0
-    );
-}
-
-#[test]
-fn clipboard_contract_all_presets_are_deterministic() {
-    let fixtures = [
-        (CopyPreset::Plain, "First\nline\n\nDeuxième 🍎"),
-        (CopyPreset::Bulleted, "- First\n  line\n- Deuxième 🍎"),
-        (CopyPreset::Numbered, "1. First\n   line\n2. Deuxième 🍎"),
-        (
-            CopyPreset::TaskList,
-            "- [ ] First\n      line\n- [ ] Deuxième 🍎",
-        ),
-        (
-            CopyPreset::Sectioned,
-            "## Inbox\n\nFirst\nline\n\n## Later\n\nDeuxième 🍎",
-        ),
-    ];
-
-    for (preset, expected) in fixtures {
-        assert_eq!(
-            compose(&request(preset)).expect("compose").markdown,
-            expected
-        );
-    }
+fn invalid_selections_fail_atomically() {
+    assert!(compose(&[]).is_err());
+    assert!(compose(&[note("same", "one"), note("same", "two")]).is_err());
+    assert!(compose(&[note("blank", " \n")]).is_err());
 }
 
 #[test]
@@ -72,9 +75,6 @@ fn export_clipboard_bindings() {
         std::env::var_os("CHARON_CLIPBOARD_BINDINGS_OUT").expect("CHARON_CLIPBOARD_BINDINGS_OUT");
     let config = Config::default().with_large_int("number");
     let declarations = [
-        CopyPreset::decl(&config),
-        ComposeNote::decl(&config),
-        ComposeOptions::decl(&config),
         ComposeRequest::decl(&config),
         ComposedClipboard::decl(&config),
         ClipboardIpcError::decl(&config),

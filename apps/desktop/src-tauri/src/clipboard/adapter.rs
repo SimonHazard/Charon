@@ -1,7 +1,7 @@
 use tauri::AppHandle;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
-use super::{compose, ClipboardError, ComposeRequest, ComposedClipboard};
+use super::{compose, composer::summary, ClipboardError, ComposeNote, ComposedClipboard};
 
 pub(crate) trait ClipboardWriter {
     fn write_text(&mut self, text: &str) -> Result<(), ClipboardError>;
@@ -28,11 +28,11 @@ impl ClipboardWriter for TauriClipboardWriter<'_> {
 
 pub(crate) fn compose_and_write(
     writer: &mut impl ClipboardWriter,
-    request: &ComposeRequest,
+    notes: &[ComposeNote],
 ) -> Result<ComposedClipboard, ClipboardError> {
-    let composed = compose(request)?;
-    writer.write_text(&composed.markdown)?;
-    Ok(composed)
+    let markdown = compose(notes)?;
+    writer.write_text(&markdown)?;
+    summary(&markdown, notes)
 }
 
 fn classify_write_error(error: tauri_plugin_clipboard_manager::Error) -> ClipboardError {
@@ -49,7 +49,7 @@ fn classify_write_error(error: tauri_plugin_clipboard_manager::Error) -> Clipboa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clipboard::{ComposeNote, ComposeOptions, CopyPreset};
+    use crate::clipboard::ComposeNote;
 
     #[derive(Default)]
     struct MemoryClipboardWriter {
@@ -67,24 +67,20 @@ mod tests {
         }
     }
 
-    fn request(body: &str) -> ComposeRequest {
-        ComposeRequest {
-            notes: vec![ComposeNote {
-                id: "note-id".to_owned(),
-                section_name: "Inbox".to_owned(),
-                body: body.to_owned(),
-                selection_order: 0,
-            }],
-            preset: CopyPreset::Plain,
-            options: ComposeOptions::default(),
-        }
+    fn request(body: &str) -> Vec<ComposeNote> {
+        vec![ComposeNote {
+            id: "note-id".to_owned(),
+            body: body.to_owned(),
+            tags: Vec::new(),
+            attachments: Vec::new(),
+        }]
     }
 
     #[test]
     fn clipboard_adapter_writes_composed_markdown_once() {
         let mut writer = MemoryClipboardWriter::default();
         let result = compose_and_write(&mut writer, &request("copied")).expect("write clipboard");
-        assert_eq!(result.markdown, "copied");
+        assert_eq!(result.byte_count, 6);
         assert_eq!(writer.writes, ["copied"]);
     }
 
@@ -111,7 +107,7 @@ mod tests {
         assert!(writer.writes.is_empty());
 
         let mut empty = request("value");
-        empty.notes.clear();
+        empty.clear();
         assert!(matches!(
             compose_and_write(&mut writer, &empty),
             Err(ClipboardError::EmptySelection)

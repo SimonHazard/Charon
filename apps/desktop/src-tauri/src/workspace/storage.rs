@@ -1,10 +1,21 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 use super::error::WorkspaceError;
+use super::model::{validate_file_name, MAX_ATTACHMENT_BYTES};
+
+pub(crate) struct ExternalFile {
+    pub identity: String,
+    pub file_name: String,
+    pub extension: Option<String>,
+    pub bytes: Vec<u8>,
+}
 
 pub(crate) trait WorkspaceStorage: Send + Sync {
     fn root(&self) -> Option<&Path>;
@@ -14,13 +25,55 @@ pub(crate) trait WorkspaceStorage: Send + Sync {
     fn rename(&self, from: &str, to: &str) -> Result<(), WorkspaceError>;
     fn remove_file(&self, relative: &str) -> Result<(), WorkspaceError>;
     fn remove_dir_all(&self, relative: &str) -> Result<(), WorkspaceError>;
+    fn remove_dir_if_empty(&self, relative: &str) -> Result<(), WorkspaceError>;
     fn exists(&self, relative: &str) -> Result<bool, WorkspaceError>;
     fn list(&self, relative: &str) -> Result<Vec<String>, WorkspaceError>;
     fn sync_dir(&self, relative: &str) -> Result<(), WorkspaceError>;
+    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError>;
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError>;
 }
 
 pub(crate) struct RealWorkspaceStorage {
     root: PathBuf,
+}
+
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageFailure {
+    AttachmentOpen,
+    AttachmentRead,
+    AttachmentWrite,
+    ShortCopy,
+    Sync,
+    Rename,
+    Manifest,
+    Cleanup,
+}
+
+pub(crate) struct FailingWorkspaceStorage {
+    inner: RealWorkspaceStorage,
+    failure: StorageFailure,
+    fired: AtomicBool,
+}
+
+impl FailingWorkspaceStorage {
+    pub(crate) fn new(inner: RealWorkspaceStorage, failure: StorageFailure) -> Self {
+        Self {
+            inner,
+            failure,
+            fired: AtomicBool::new(false),
+        }
+    }
+
+    fn fail_once(&self, condition: bool) -> Result<(), WorkspaceError> {
+        if condition && !self.fired.swap(true, Ordering::SeqCst) {
+            return Err(WorkspaceError::Io(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "injected Workspace storage interruption",
+            )));
+        }
+        Ok(())
+    }
 }
 
 impl RealWorkspaceStorage {
@@ -171,6 +224,14 @@ impl WorkspaceStorage for RealWorkspaceStorage {
         Ok(())
     }
 
+    fn remove_dir_if_empty(&self, relative: &str) -> Result<(), WorkspaceError> {
+        let path = self.resolve(relative, false)?;
+        if path.exists() && fs::read_dir(&path)?.next().is_none() {
+            fs::remove_dir(path)?;
+        }
+        Ok(())
+    }
+
     fn exists(&self, relative: &str) -> Result<bool, WorkspaceError> {
         validate_relative(relative)?;
         let candidate = self.root.join(relative);
@@ -214,6 +275,146 @@ impl WorkspaceStorage for RealWorkspaceStorage {
         let _ = path;
         Ok(())
     }
+
+    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError> {
+        let source = Path::new(source);
+        let symlink = fs::symlink_metadata(source)?;
+        if symlink.file_type().is_symlink() || !symlink.is_file() {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        let canonical = fs::canonicalize(source)?;
+        if canonical.starts_with(&self.root) {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        let before = fs::metadata(&canonical)?;
+        if !before.is_file() || before.len() > MAX_ATTACHMENT_BYTES {
+            return Err(WorkspaceError::Validation(
+                "attachment source is not a bounded regular file".to_owned(),
+            ));
+        }
+        let file_name = canonical
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or(WorkspaceError::InvalidPath)?
+            .to_owned();
+        validate_file_name(&file_name)?;
+        let extension = safe_extension(&file_name);
+        let mut file = File::open(&canonical)?;
+        let mut bytes = Vec::with_capacity(usize::try_from(before.len()).unwrap_or_default());
+        std::io::Read::by_ref(&mut file)
+            .take(MAX_ATTACHMENT_BYTES + 1)
+            .read_to_end(&mut bytes)?;
+        let after = file.metadata()?;
+        if bytes.len() as u64 != before.len()
+            || bytes.len() as u64 > MAX_ATTACHMENT_BYTES
+            || after.len() != before.len()
+            || after.modified().ok() != before.modified().ok()
+        {
+            return Err(WorkspaceError::Validation(
+                "attachment source changed while copying".to_owned(),
+            ));
+        }
+        Ok(ExternalFile {
+            identity: canonical.to_string_lossy().into_owned(),
+            file_name,
+            extension,
+            bytes,
+        })
+    }
+
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        let path = self.resolve(relative, false)?;
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        let canonical = fs::canonicalize(path)?;
+        if !canonical.starts_with(&self.root) {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        canonical
+            .into_os_string()
+            .into_string()
+            .map_err(|_| WorkspaceError::InvalidPath)
+    }
+}
+
+impl WorkspaceStorage for FailingWorkspaceStorage {
+    fn root(&self) -> Option<&Path> {
+        self.inner.root()
+    }
+
+    fn create_dir_all(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.inner.create_dir_all(relative)
+    }
+
+    fn read(&self, relative: &str) -> Result<Vec<u8>, WorkspaceError> {
+        self.inner.read(relative)
+    }
+
+    fn write_synced(&self, relative: &str, contents: &[u8]) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            self.failure == StorageFailure::AttachmentWrite
+                && relative.contains("/next/attachments/"),
+        )?;
+        self.inner.write_synced(relative, contents)
+    }
+
+    fn rename(&self, from: &str, to: &str) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            (self.failure == StorageFailure::Rename && from.starts_with("attachments/"))
+                || (self.failure == StorageFailure::Manifest && to == "charon.workspace.json"),
+        )?;
+        self.inner.rename(from, to)
+    }
+
+    fn remove_file(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.inner.remove_file(relative)
+    }
+
+    fn remove_dir_all(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            self.failure == StorageFailure::Cleanup
+                && relative.starts_with("backups/")
+                && relative != "backups/migration-v1-v2",
+        )?;
+        self.inner.remove_dir_all(relative)
+    }
+
+    fn remove_dir_if_empty(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.inner.remove_dir_if_empty(relative)
+    }
+
+    fn exists(&self, relative: &str) -> Result<bool, WorkspaceError> {
+        self.inner.exists(relative)
+    }
+
+    fn list(&self, relative: &str) -> Result<Vec<String>, WorkspaceError> {
+        self.inner.list(relative)
+    }
+
+    fn sync_dir(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            self.failure == StorageFailure::Sync
+                && relative.starts_with("backups/")
+                && relative != "backups/migration-v1-v2",
+        )?;
+        self.inner.sync_dir(relative)
+    }
+
+    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError> {
+        self.fail_once(matches!(
+            self.failure,
+            StorageFailure::AttachmentOpen
+                | StorageFailure::AttachmentRead
+                | StorageFailure::ShortCopy
+        ))?;
+        self.inner.read_external_regular(source)
+    }
+
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        self.inner.canonical_managed_path(relative)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -225,6 +426,7 @@ pub(crate) struct MemoryWorkspaceStorage {
 struct MemoryState {
     files: HashMap<String, Vec<u8>>,
     directories: HashSet<String>,
+    external_files: HashMap<String, (String, Vec<u8>)>,
 }
 
 impl MemoryWorkspaceStorage {
@@ -236,6 +438,21 @@ impl MemoryWorkspaceStorage {
             .expect("memory storage lock")
             .directories
             .insert(String::new());
+        storage
+    }
+
+    pub(crate) fn with_external_files(files: Vec<(String, String, Vec<u8>)>) -> Self {
+        let storage = Self::new();
+        storage
+            .inner
+            .lock()
+            .expect("memory storage lock")
+            .external_files
+            .extend(
+                files
+                    .into_iter()
+                    .map(|(identity, file_name, bytes)| (identity, (file_name, bytes))),
+            );
         storage
     }
 }
@@ -323,6 +540,21 @@ impl WorkspaceStorage for MemoryWorkspaceStorage {
         Ok(())
     }
 
+    fn remove_dir_if_empty(&self, relative: &str) -> Result<(), WorkspaceError> {
+        validate_relative(relative)?;
+        let prefix = format!("{relative}/");
+        let mut state = self.inner.lock().expect("memory storage lock");
+        if !state.files.keys().any(|path| path.starts_with(&prefix))
+            && !state
+                .directories
+                .iter()
+                .any(|path| path != relative && path.starts_with(&prefix))
+        {
+            state.directories.remove(relative);
+        }
+        Ok(())
+    }
+
     fn exists(&self, relative: &str) -> Result<bool, WorkspaceError> {
         validate_relative(relative)?;
         let state = self.inner.lock().expect("memory storage lock");
@@ -352,6 +584,48 @@ impl WorkspaceStorage for MemoryWorkspaceStorage {
         validate_relative(relative)?;
         Ok(())
     }
+
+    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError> {
+        let state = self.inner.lock().expect("memory storage lock");
+        let (file_name, bytes) = state
+            .external_files
+            .get(source)
+            .ok_or(WorkspaceError::InvalidPath)?;
+        if bytes.len() as u64 > MAX_ATTACHMENT_BYTES {
+            return Err(WorkspaceError::Validation(
+                "attachment source is too large".to_owned(),
+            ));
+        }
+        validate_file_name(file_name)?;
+        Ok(ExternalFile {
+            identity: source.to_owned(),
+            file_name: file_name.clone(),
+            extension: safe_extension(file_name),
+            bytes: bytes.clone(),
+        })
+    }
+
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        validate_relative(relative)?;
+        if !self
+            .inner
+            .lock()
+            .expect("memory storage lock")
+            .files
+            .contains_key(relative)
+        {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        Ok(format!("/memory-workspace/{relative}"))
+    }
+}
+
+fn safe_extension(file_name: &str) -> Option<String> {
+    let extension = Path::new(file_name).extension()?.to_str()?;
+    (!extension.is_empty()
+        && extension.len() <= 16
+        && extension.chars().all(|value| value.is_ascii_alphanumeric()))
+    .then(|| extension.to_ascii_lowercase())
 }
 
 fn validate_relative(relative: &str) -> Result<(), WorkspaceError> {
