@@ -29,8 +29,8 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 007 | Build focus-preserving selected-text capture and native shortcuts | P1 | XL | 003-006 | DONE |
 | 008 | [Refound Charon around rapid capture](./008-freeze-rapid-capture-product.md) | P1 | M | 001-007 | DONE |
 | 009 | [Integrate the approved brand and Solarized-first token system](./009-integrate-brand-and-solarized-system.md) | P1 | M | 008 | DONE |
-| 010 | [Simplify the Workspace and agent-ready copy domain](./010-simplify-workspace-and-copy-domain.md) | P1 | XL | 008 | TODO |
-| 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | TODO |
+| 010 | [Simplify the Workspace and agent-ready copy domain](./010-simplify-workspace-and-copy-domain.md) | P1 | XL | 008 | DONE |
+| 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | IN PROGRESS |
 | 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | TODO |
 | 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | TODO |
 | 014 | [Close rapid-capture release quality gaps](./014-close-rapid-capture-quality-gaps.md) | P1 | L | 009-013 | TODO |
@@ -41,15 +41,16 @@ Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED: <reason>`, or
 
 ## Active handoff
 
-Plan 007 completed on 2026-08-04 on branch `codex/007-quick-capture` at commit
-`9beb3fe`. Its final macOS ad-hoc debug artifact passed the physical gesture,
-focus, application-family, pasteboard restoration/concurrent-write, denial,
-manual input, and restart matrix recorded in `docs/platform-support.md`.
+Plans 008 and 009 are complete. Plan 010 completed on 2026-08-05 on branch
+`codex/010-flat-workspace` in the four required commits.
+Its Workspace, ClipboardComposer, binding, frontend-domain, Rust quality,
+aggregate Bun, full Cargo, privacy, deletion, and generated-file gates passed.
 
-The worktree was clean when this replanning started. No former Plan 008 source
-work had begun: `/settings` and `/stats` were placeholders, no native preference
-or diagnostics module existed, and the site remained a scaffold. The next
-implementation is Plan 008 on branch `codex/008-rapid-capture-contracts`.
+Plan 011's DTO-compatible single-shelf implementation is co-located on the same
+branch and remains `IN PROGRESS`. Complete its Bun-owned obsolete dependency and
+lockfile removal, then run the required real-window visual matrix before marking
+it `DONE`. The next implementation after that is Plan 012; do not resume Plans
+008 or 009 from history.
 
 ## Dependency graph
 
@@ -210,28 +211,17 @@ release behavior. Do not float a version or hand-edit either lockfile.
 | `@vitejs/plugin-react` | `6.0.5` | keep |
 | `@tauri-apps/cli` | `2.11.4` | keep |
 | `@tauri-apps/api` | `2.11.1` | keep |
-| `@tauri-apps/plugin-clipboard-manager` | `2.3.2` | review JS package; Rust plugin remains for `Copy as Markdown` |
 | `@tauri-apps/plugin-dialog` | `2.7.2` | keep/review for folder and Attachment choosers |
-| `@tauri-apps/plugin-fs` | `2.5.1` | removal candidate in Plans 011/012 |
-| `@tauri-apps/plugin-global-shortcut` | `2.3.2` | Rust standard fallback remains |
-| `@tauri-apps/plugin-process` | `2.3.1` | removal candidate until Plan 015 |
-| `@tauri-apps/plugin-updater` | `2.10.1` | removal candidate until Plan 015 |
-| `@tauri-apps/plugin-window-state` | `2.4.1` | retain if live native use remains |
 | `@base-ui/react` | `1.6.0` | keep |
 | `@tabler/icons-react` | `3.46.0` | keep |
 | `motion` | `12.43.0` | keep inside desktop |
 | `@tanstack/react-virtual` | `3.14.9` | keep for large flat Note lists |
-| `@tanstack/react-router` | `1.170.18` | remove in Plan 011 |
-| `@tanstack/router-plugin` | `1.168.23` | remove in Plan 011 |
-| `@tanstack/react-hotkeys` | `0.10.0` | remove in Plan 011 |
-| `cmdk` | `1.1.1` | remove with command palette |
 | `class-variance-authority` | `0.7.1` | keep while Base UI components use it |
 | `clsx` | `2.1.1` | keep if imported |
 | `tailwind-merge` | `3.6.0` | keep if imported |
 | `tailwindcss`, `@tailwindcss/vite` | `4.3.3` | keep |
 | `tw-animate-css` | `1.4.0` | retain only if a live component imports its output |
 | `shadcn` | `4.16.0` | source/tooling only; review direct runtime need |
-| `zod` | `4.4.3` | remove if Plan 011 confirms no consumer |
 | `@inlang/paraglide-js` | `2.23.0` | keep |
 | `vitest` | `4.1.10` | keep |
 | `jsdom` | `30.0.1` | keep |

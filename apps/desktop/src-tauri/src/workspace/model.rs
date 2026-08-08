@@ -451,6 +451,42 @@ pub(crate) fn validate_timestamp(value: &str) -> Result<(), WorkspaceError> {
             "timestamps must be RFC 3339 UTC seconds".to_owned(),
         ));
     }
+
+    let parse =
+        |range: std::ops::Range<usize>| -> u32 { value[range].parse::<u32>().unwrap_or_default() };
+    let year = parse(0..4);
+    let month = parse(5..7);
+    let day = parse(8..10);
+    let hour = parse(11..13);
+    let minute = parse(14..16);
+    let second = parse(17..19);
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    if year == 0
+        || !(1..=12).contains(&month)
+        || day == 0
+        || day > month_days[(month - 1) as usize]
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
+        return Err(WorkspaceError::Validation(
+            "timestamp contains an invalid UTC date".to_owned(),
+        ));
+    }
     Ok(())
 }
 
@@ -525,5 +561,13 @@ mod tests {
             validate_managed_path("note", "attachment", "attachments/other/attachment.txt")
                 .is_err()
         );
+    }
+
+    #[test]
+    fn timestamps_require_a_real_utc_calendar_second() {
+        assert!(validate_timestamp("2024-02-29T23:59:59Z").is_ok());
+        assert!(validate_timestamp("2026-02-29T12:00:00Z").is_err());
+        assert!(validate_timestamp("2026-13-01T12:00:00Z").is_err());
+        assert!(validate_timestamp("2026-01-01T24:00:00Z").is_err());
     }
 }

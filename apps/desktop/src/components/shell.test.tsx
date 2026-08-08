@@ -2,69 +2,22 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
-import { WorkspaceProvider } from '@/app/workspace-context';
-import { shellLayout } from '@/components/app-shell';
-import { WorkspaceState } from '@/components/workspace-state';
-import type { WorkspaceClient } from '@/lib/ipc/workspace-client';
-import { Route as IndexRoute } from '@/routes/index';
+import { AppShell } from '@/components/app-shell';
 
-describe('shell states', () => {
-  it('keeps the root redirect in the shell verification boundary', () => {
-    expect(IndexRoute.options.beforeLoad).toBeTypeOf('function');
-  });
-
-  it('renders the loading state while the snapshot is pending', () => {
-    const client: WorkspaceClient = {
-      snapshot: () => new Promise(() => undefined),
-      subscribe: async () => () => undefined,
-    };
+describe('single shelf shell', () => {
+  it('renders one main landmark without navigation, rail, inspector, or footer', () => {
     render(
       <AppProviders>
-        <WorkspaceProvider client={client}>
-          <WorkspaceState>{() => null}</WorkspaceState>
-        </WorkspaceProvider>
+        <AppShell>
+          <p>content</p>
+        </AppShell>
       </AppProviders>,
     );
-    expect(screen.getByRole('status', { name: 'Loading workspace' })).toBeTruthy();
-  });
-
-  it('renders the no-workspace empty state', async () => {
-    const client: WorkspaceClient = {
-      snapshot: async () => Promise.reject({ code: 'not_open', messageKey: 'x' }),
-      subscribe: async () => () => undefined,
-    };
-    render(
-      <AppProviders>
-        <WorkspaceProvider client={client}>
-          <WorkspaceState>{() => null}</WorkspaceState>
-        </WorkspaceProvider>
-      </AppProviders>,
-    );
-    expect(await screen.findByText('Choose a workspace')).toBeTruthy();
-  });
-
-  it('keeps folder choice enabled when default workspace access fails', async () => {
-    const client: WorkspaceClient = {
-      snapshot: async () => Promise.reject({ code: 'io', messageKey: 'workspace_error_io' }),
-      chooseDirectory: async () => null,
-      openOrCreate: async () => Promise.reject({ code: 'io', messageKey: 'workspace_error_io' }),
-      subscribe: async () => () => undefined,
-    };
-    render(
-      <AppProviders>
-        <WorkspaceProvider client={client}>
-          <WorkspaceState>{() => null}</WorkspaceState>
-        </WorkspaceProvider>
-      </AppProviders>,
-    );
-    expect(await screen.findByText('Choose a workspace')).toBeTruthy();
-    expect(screen.getByText(/local files could not be read or written/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Choose folder' }).hasAttribute('disabled')).toBe(
-      false,
-    );
-  });
-
-  it('defines the 760px rail handoff and fixed 240px desktop rail', () => {
-    expect(shellLayout).toEqual({ railWidth: 240, mobileBreakpoint: 760 });
+    expect(screen.getAllByRole('main')).toHaveLength(1);
+    expect(screen.queryByRole('navigation')).toBeNull();
+    expect(document.querySelector('.section-rail')).toBeNull();
+    expect(document.querySelector('.context-inspector')).toBeNull();
+    expect(document.querySelector('footer')).toBeNull();
+    expect(screen.getByLabelText('Charon')).toBeTruthy();
   });
 });

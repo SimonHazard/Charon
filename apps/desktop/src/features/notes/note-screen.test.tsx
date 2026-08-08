@@ -1,247 +1,147 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { useCaptureEditor } from '@/app/capture-editor-context';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { AppProviders } from '@/app/providers';
-import { useWorkspace, WorkspaceProvider } from '@/app/workspace-context';
-import type {
-  NoteDto,
-  WorkspaceCommand,
-  WorkspaceCommandResult,
-  WorkspaceSnapshot,
-} from '@/bindings/workspace';
+import type { WorkspaceCommand } from '@/bindings/workspace';
 import { NoteScreen } from '@/features/notes/note-screen';
-import type { WorkspaceClient } from '@/lib/ipc/workspace-client';
+import type { ClipboardClient } from '@/lib/ipc/clipboard-client';
+import { note, snapshot, workspaceClient } from '@/test/workspace-fixture';
 
-const note = (id: string, body: string, sortKey: number): NoteDto => ({
-  id,
-  sectionId: 'section',
-  body,
-  status: 'open',
-  sortKey,
-  createdAt: String(sortKey),
-  updatedAt: String(sortKey),
-  completedAt: null,
-  trashedAt: null,
-});
+const current = snapshot([
+  note({ id: 'alpha', body: '# Alpha\nbody', tags: ['Agent'] }),
+  note({
+    id: 'file',
+    body: 'Attachment note',
+    attachments: [
+      {
+        id: 'a',
+        fileName: 'brief.pdf',
+        relativePath: 'attachments/file/a.pdf',
+        createdAt: '2026-08-05T10:00:00.000Z',
+      },
+    ],
+  }),
+  note({ id: 'done', body: 'Completed note', status: 'done' }),
+]);
 
-const initial: WorkspaceSnapshot = {
-  schemaVersion: 1,
-  workspaceId: 'workspace',
-  revision: 1,
-  sections: [{ id: 'section', name: 'Ideas', sortKey: 0, createdAt: '1', updatedAt: '1' }],
-  notes: [note('one', 'First', 0), note('two', 'Second', 1), note('three', 'Third', 2)],
-};
-
-function ReadyNotes() {
-  const workspace = useWorkspace();
-  return workspace.snapshot ? <NoteScreen snapshot={workspace.snapshot} /> : null;
-}
-
-let captureRequestId = 0;
-let emitCaptureRequest: (() => void) | undefined;
-let setNotesMounted: ((mounted: boolean) => void) | undefined;
-
-function CaptureRequestBridge() {
-  const { receive } = useCaptureEditor();
-  emitCaptureRequest = () => receive({ requestId: ++captureRequestId });
-  return null;
-}
-
-function RemountableReadyNotes() {
-  const workspace = useWorkspace();
-  const [mounted, setMounted] = useState(true);
-  setNotesMounted = setMounted;
-  return mounted && workspace.snapshot ? <NoteScreen snapshot={workspace.snapshot} /> : null;
-}
-
-function setupClient() {
-  let current = initial;
-  const execute = vi.fn(async (command: WorkspaceCommand): Promise<WorkspaceCommandResult> => {
-    if (command.type === 'mergeNotes') {
-      const now = '2026-07-30T20:00:00Z';
-      current = {
-        ...current,
-        revision: current.revision + 1,
-        notes: [
-          ...current.notes.map((candidate) =>
-            command.noteIds.includes(candidate.id) ? { ...candidate, trashedAt: now } : candidate,
-          ),
-          note('composite', 'First\n\n---\n\nSecond', command.sortKey),
-        ],
-      };
-    } else if (command.type === 'batchTrash') {
-      current = {
-        ...current,
-        revision: current.revision + 1,
-        notes: current.notes.map((candidate) =>
-          command.noteIds.includes(candidate.id)
-            ? { ...candidate, trashedAt: '2026-07-30T20:00:00Z' }
-            : candidate,
-        ),
-      };
-    } else if (command.type === 'createNote') {
-      current = {
-        ...current,
-        revision: current.revision + 1,
-        notes: [
-          ...current.notes,
-          {
-            ...note(`created-${current.revision}`, command.body, command.sortKey),
-            sectionId: command.sectionId,
-          },
-        ],
-      };
-    }
-    return {
-      snapshot: current,
-      transactionId: `tx-${current.revision}`,
-      undoToken: `tx-${current.revision}`,
-    };
-  });
-  const client: WorkspaceClient = {
-    snapshot: async () => current,
-    subscribe: async () => () => undefined,
-    execute,
-  };
-  return { client, execute };
-}
-
-function renderScreen(client: WorkspaceClient, withCaptureRequest = false) {
-  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
-  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
-  return render(
-    <AppProviders>
-      <WorkspaceProvider client={client}>
-        <ReadyNotes />
-        {withCaptureRequest ? <CaptureRequestBridge /> : null}
-      </WorkspaceProvider>
+function renderScreen(
+  options: {
+    onCommand?: (command: WorkspaceCommand) => void | Promise<void>;
+    clipboardClient?: ClipboardClient;
+    pickAttachments?: () => Promise<string[]>;
+  } = {},
+) {
+  const client = workspaceClient(current, options.onCommand);
+  render(
+    <AppProviders workspaceClient={client}>
+      <NoteScreen
+        clipboardClient={options.clipboardClient}
+        pickAttachments={options.pickAttachments}
+        snapshot={current}
+      />
     </AppProviders>,
   );
 }
 
-describe('note screen workflows', () => {
-  it('maps a selected merge to one Rust command and focuses the composite after success', async () => {
+describe('single note shelf', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+  });
+
+  it('defaults to Open and searches body, tags, and attachment names', async () => {
     const user = userEvent.setup();
-    const { client, execute } = setupClient();
-    renderScreen(client);
-    await user.click(await screen.findByRole('checkbox', { name: 'Select First' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Select Second' }));
-    expect(screen.getByText('2 notes selected')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Merge' }));
-    await user.click(screen.getByRole('button', { name: 'Create composite' }));
-    expect(execute).toHaveBeenCalledTimes(1);
-    expect(execute.mock.calls[0]?.[0]).toMatchObject({
-      type: 'mergeNotes',
-      noteIds: ['one', 'two'],
-      destinationSectionId: 'section',
-    });
+    renderScreen();
+    expect(screen.getByRole('button', { name: /Open/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByText('Completed note')).toBeNull();
+    const search = screen.getByRole('textbox', { name: 'Search notes' });
+    await user.type(search, 'brief.pdf');
+    expect(await screen.findByText('Attachment note')).toBeTruthy();
+    expect(screen.queryByText('Alpha')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Clear search and tag filter' }));
+    await user.click(screen.getByRole('button', { name: 'Agent' }));
+    expect(screen.getByText('Alpha')).toBeTruthy();
+    expect(screen.queryByText('Attachment note')).toBeNull();
+  });
+
+  it('copies only note IDs through the canonical ClipboardComposer request', async () => {
+    const user = userEvent.setup();
+    const composeAndWrite = vi
+      .fn()
+      .mockResolvedValue({ noteCount: 1, tagCount: 1, attachmentCount: 0, byteCount: 24 });
+    renderScreen({ clipboardClient: { composeAndWrite } });
+    await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
+    await user.click(await screen.findByText('Copy as Markdown'));
     await waitFor(() =>
-      expect(document.activeElement?.getAttribute('data-note-focus')).toBe('composite'),
+      expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteIds: ['alpha'] }),
     );
+    expect(screen.queryByText(/\/Users\//)).toBeNull();
   });
 
-  it('supports range selection and grouped trash from the keyboard', async () => {
+  it('forwards transient picker paths only to the typed attachment command', async () => {
     const user = userEvent.setup();
-    const { client, execute } = setupClient();
-    renderScreen(client);
-    await screen.findByRole('button', { name: /First.*Ideas.*Open/ });
+    const commands: WorkspaceCommand[] = [];
+    renderScreen({
+      onCommand: (command) => {
+        commands.push(command);
+      },
+      pickAttachments: async () => ['/external/brief.pdf'],
+    });
+    await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
+    await user.click(await screen.findByText('Add attachment'));
     await waitFor(() =>
-      expect(document.activeElement?.getAttribute('data-note-focus')).toBe('one'),
+      expect(commands.some((command) => command.type === 'importNoteAttachments')).toBe(true),
     );
-    await user.keyboard('{ArrowDown}');
-    await user.keyboard(' ');
-    await user.keyboard('{Shift>}{ArrowDown}{/Shift}');
-    expect(screen.getByText('2 notes selected')).toBeTruthy();
-    await user.keyboard('{Delete}');
-    const dialog = await screen.findByRole('alertdialog');
-    const confirm = within(dialog).getByRole('button', { name: 'Move to trash' });
-    await user.click(confirm);
-    await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
-    expect(execute.mock.calls[0]?.[0]).toMatchObject({
-      type: 'batchTrash',
-      noteIds: ['two', 'three'],
+    const command = commands.find((item) => item.type === 'importNoteAttachments');
+    expect(command).toMatchObject({
+      type: 'importNoteAttachments',
+      noteId: 'alpha',
+      sourcePaths: ['/external/brief.pdf'],
     });
+    expect(document.body.textContent).not.toContain('/external/brief.pdf');
   });
 
-  it('creates one normal note from the compact input in the active section', async () => {
+  it('uses one irreversible batch confirmation and no Trash or Undo affordance', async () => {
     const user = userEvent.setup();
-    const { client, execute } = setupClient();
-    renderScreen(client);
-    const input = await screen.findByRole('textbox', { name: 'Add a note to Ideas' });
-    await user.type(input, 'Captured inline{Enter}');
-    await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
-    expect(execute.mock.calls[0]?.[0]).toMatchObject({
-      type: 'createNote',
-      sectionId: 'section',
-      body: 'Captured inline',
+    const commands: WorkspaceCommand[] = [];
+    renderScreen({
+      onCommand: (command) => {
+        commands.push(command);
+      },
     });
-  });
-
-  it('opens an unpersisted empty editor and preserves its dirty draft on repeated requests', async () => {
-    const user = userEvent.setup();
-    const { client, execute } = setupClient();
-    renderScreen(client, true);
-    await act(async () => emitCaptureRequest?.());
-    const editor = await screen.findByRole('textbox', { name: 'Markdown body' });
-    expect(document.activeElement).toBe(editor);
-    expect((editor as HTMLTextAreaElement).value).toBe('');
-    expect(execute).not.toHaveBeenCalled();
-
-    await user.type(editor, 'Unsaved thought');
-    await act(async () => emitCaptureRequest?.());
-    expect((editor as HTMLTextAreaElement).value).toBe('Unsaved thought');
-    expect(document.activeElement).toBe(editor);
-    expect(execute).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole('button', { name: 'Save now' }));
-    await waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
-    expect(execute.mock.calls[0]?.[0]).toMatchObject({
-      type: 'createNote',
-      sectionId: 'section',
-      body: 'Unsaved thought',
-    });
-  });
-
-  it('replaces a clean existing-note editor with an empty draft on a capture request', async () => {
-    const user = userEvent.setup();
-    const { client, execute } = setupClient();
-    renderScreen(client, true);
-    const first = await screen.findByRole('button', { name: /First.*Ideas.*Open/ });
-    await user.dblClick(first);
-    expect(
-      ((await screen.findByRole('textbox', { name: 'Markdown body' })) as HTMLTextAreaElement)
-        .value,
-    ).toBe('First');
-
-    await act(async () => emitCaptureRequest?.());
-
-    const editor = await screen.findByRole('textbox', { name: 'Markdown body' });
-    expect((editor as HTMLTextAreaElement).value).toBe('');
-    expect(document.activeElement).toBe(editor);
-    expect(execute).not.toHaveBeenCalled();
-  });
-
-  it('consumes an editor request so remounting Notes does not replay it', async () => {
-    const { client } = setupClient();
-    render(
-      <AppProviders>
-        <WorkspaceProvider client={client}>
-          <RemountableReadyNotes />
-          <CaptureRequestBridge />
-        </WorkspaceProvider>
-      </AppProviders>,
-    );
-
-    await act(async () => emitCaptureRequest?.());
-    expect(await screen.findByRole('textbox', { name: 'Markdown body' })).toBeTruthy();
-
-    await act(async () => setNotesMounted?.(false));
-    expect(screen.queryByRole('textbox', { name: 'Markdown body' })).toBeNull();
-    await act(async () => setNotesMounted?.(true));
+    await user.click(screen.getByRole('button', { name: 'Select' }));
+    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
+    await user.click(screen.getByRole('button', { name: 'Delete 1' }));
+    const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText(/cannot be undone/i)).toBeTruthy();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() =>
-      expect(screen.queryByRole('textbox', { name: 'Markdown body' })).toBeNull(),
+      expect(commands.some((command) => command.type === 'deleteNotes')).toBe(true),
     );
+    expect(screen.queryByText('Trash')).toBeNull();
+    expect(screen.queryByText('Undo')).toBeNull();
+  });
+
+  it('reports cleanup-required without claiming success and retries through snapshot recovery', async () => {
+    const user = userEvent.setup();
+    renderScreen({
+      onCommand: (command) => {
+        if (command.type === 'deleteNotes') {
+          throw {
+            code: 'deletion_cleanup_required',
+            messageKey: 'workspace_error_deletion_cleanup_required',
+          };
+        }
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Select' }));
+    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
+    await user.click(screen.getByRole('button', { name: 'Delete 1' }));
+    await user.click(screen.getByRole('button', { name: 'Delete permanently' }));
+    expect(await screen.findByText(/cleanup could not be verified/i)).toBeTruthy();
+    expect(screen.getByRole('alertdialog')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
   });
 });

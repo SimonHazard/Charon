@@ -1,40 +1,29 @@
-import type { WorkspaceSnapshot } from '@/bindings/workspace';
-import type { NoteViewModel } from '@/features/notes/note-view-model';
+import type { NoteDto, NoteStatus } from '@/bindings/workspace';
 
 export type NoteFilter = {
   query: string;
-  sectionId: string | null;
-  status: 'all' | 'open' | 'done';
-  trash: boolean;
+  status: NoteStatus;
+  tag: string | null;
 };
 
 const whitespace = /\s+/gu;
 
 export function normalizeSearchText(value: string): string {
-  return value.normalize('NFKC').toLowerCase().replace(whitespace, ' ').trim();
+  return value.normalize('NFKC').toLocaleLowerCase().replace(whitespace, ' ').trim();
 }
 
-export function filterNotes(notes: readonly NoteViewModel[], filter: NoteFilter): NoteViewModel[] {
+export function filterNotes(notes: readonly NoteDto[], filter: NoteFilter): NoteDto[] {
   const tokens = normalizeSearchText(filter.query).split(' ').filter(Boolean);
+  const exactTag = filter.tag?.toLocaleLowerCase() ?? null;
   return notes.filter((note) => {
-    if (filter.trash !== Boolean(note.trashedAt)) return false;
-    if (filter.sectionId && note.sectionId !== filter.sectionId) return false;
-    if (filter.status !== 'all' && note.status !== filter.status) return false;
-    if (tokens.length === 0) return true;
-    const haystack = normalizeSearchText(`${note.sectionName} ${note.body}`);
+    if (note.status !== filter.status) return false;
+    if (exactTag && !note.tags.some((tag) => tag.toLocaleLowerCase() === exactTag)) return false;
+    if (!tokens.length) return true;
+    const haystack = normalizeSearchText(
+      [note.body, ...note.tags, ...note.attachments.map((attachment) => attachment.fileName)].join(
+        ' ',
+      ),
+    );
     return tokens.every((token) => haystack.includes(token));
   });
-}
-
-export function createSearchIndex(snapshot: WorkspaceSnapshot): NoteViewModel[] {
-  const sections = new Map(snapshot.sections.map((section) => [section.id, section.name]));
-  return snapshot.notes.map((note) => ({
-    ...note,
-    sectionName: sections.get(note.sectionId) ?? '',
-    title:
-      note.body
-        .split(/\r?\n/u)
-        .find((line) => line.trim())
-        ?.replace(/^#{1,6}\s*/u, '') ?? '',
-  }));
 }

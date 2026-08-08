@@ -1,83 +1,46 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterNotes, normalizeSearchText } from '@/features/notes/search';
+import { filterNotes } from '@/features/notes/search';
+import { note } from '@/test/workspace-fixture';
 
 const notes = [
-  {
-    id: 'a',
-    sectionId: 's1',
-    sectionName: 'Références',
-    body: '# Résumé\nMarkdown **local**',
-    title: 'Résumé',
-    status: 'open' as const,
-    sortKey: 0,
-    createdAt: '1',
-    updatedAt: '1',
-    completedAt: null,
-    trashedAt: null,
-  },
-  {
-    id: 'b',
-    sectionId: 's2',
-    sectionName: 'Done',
-    body: 'Second prompt',
-    title: 'Second prompt',
-    status: 'done' as const,
-    sortKey: 1,
-    createdAt: '2',
-    updatedAt: '2',
-    completedAt: '2',
-    trashedAt: null,
-  },
-  {
-    id: 'c',
-    sectionId: 's1',
-    sectionName: 'Références',
-    body: 'Removed',
-    title: 'Removed',
-    status: 'open' as const,
-    sortKey: 2,
-    createdAt: '3',
-    updatedAt: '3',
-    completedAt: null,
-    trashedAt: '3',
-  },
+  note({ id: 'body', body: 'Alpha body', tags: ['Agent'] }),
+  note({ id: 'tag', body: 'Second', tags: ['Research'] }),
+  note({
+    id: 'file',
+    body: 'Third',
+    attachments: [
+      {
+        id: 'file-id',
+        fileName: 'brief.pdf',
+        relativePath: 'attachments/file/brief.pdf',
+        createdAt: '2026-08-05T10:00:00.000Z',
+      },
+    ],
+  }),
+  note({ id: 'done', body: 'Alpha completed', status: 'done' }),
 ];
 
-describe('note search', () => {
-  it('normalizes Unicode case and whitespace', () => {
-    expect(normalizeSearchText('  RÉSUMÉ\n\tLocal  ')).toBe('résumé local');
+describe('flat note search', () => {
+  it('searches body, tags, and attachment names in the current status', () => {
+    expect(
+      filterNotes(notes, { query: 'alpha', status: 'open', tag: null }).map((item) => item.id),
+    ).toEqual(['body']);
+    expect(
+      filterNotes(notes, { query: 'research', status: 'open', tag: null }).map((item) => item.id),
+    ).toEqual(['tag']);
+    expect(
+      filterNotes(notes, { query: 'brief.pdf', status: 'open', tag: null }).map((item) => item.id),
+    ).toEqual(['file']);
+    expect(
+      filterNotes(notes, { query: 'alpha', status: 'done', tag: null }).map((item) => item.id),
+    ).toEqual(['done']);
   });
 
-  it('matches Markdown bodies and section names with deterministic tokens', () => {
+  it('applies a case-insensitive exact tag filter', () => {
     expect(
-      filterNotes(notes, {
-        query: 'RÉSUMÉ local',
-        sectionId: null,
-        status: 'all',
-        trash: false,
-      }).map((note) => note.id),
-    ).toEqual(['a']);
-    expect(
-      filterNotes(notes, {
-        query: 'références',
-        sectionId: null,
-        status: 'open',
-        trash: false,
-      }).map((note) => note.id),
-    ).toEqual(['a']);
-  });
-
-  it('separates status, section, and trash filters', () => {
-    expect(
-      filterNotes(notes, { query: '', sectionId: 's2', status: 'done', trash: false }).map(
-        (note) => note.id,
-      ),
-    ).toEqual(['b']);
-    expect(
-      filterNotes(notes, { query: '', sectionId: null, status: 'all', trash: true }).map(
-        (note) => note.id,
-      ),
-    ).toEqual(['c']);
+      filterNotes(notes, { query: '', status: 'open', tag: 'agent' }).map((item) => item.id),
+    ).toEqual(['body']);
+    expect(filterNotes(notes, { query: '', status: 'open', tag: 'age' })).toEqual([]);
   });
 });

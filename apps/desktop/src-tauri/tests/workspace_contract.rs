@@ -2,9 +2,10 @@ use std::fs;
 use std::path::Path;
 
 use charon_desktop_lib::workspace::{
-    AttachmentDto, NoteDto, NoteStatus, Workspace, WorkspaceChangedEvent, WorkspaceCommand,
-    WorkspaceCommandResult, WorkspaceError, WorkspaceHealth, WorkspaceHealthIssue,
-    WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
+    AttachmentDto, MigrationFailure, NoteDto, NoteStatus, StorageFailure, Workspace,
+    WorkspaceChangedEvent, WorkspaceCommand, WorkspaceCommandResult, WorkspaceError,
+    WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceIpcError,
+    WorkspaceSnapshot,
 };
 use serde_json::json;
 use tempfile::tempdir;
@@ -133,6 +134,188 @@ fn attachment_import_rejects_unsafe_sources_atomically() {
         })
         .is_err());
     assert_eq!(workspace.snapshot().expect("still unchanged").revision, 1);
+
+    let missing = source_root.path().join("missing.txt");
+    let note_id = workspace.snapshot().expect("snapshot").notes[0].id.clone();
+    assert!(workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id,
+            source_paths: vec![
+                source.to_string_lossy().into_owned(),
+                missing.to_string_lossy().into_owned(),
+            ],
+        })
+        .is_err());
+    assert_eq!(
+        workspace
+            .snapshot()
+            .expect("partial import rolled back")
+            .revision,
+        1
+    );
+    assert!(fs::read_dir(workspace_root.path().join("attachments"))
+        .expect("attachments")
+        .next()
+        .is_none());
+}
+
+#[test]
+fn same_name_attachments_are_distinct_and_external_deletion_is_a_health_issue() {
+    let workspace_root = tempdir().expect("Workspace");
+    let source_a = tempdir().expect("source a");
+    let source_b = tempdir().expect("source b");
+    let first = source_a.path().join("brief.txt");
+    let second = source_b.path().join("brief.txt");
+    fs::write(&first, b"first").expect("first");
+    fs::write(&second, b"second").expect("second");
+    let mut workspace = Workspace::create(workspace_root.path()).expect("Workspace");
+    let created = workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "note".to_owned(),
+        })
+        .expect("create");
+    let imported = workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id: created.snapshot.notes[0].id.clone(),
+            source_paths: vec![
+                first.to_string_lossy().into_owned(),
+                second.to_string_lossy().into_owned(),
+            ],
+        })
+        .expect("import same names");
+    let attachments = &imported.snapshot.notes[0].attachments;
+    assert_eq!(attachments.len(), 2);
+    assert_eq!(attachments[0].file_name, "brief.txt");
+    assert_eq!(attachments[1].file_name, "brief.txt");
+    assert_ne!(attachments[0].id, attachments[1].id);
+    assert_ne!(attachments[0].relative_path, attachments[1].relative_path);
+
+    fs::remove_file(workspace_root.path().join(&attachments[0].relative_path))
+        .expect("simulate external deletion");
+    drop(workspace);
+    let mut reopened = Workspace::open(workspace_root.path()).expect("reopen");
+    let health = reopened.health().expect("health");
+    assert!(!health.is_healthy);
+    assert!(health.issues.iter().any(|issue| {
+        issue.kind == WorkspaceHealthIssueKind::MissingAttachment
+            && issue.resource_id.as_deref() == Some(attachments[0].id.as_str())
+    }));
+}
+
+#[test]
+fn permanent_note_delete_removes_body_attachment_and_transaction_sentinels() {
+    let workspace_root = tempdir().expect("Workspace");
+    let source_root = tempdir().expect("source");
+    let source = source_root.path().join("private.bin");
+    fs::write(&source, b"private attachment sentinel").expect("source");
+    let mut workspace = Workspace::create(workspace_root.path()).expect("Workspace");
+    let created = workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "private note sentinel".to_owned(),
+        })
+        .expect("create");
+    let note_id = created.snapshot.notes[0].id.clone();
+    let imported = workspace
+        .execute(WorkspaceCommand::ImportNoteAttachments {
+            expected_revision: 1,
+            note_id: note_id.clone(),
+            source_paths: vec![source.to_string_lossy().into_owned()],
+        })
+        .expect("import");
+    let managed = imported.snapshot.notes[0].attachments[0]
+        .relative_path
+        .clone();
+    let deleted = workspace
+        .execute(WorkspaceCommand::DeleteNotes {
+            expected_revision: 2,
+            note_ids: vec![note_id.clone()],
+        })
+        .expect("permanent delete");
+    assert!(deleted.snapshot.notes.is_empty());
+    assert!(!workspace_root
+        .path()
+        .join(format!("notes/{note_id}.md"))
+        .exists());
+    assert!(!workspace_root.path().join(managed).exists());
+    assert!(fs::read_dir(workspace_root.path().join("backups"))
+        .expect("backups")
+        .next()
+        .is_none());
+    let bytes = read_tree(workspace_root.path());
+    assert!(!bytes
+        .windows(b"private note sentinel".len())
+        .any(|window| window == b"private note sentinel"));
+    assert!(!bytes
+        .windows(b"private attachment sentinel".len())
+        .any(|window| window == b"private attachment sentinel"));
+}
+
+#[test]
+fn every_real_filesystem_attachment_failure_is_atomic_and_recoverable() {
+    for failure in [
+        StorageFailure::AttachmentOpen,
+        StorageFailure::AttachmentRead,
+        StorageFailure::AttachmentWrite,
+        StorageFailure::ShortCopy,
+        StorageFailure::Sync,
+        StorageFailure::Rename,
+        StorageFailure::Manifest,
+        StorageFailure::Cleanup,
+    ] {
+        let workspace_root = tempdir().expect("Workspace");
+        let source_root = tempdir().expect("source");
+        let source = source_root.path().join("failure-sentinel.bin");
+        fs::write(&source, b"attachment failure sentinel").expect("source");
+        let mut workspace = Workspace::create(workspace_root.path()).expect("create Workspace");
+        let created = workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "stable note".to_owned(),
+            })
+            .expect("create note");
+        let note_id = created.snapshot.notes[0].id.clone();
+        drop(workspace);
+
+        let mut failing = Workspace::open_with_storage_failure(workspace_root.path(), failure)
+            .expect("open failing Workspace");
+        assert!(failing
+            .execute(WorkspaceCommand::ImportNoteAttachments {
+                expected_revision: 1,
+                note_id: note_id.clone(),
+                source_paths: vec![source.to_string_lossy().into_owned()],
+            })
+            .is_err());
+        drop(failing);
+
+        let mut recovered = Workspace::open(workspace_root.path()).expect("recover Workspace");
+        let snapshot = recovered.snapshot().expect("recovered snapshot");
+        assert!(snapshot.revision == 1 || snapshot.revision == 2);
+        assert_eq!(snapshot.notes.len(), 1);
+        assert_eq!(snapshot.notes[0].body, "stable note");
+        assert!(snapshot.notes[0].attachments.len() <= 1);
+        if let Some(attachment) = snapshot.notes[0].attachments.first() {
+            assert_eq!(
+                fs::read(workspace_root.path().join(&attachment.relative_path))
+                    .expect("managed attachment"),
+                b"attachment failure sentinel"
+            );
+        }
+        assert!(fs::read_dir(workspace_root.path().join("backups"))
+            .expect("backups")
+            .next()
+            .is_none());
+        let paths = tree_paths(workspace_root.path());
+        assert!(
+            !paths
+                .iter()
+                .any(|path| path.contains(".charon-") || path.ends_with(".tmp")),
+            "phase {failure:?} left temporary paths: {paths:?}"
+        );
+    }
 }
 
 #[cfg(unix)]
@@ -242,6 +425,92 @@ fn v1_migration_preserves_active_bytes_and_archives_legacy_trash() {
 }
 
 #[test]
+fn every_v1_migration_interruption_converges_on_real_filesystem() {
+    for failure in [
+        MigrationFailure::BeforeArchiveCreation,
+        MigrationFailure::AfterArchiveStaging,
+        MigrationFailure::AfterNoteMoves,
+        MigrationFailure::AfterManifestCommit,
+        MigrationFailure::BeforeCleanup,
+    ] {
+        let root = tempdir().expect("Workspace");
+        let active_id = "fef8abcc-7047-4a35-a070-b6d9f0eca026";
+        let trash_id = "54ab01eb-ee1c-4c62-999e-147d9c0c8dab";
+        fs::create_dir(root.path().join("notes")).expect("notes");
+        fs::create_dir(root.path().join("backups")).expect("backups");
+        let manifest = json!({
+            "schemaVersion": 1,
+            "workspaceId": "b7cb56b9-748e-48c8-a23d-0bf5f2d61248",
+            "revision": 7,
+            "sections": [{
+                "id": "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9",
+                "name": "Inbox",
+                "sortKey": 0,
+                "createdAt": "2026-07-30T12:00:00Z",
+                "updatedAt": "2026-07-30T12:00:00Z"
+            }],
+            "notes": [
+                {
+                    "id": active_id,
+                    "sectionId": "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9",
+                    "status": "open",
+                    "sortKey": 0,
+                    "createdAt": "2026-07-30T12:00:00Z",
+                    "updatedAt": "2026-07-30T12:00:00Z",
+                    "completedAt": null,
+                    "trashedAt": null
+                },
+                {
+                    "id": trash_id,
+                    "sectionId": "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9",
+                    "status": "open",
+                    "sortKey": 1,
+                    "createdAt": "2026-07-30T12:00:00Z",
+                    "updatedAt": "2026-07-30T12:00:00Z",
+                    "completedAt": null,
+                    "trashedAt": "2026-07-31T12:00:00Z"
+                }
+            ]
+        });
+        fs::write(
+            root.path().join("charon.workspace.json"),
+            serde_json::to_vec_pretty(&manifest).expect("manifest"),
+        )
+        .expect("write manifest");
+        fs::write(
+            root.path().join(format!("notes/{active_id}.md")),
+            b"active\r\n",
+        )
+        .expect("active");
+        fs::write(
+            root.path().join(format!("notes/{trash_id}.md")),
+            b"trashed\n",
+        )
+        .expect("trashed");
+
+        assert!(Workspace::open_with_migration_failure(root.path(), failure).is_err());
+        let mut recovered = Workspace::open(root.path()).expect("recover and converge");
+        let snapshot = recovered.snapshot().expect("snapshot");
+        assert_eq!(snapshot.schema_version, 2, "phase {failure:?}");
+        assert_eq!(snapshot.notes.len(), 1, "phase {failure:?}");
+        assert_eq!(snapshot.notes[0].body.as_bytes(), b"active\r\n");
+        assert_eq!(
+            fs::read(
+                root.path()
+                    .join(format!("legacy-trash-v1/notes/{trash_id}.md"))
+            )
+            .expect("archived trash"),
+            b"trashed\n",
+            "phase {failure:?}"
+        );
+        assert!(fs::read_dir(root.path().join("backups"))
+            .expect("backups")
+            .next()
+            .is_none());
+    }
+}
+
+#[test]
 fn migration_collision_stops_before_mutation() {
     let root = tempdir().expect("Workspace");
     fs::create_dir(root.path().join("notes")).expect("notes");
@@ -278,6 +547,26 @@ fn read_tree(root: &std::path::Path) -> Vec<u8> {
     }
     let mut output = Vec::new();
     visit(root, &mut output);
+    output
+}
+
+fn tree_paths(root: &std::path::Path) -> Vec<String> {
+    fn visit(root: &std::path::Path, path: &std::path::Path, output: &mut Vec<String>) {
+        for entry in fs::read_dir(path).expect("read tree") {
+            let path = entry.expect("entry").path();
+            output.push(
+                path.strip_prefix(root)
+                    .expect("relative path")
+                    .to_string_lossy()
+                    .replace('\\', "/"),
+            );
+            if path.is_dir() {
+                visit(root, &path, output);
+            }
+        }
+    }
+    let mut output = Vec::new();
+    visit(root, root, &mut output);
     output
 }
 

@@ -13,6 +13,8 @@ use uuid::Uuid;
 
 pub use command::{WorkspaceCommand, WorkspaceCommandResult};
 pub use error::{WorkspaceError, WorkspaceIpcError};
+#[doc(hidden)]
+pub use migration::MigrationFailure;
 pub use model::{
     AttachmentDto, NoteDto, NoteStatus, WorkspaceChangedEvent, WorkspaceHealth,
     WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceSnapshot,
@@ -27,7 +29,9 @@ use recovery::{
     commit, commit_with_new_attachments, read_manifest, recover_incomplete, replace_manifest,
 };
 use storage::MemoryWorkspaceStorage;
-use storage::{RealWorkspaceStorage, WorkspaceStorage};
+#[doc(hidden)]
+pub use storage::StorageFailure;
+use storage::{FailingWorkspaceStorage, RealWorkspaceStorage, WorkspaceStorage};
 use watch::WorkspaceWatcher;
 
 pub struct Workspace {
@@ -49,6 +53,24 @@ impl Workspace {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, WorkspaceError> {
         let storage = RealWorkspaceStorage::open(path.as_ref())?;
         Self::open_in(Box::new(storage))
+    }
+
+    #[doc(hidden)]
+    pub fn open_with_storage_failure(
+        path: impl AsRef<Path>,
+        failure: StorageFailure,
+    ) -> Result<Self, WorkspaceError> {
+        let storage = RealWorkspaceStorage::open(path.as_ref())?;
+        Self::open_in(Box::new(FailingWorkspaceStorage::new(storage, failure)))
+    }
+
+    #[doc(hidden)]
+    pub fn open_with_migration_failure(
+        path: impl AsRef<Path>,
+        failure: MigrationFailure,
+    ) -> Result<Self, WorkspaceError> {
+        let storage = RealWorkspaceStorage::open(path.as_ref())?;
+        Self::open_in_with_migration_failure(Box::new(storage), failure)
     }
 
     #[doc(hidden)]
@@ -204,6 +226,27 @@ impl Workspace {
         recover_incomplete(storage.as_ref())?;
         if migration::schema_version(storage.as_ref())? == 1 {
             migration::migrate_v1(storage.as_ref())?;
+        }
+        let (manifest, bodies, health) = load_state(storage.as_ref())?;
+        Ok(Self {
+            storage,
+            manifest,
+            bodies,
+            health,
+            watcher: None,
+            events: Vec::new(),
+            cleanup_blocked: false,
+        })
+    }
+
+    fn open_in_with_migration_failure(
+        storage: Box<dyn WorkspaceStorage>,
+        failure: MigrationFailure,
+    ) -> Result<Self, WorkspaceError> {
+        migration::recover_incomplete_migration(storage.as_ref())?;
+        recover_incomplete(storage.as_ref())?;
+        if migration::schema_version(storage.as_ref())? == 1 {
+            migration::migrate_v1_with_failure(storage.as_ref(), failure)?;
         }
         let (manifest, bodies, health) = load_state(storage.as_ref())?;
         Ok(Self {

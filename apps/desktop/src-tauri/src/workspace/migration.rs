@@ -14,6 +14,16 @@ const MIGRATION_DIR: &str = "backups/migration-v1-v2";
 const LEGACY_ARCHIVE: &str = "legacy-trash-v1";
 const ARCHIVE_README: &str = "These Markdown files were already in Charon's legacy Trash before the schema v2 migration.\n\nThey are not loaded or indexed by Charon. Review or delete them with normal filesystem tools.\n";
 
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MigrationFailure {
+    BeforeArchiveCreation,
+    AfterArchiveStaging,
+    AfterNoteMoves,
+    AfterManifestCommit,
+    BeforeCleanup,
+}
+
 pub(crate) fn schema_version(storage: &dyn WorkspaceStorage) -> Result<u32, WorkspaceError> {
     let bytes = storage.read("charon.workspace.json")?;
     if bytes.len() > MAX_MANIFEST_BYTES {
@@ -42,6 +52,28 @@ pub(crate) fn recover_incomplete_migration(
 }
 
 pub(crate) fn migrate_v1(storage: &dyn WorkspaceStorage) -> Result<bool, WorkspaceError> {
+    migrate_v1_with_hook(storage, |_| Ok(()))
+}
+
+pub(crate) fn migrate_v1_with_failure(
+    storage: &dyn WorkspaceStorage,
+    failure: MigrationFailure,
+) -> Result<bool, WorkspaceError> {
+    migrate_v1_with_hook(storage, |phase| {
+        if phase == failure {
+            Err(WorkspaceError::RecoveryRequired {
+                backup_location: MIGRATION_DIR.to_owned(),
+            })
+        } else {
+            Ok(())
+        }
+    })
+}
+
+fn migrate_v1_with_hook(
+    storage: &dyn WorkspaceStorage,
+    mut hook: impl FnMut(MigrationFailure) -> Result<(), WorkspaceError>,
+) -> Result<bool, WorkspaceError> {
     let original_manifest_bytes = storage.read("charon.workspace.json")?;
     if original_manifest_bytes.len() > MAX_MANIFEST_BYTES {
         return Err(WorkspaceError::InvalidManifest);
@@ -60,6 +92,7 @@ pub(crate) fn migrate_v1(storage: &dyn WorkspaceStorage) -> Result<bool, Workspa
     }
 
     stage_original(storage, &original_manifest_bytes, &bodies)?;
+    hook(MigrationFailure::BeforeArchiveCreation)?;
     if !trashed.is_empty() {
         storage.create_dir_all(LEGACY_ARCHIVE)?;
         storage.create_dir_all(&format!("{LEGACY_ARCHIVE}/notes"))?;
@@ -81,6 +114,7 @@ pub(crate) fn migrate_v1(storage: &dyn WorkspaceStorage) -> Result<bool, Workspa
         storage.write_synced(&format!("{LEGACY_ARCHIVE}/manifest.json"), &bytes)?;
         storage.sync_dir(LEGACY_ARCHIVE)?;
     }
+    hook(MigrationFailure::AfterArchiveStaging)?;
 
     let active_notes = legacy
         .notes
@@ -108,11 +142,14 @@ pub(crate) fn migrate_v1(storage: &dyn WorkspaceStorage) -> Result<bool, Workspa
         .map(|note| (note.id.clone(), bodies[&note.id].clone()))
         .collect::<HashMap<_, _>>();
     manifest.validate(&active_bodies)?;
-    replace_manifest(storage, &Uuid::new_v4().to_string(), &manifest)?;
-    for note in trashed {
+    for note in &trashed {
         storage.remove_file(&format!("notes/{}.md", note.id))?;
     }
     storage.sync_dir("notes")?;
+    hook(MigrationFailure::AfterNoteMoves)?;
+    replace_manifest(storage, &Uuid::new_v4().to_string(), &manifest)?;
+    hook(MigrationFailure::AfterManifestCommit)?;
+    hook(MigrationFailure::BeforeCleanup)?;
     cleanup_all_backups(storage)?;
     Ok(!manifest.notes.is_empty() || storage.exists(LEGACY_ARCHIVE)?)
 }

@@ -2,7 +2,10 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 
 use super::error::WorkspaceError;
 use super::model::{validate_file_name, MAX_ATTACHMENT_BYTES};
@@ -32,6 +35,45 @@ pub(crate) trait WorkspaceStorage: Send + Sync {
 
 pub(crate) struct RealWorkspaceStorage {
     root: PathBuf,
+}
+
+#[doc(hidden)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageFailure {
+    AttachmentOpen,
+    AttachmentRead,
+    AttachmentWrite,
+    ShortCopy,
+    Sync,
+    Rename,
+    Manifest,
+    Cleanup,
+}
+
+pub(crate) struct FailingWorkspaceStorage {
+    inner: RealWorkspaceStorage,
+    failure: StorageFailure,
+    fired: AtomicBool,
+}
+
+impl FailingWorkspaceStorage {
+    pub(crate) fn new(inner: RealWorkspaceStorage, failure: StorageFailure) -> Self {
+        Self {
+            inner,
+            failure,
+            fired: AtomicBool::new(false),
+        }
+    }
+
+    fn fail_once(&self, condition: bool) -> Result<(), WorkspaceError> {
+        if condition && !self.fired.swap(true, Ordering::SeqCst) {
+            return Err(WorkspaceError::Io(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "injected Workspace storage interruption",
+            )));
+        }
+        Ok(())
+    }
 }
 
 impl RealWorkspaceStorage {
@@ -294,6 +336,84 @@ impl WorkspaceStorage for RealWorkspaceStorage {
             .into_os_string()
             .into_string()
             .map_err(|_| WorkspaceError::InvalidPath)
+    }
+}
+
+impl WorkspaceStorage for FailingWorkspaceStorage {
+    fn root(&self) -> Option<&Path> {
+        self.inner.root()
+    }
+
+    fn create_dir_all(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.inner.create_dir_all(relative)
+    }
+
+    fn read(&self, relative: &str) -> Result<Vec<u8>, WorkspaceError> {
+        self.inner.read(relative)
+    }
+
+    fn write_synced(&self, relative: &str, contents: &[u8]) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            self.failure == StorageFailure::AttachmentWrite
+                && relative.contains("/next/attachments/"),
+        )?;
+        self.inner.write_synced(relative, contents)
+    }
+
+    fn rename(&self, from: &str, to: &str) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            (self.failure == StorageFailure::Rename && from.starts_with("attachments/"))
+                || (self.failure == StorageFailure::Manifest && to == "charon.workspace.json"),
+        )?;
+        self.inner.rename(from, to)
+    }
+
+    fn remove_file(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.inner.remove_file(relative)
+    }
+
+    fn remove_dir_all(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            self.failure == StorageFailure::Cleanup
+                && relative.starts_with("backups/")
+                && relative != "backups/migration-v1-v2",
+        )?;
+        self.inner.remove_dir_all(relative)
+    }
+
+    fn remove_dir_if_empty(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.inner.remove_dir_if_empty(relative)
+    }
+
+    fn exists(&self, relative: &str) -> Result<bool, WorkspaceError> {
+        self.inner.exists(relative)
+    }
+
+    fn list(&self, relative: &str) -> Result<Vec<String>, WorkspaceError> {
+        self.inner.list(relative)
+    }
+
+    fn sync_dir(&self, relative: &str) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            self.failure == StorageFailure::Sync
+                && relative.starts_with("backups/")
+                && relative != "backups/migration-v1-v2",
+        )?;
+        self.inner.sync_dir(relative)
+    }
+
+    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError> {
+        self.fail_once(matches!(
+            self.failure,
+            StorageFailure::AttachmentOpen
+                | StorageFailure::AttachmentRead
+                | StorageFailure::ShortCopy
+        ))?;
+        self.inner.read_external_regular(source)
+    }
+
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        self.inner.canonical_managed_path(relative)
     }
 }
 

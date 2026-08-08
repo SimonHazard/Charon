@@ -15,6 +15,7 @@ enum TransactionState {
     Staged,
     FilesApplied,
     ManifestCommitted,
+    CleanupPending,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -97,35 +98,46 @@ fn commit_with_hook(
     let transaction_id = Uuid::new_v4().to_string();
     let transaction_dir = format!("backups/{transaction_id}");
     storage.create_dir_all("backups")?;
-    storage.create_dir_all(&transaction_dir)?;
-    storage.create_dir_all(&format!("{transaction_dir}/previous"))?;
-    storage.create_dir_all(&format!("{transaction_dir}/next"))?;
-    write_manifest_copy(storage, &transaction_dir, "previous", previous_manifest)?;
-    write_manifest_copy(storage, &transaction_dir, "next", next_manifest)?;
-    write_body_copies(storage, &transaction_dir, "previous", previous_bodies)?;
-    write_body_copies(storage, &transaction_dir, "next", next_bodies)?;
-    write_attachment_copies(
-        storage,
-        &transaction_dir,
-        "previous",
-        previous_manifest,
-        &previous_attachments,
-    )?;
-    write_attachment_copies(
-        storage,
-        &transaction_dir,
-        "next",
-        next_manifest,
-        &next_attachments,
-    )?;
     let mut record = TransactionRecord {
         transaction_id: transaction_id.clone(),
         previous_revision: previous_manifest.revision,
         next_revision: next_manifest.revision,
         state: TransactionState::Staged,
     };
-    write_record(storage, &transaction_dir, &record)?;
-    storage.sync_dir(&transaction_dir)?;
+    let staging = (|| {
+        storage.create_dir_all(&transaction_dir)?;
+        storage.create_dir_all(&format!("{transaction_dir}/previous"))?;
+        storage.create_dir_all(&format!("{transaction_dir}/next"))?;
+        write_manifest_copy(storage, &transaction_dir, "previous", previous_manifest)?;
+        write_manifest_copy(storage, &transaction_dir, "next", next_manifest)?;
+        write_body_copies(storage, &transaction_dir, "previous", previous_bodies)?;
+        write_body_copies(storage, &transaction_dir, "next", next_bodies)?;
+        write_attachment_copies(
+            storage,
+            &transaction_dir,
+            "previous",
+            previous_manifest,
+            &previous_attachments,
+        )?;
+        write_attachment_copies(
+            storage,
+            &transaction_dir,
+            "next",
+            next_manifest,
+            &next_attachments,
+        )?;
+        write_record(storage, &transaction_dir, &record)?;
+        storage.sync_dir(&transaction_dir)
+    })();
+    if let Err(error) = staging {
+        if storage.remove_dir_all(&transaction_dir).is_err() || storage.sync_dir("backups").is_err()
+        {
+            return Err(WorkspaceError::RecoveryRequired {
+                backup_location: transaction_dir,
+            });
+        }
+        return Err(error);
+    }
     hook(TransactionState::Staged)?;
     apply_state(
         storage,
@@ -142,6 +154,15 @@ fn commit_with_hook(
     record.state = TransactionState::ManifestCommitted;
     write_record(storage, &transaction_dir, &record)?;
     hook(TransactionState::ManifestCommitted)?;
+    record.state = TransactionState::CleanupPending;
+    write_record(storage, &transaction_dir, &record)?;
+    if let Err(error) = hook(TransactionState::CleanupPending) {
+        return if deletion_occurred(previous_manifest, next_manifest) {
+            Err(WorkspaceError::DeletionCleanupRequired { transaction_id })
+        } else {
+            Err(error)
+        };
+    }
     storage.remove_dir_all(&transaction_dir).map_err(|_| {
         if deletion_occurred(previous_manifest, next_manifest) {
             WorkspaceError::DeletionCleanupRequired {
@@ -312,7 +333,35 @@ fn apply_state(
         }
         storage.remove_dir_if_empty(&format!("attachments/{}", note.id))?;
     }
+    remove_transaction_temporaries(storage, transaction_id, from_manifest, to_manifest)?;
     storage.sync_dir("attachments")?;
+    Ok(())
+}
+
+fn remove_transaction_temporaries(
+    storage: &dyn WorkspaceStorage,
+    transaction_id: &str,
+    first: &PersistedManifest,
+    second: &PersistedManifest,
+) -> Result<(), WorkspaceError> {
+    let mut note_ids = HashSet::new();
+    for note in first.notes.iter().chain(&second.notes) {
+        if note_ids.insert(note.id.as_str()) {
+            storage.remove_file(&format!("notes/.charon-{transaction_id}-{}.tmp", note.id))?;
+        }
+        for attachment in &note.attachments {
+            let file_name = attachment
+                .relative_path
+                .rsplit('/')
+                .next()
+                .ok_or(WorkspaceError::InvalidPath)?;
+            storage.remove_file(&format!(
+                "attachments/{}/.charon-{transaction_id}-{file_name}.tmp",
+                note.id
+            ))?;
+        }
+        storage.remove_dir_if_empty(&format!("attachments/{}", note.id))?;
+    }
     Ok(())
 }
 
@@ -515,7 +564,11 @@ pub(crate) fn commit_with_failure(
                     | (TransactionState::FilesApplied, InjectedFailure::AfterFiles)
                     | (
                         TransactionState::ManifestCommitted,
-                        InjectedFailure::AfterManifest | InjectedFailure::BeforeCleanup
+                        InjectedFailure::AfterManifest
+                    )
+                    | (
+                        TransactionState::CleanupPending,
+                        InjectedFailure::BeforeCleanup
                     )
             );
             if fail {
@@ -528,4 +581,112 @@ pub(crate) fn commit_with_failure(
             }
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workspace::command::{apply_command, WorkspaceCommand};
+    use crate::workspace::model::fixture_manifest;
+    use crate::workspace::storage::{MemoryWorkspaceStorage, WorkspaceStorage};
+
+    const NOTE_ID: &str = "fef8abcc-7047-4a35-a070-b6d9f0eca026";
+
+    fn prepared() -> (
+        MemoryWorkspaceStorage,
+        PersistedManifest,
+        HashMap<String, String>,
+        PersistedManifest,
+        HashMap<String, String>,
+    ) {
+        let storage = MemoryWorkspaceStorage::new();
+        storage.create_dir_all("notes").expect("notes");
+        storage.create_dir_all("attachments").expect("attachments");
+        storage.create_dir_all("backups").expect("backups");
+        let (previous, previous_bodies) = fixture_manifest();
+        replace_manifest(&storage, "initial", &previous).expect("manifest");
+        let applied = apply_command(
+            &previous,
+            &previous_bodies,
+            &WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "deletion sentinel".to_owned(),
+            },
+            || NOTE_ID.to_owned(),
+            || "2026-07-30T12:01:00Z".to_owned(),
+        )
+        .expect("create plan");
+        (
+            storage,
+            previous,
+            previous_bodies,
+            applied.manifest,
+            applied.bodies,
+        )
+    }
+
+    #[test]
+    fn every_interrupted_phase_recovers_to_one_complete_revision() {
+        for failure in [
+            InjectedFailure::AfterStaging,
+            InjectedFailure::AfterFiles,
+            InjectedFailure::AfterManifest,
+        ] {
+            let (storage, previous, previous_bodies, next, next_bodies) = prepared();
+            assert!(commit_with_failure(
+                &storage,
+                &previous,
+                &previous_bodies,
+                &next,
+                &next_bodies,
+                failure
+            )
+            .is_err());
+            recover_incomplete(&storage).expect("recover");
+            let recovered = read_manifest(&storage).expect("manifest");
+            assert!(recovered == previous || recovered == next);
+            assert!(storage.list("backups").expect("backups").is_empty());
+        }
+    }
+
+    #[test]
+    fn deletion_cleanup_failure_blocks_success_until_recovery_removes_copies() {
+        let (storage, previous, previous_bodies, current, current_bodies) = prepared();
+        commit(
+            &storage,
+            &previous,
+            &previous_bodies,
+            &current,
+            &current_bodies,
+        )
+        .expect("create commit");
+        let deleted = apply_command(
+            &current,
+            &current_bodies,
+            &WorkspaceCommand::DeleteNotes {
+                expected_revision: 1,
+                note_ids: vec![NOTE_ID.to_owned()],
+            },
+            || unreachable!(),
+            || "2026-07-30T12:02:00Z".to_owned(),
+        )
+        .expect("delete plan");
+        assert!(matches!(
+            commit_with_failure(
+                &storage,
+                &current,
+                &current_bodies,
+                &deleted.manifest,
+                &deleted.bodies,
+                InjectedFailure::BeforeCleanup
+            ),
+            Err(WorkspaceError::DeletionCleanupRequired { .. })
+        ));
+        assert!(!storage.list("backups").expect("pending backup").is_empty());
+        recover_incomplete(&storage).expect("cleanup recovery");
+        assert!(storage.list("backups").expect("clean backups").is_empty());
+        assert!(!storage
+            .exists(&format!("notes/{NOTE_ID}.md"))
+            .expect("note absent"));
+    }
 }

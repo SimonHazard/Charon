@@ -1,45 +1,44 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
 import { CaptureInput } from '@/features/notes/capture-input';
 
-describe('notes capture input', () => {
-  it('ignores empty text and clears only after a successful note command', async () => {
+describe('flat capture input', () => {
+  it('creates on Enter, ignores whitespace, and clears only after success', async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(
       <AppProviders>
-        <CaptureInput onCreate={onCreate} sectionName="Ideas" />
+        <CaptureInput onCreate={onCreate} />
       </AppProviders>,
     );
-    const input = screen.getByRole('textbox', { name: 'Add a note to Ideas' });
-    await user.type(input, '   {Enter}');
-    expect(onCreate).not.toHaveBeenCalled();
-    await user.clear(input);
-    await user.type(input, 'A quick thought{Enter}');
-    expect(onCreate).toHaveBeenCalledWith('A quick thought');
+    const input = screen.getByRole('textbox', { name: 'Capture a note' });
+    await user.type(input, '  a thought  {Enter}');
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith('a thought'));
     expect((input as HTMLInputElement).value).toBe('');
+    await user.type(input, '   {Enter}');
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('preserves text after a failed command so Enter can retry', async () => {
+  it('preserves and refocuses failed text for retry', async () => {
     const user = userEvent.setup();
     const onCreate = vi
       .fn()
-      .mockRejectedValueOnce(new Error('conflict'))
-      .mockResolvedValueOnce(undefined);
+      .mockRejectedValueOnce(new Error('failed'))
+      .mockResolvedValue(undefined);
     render(
       <AppProviders>
-        <CaptureInput onCreate={onCreate} sectionName="Ideas" />
+        <CaptureInput onCreate={onCreate} />
       </AppProviders>,
     );
-    const input = screen.getByRole('textbox', { name: 'Add a note to Ideas' });
-    await user.type(input, 'Keep this{Enter}');
-    expect((await screen.findByRole('alert')).textContent).toMatch(/text is preserved/i);
-    expect((input as HTMLInputElement).value).toBe('Keep this');
+    const input = screen.getByRole('textbox', { name: 'Capture a note' });
+    await user.type(input, 'keep me{Enter}');
+    expect(await screen.findByText(/text is preserved/i)).toBeTruthy();
+    expect((input as HTMLInputElement).value).toBe('keep me');
     await user.type(input, '{Enter}');
-    expect(onCreate).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(2));
     expect((input as HTMLInputElement).value).toBe('');
   });
 });

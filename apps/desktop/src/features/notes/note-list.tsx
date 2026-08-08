@@ -1,64 +1,77 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useRef } from 'react';
-import type { CopyPreset } from '@/bindings/clipboard';
+import { useEffect, useMemo, useRef } from 'react';
+
+import { useMessages } from '@/app/providers';
+import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
 import { NoteRow } from '@/features/notes/note-row';
-import type { NoteViewModel } from '@/features/notes/note-view-model';
 import type { SelectionState } from '@/features/notes/selection-model';
 
-const ROW_HEIGHT = 76;
+const ROW_HEIGHT = 84;
 
 export function NoteList({
   notes,
   selection,
+  selectionMode,
+  expandedId,
+  allTags,
   onSelection,
-  onOpen,
-  copyPreset,
+  onToggleStatus,
+  onExpand,
+  onCloseEditor,
+  onTagFilter,
   onCopy,
-  onCopyPreview,
+  onSave,
+  onSetTags,
+  onAddAttachments,
+  onRemoveAttachment,
+  onRetryCleanup,
 }: {
-  notes: readonly NoteViewModel[];
+  notes: readonly NoteDto[];
   selection: SelectionState;
+  selectionMode: boolean;
+  expandedId: string | null;
+  allTags: readonly string[];
   onSelection(
     action:
       | { type: 'click'; id: string; toggle: boolean; extend: boolean }
       | { type: 'toggle'; id: string }
       | { type: 'keyboard'; event: React.KeyboardEvent },
   ): void;
-  onOpen(noteId: string): void;
-  copyPreset: CopyPreset;
-  onCopy(noteId: string, preset: CopyPreset): void;
-  onCopyPreview(noteId: string, preset: CopyPreset): void;
+  onToggleStatus(note: NoteDto): Promise<void>;
+  onExpand(noteId: string): void;
+  onCloseEditor(): void;
+  onTagFilter(tag: string): void;
+  onCopy(noteId: string): Promise<void>;
+  onSave(noteId: string, body: string): Promise<void>;
+  onSetTags(noteId: string, tags: string[]): Promise<void>;
+  onAddAttachments(noteId: string): Promise<void>;
+  onRemoveAttachment(noteId: string, attachment: AttachmentDto): Promise<void>;
+  onRetryCleanup(): Promise<void>;
 }) {
+  const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
-  const selected = new Set(selection.selectedIds);
+  const selected = useMemo(() => new Set(selection.selectedIds), [selection.selectedIds]);
   const virtualizer = useVirtualizer({
     count: notes.length,
     estimateSize: () => ROW_HEIGHT,
     getItemKey: (index) => notes[index]?.id ?? index,
     getScrollElement: () => parentRef.current,
     initialRect: { width: 900, height: 600 },
-    overscan: 8,
+    overscan: 10,
   });
 
   useEffect(() => {
     const index = selection.activeId
       ? notes.findIndex((note) => note.id === selection.activeId)
       : -1;
-    if (index >= 0) {
-      virtualizer.scrollToIndex(index, { align: 'auto' });
-      const frame = window.requestAnimationFrame(() => {
-        const activeElement = Array.from(
-          parentRef.current?.querySelectorAll<HTMLElement>('[data-note-focus]') ?? [],
-        ).find((element) => element.dataset.noteFocus === selection.activeId);
-        activeElement?.focus({ preventScroll: true });
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
+    if (index < 0) return;
+    virtualizer.scrollToIndex(index, { align: 'auto' });
   }, [notes, selection.activeId, virtualizer]);
 
   return (
     <div
-      aria-multiselectable="true"
+      aria-label={m.note_list_label()}
+      aria-multiselectable={selectionMode || undefined}
       className="note-list"
       onKeyDown={(event) => onSelection({ type: 'keyboard', event })}
       ref={parentRef}
@@ -74,25 +87,37 @@ export function NoteList({
               data-index={virtualRow.index}
               key={note.id}
               ref={virtualizer.measureElement}
+              role="option"
+              aria-selected={selected.has(note.id)}
               style={{ transform: `translateY(${virtualRow.start}px)` }}
+              tabIndex={-1}
             >
               <NoteRow
                 active={selection.activeId === note.id}
-                copyPreset={copyPreset}
+                allTags={allTags}
+                expanded={expandedId === note.id}
                 note={note}
-                onActivate={(event, id) =>
+                onActivate={(id, event) =>
                   onSelection({
                     type: 'click',
                     id,
-                    toggle: event.metaKey || event.ctrlKey,
-                    extend: event.shiftKey,
+                    toggle: 'metaKey' in event && (event.metaKey || event.ctrlKey),
+                    extend: 'shiftKey' in event && event.shiftKey,
                   })
                 }
-                onOpen={onOpen}
+                onAddAttachments={onAddAttachments}
+                onCloseEditor={onCloseEditor}
                 onCopy={onCopy}
-                onCopyPreview={onCopyPreview}
-                onToggle={(id) => onSelection({ type: 'toggle', id })}
+                onExpand={onExpand}
+                onRemoveAttachment={onRemoveAttachment}
+                onRetryCleanup={onRetryCleanup}
+                onSave={onSave}
+                onSetTags={onSetTags}
+                onTagFilter={onTagFilter}
+                onToggleSelection={(id) => onSelection({ type: 'toggle', id })}
+                onToggleStatus={onToggleStatus}
                 selected={selected.has(note.id)}
+                selectionMode={selectionMode}
               />
             </div>
           );
