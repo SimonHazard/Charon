@@ -168,6 +168,10 @@ impl Workspace {
         std::mem::take(&mut self.events)
     }
 
+    pub(crate) fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        self.storage.canonical_managed_path(relative)
+    }
+
     fn create_in(storage: Box<dyn WorkspaceStorage>) -> Result<Self, WorkspaceError> {
         if storage.exists("charon.workspace.json")? {
             return Err(WorkspaceError::Validation(

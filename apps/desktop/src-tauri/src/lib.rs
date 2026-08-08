@@ -40,7 +40,6 @@ pub fn run() {
             ipc::workspace::workspace_execute,
             ipc::workspace::workspace_close,
             ipc::workspace::workspace_health,
-            ipc::clipboard::clipboard_preview,
             ipc::clipboard::clipboard_compose_and_write,
             ipc::capture::capture_capabilities,
             ipc::capture::capture_open,

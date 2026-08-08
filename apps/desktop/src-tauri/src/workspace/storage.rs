@@ -27,6 +27,7 @@ pub(crate) trait WorkspaceStorage: Send + Sync {
     fn list(&self, relative: &str) -> Result<Vec<String>, WorkspaceError>;
     fn sync_dir(&self, relative: &str) -> Result<(), WorkspaceError>;
     fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError>;
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError>;
 }
 
 pub(crate) struct RealWorkspaceStorage {
@@ -278,6 +279,22 @@ impl WorkspaceStorage for RealWorkspaceStorage {
             bytes,
         })
     }
+
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        let path = self.resolve(relative, false)?;
+        let metadata = fs::symlink_metadata(&path)?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        let canonical = fs::canonicalize(path)?;
+        if !canonical.starts_with(&self.root) {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        canonical
+            .into_os_string()
+            .into_string()
+            .map_err(|_| WorkspaceError::InvalidPath)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -466,6 +483,20 @@ impl WorkspaceStorage for MemoryWorkspaceStorage {
             extension: safe_extension(file_name),
             bytes: bytes.clone(),
         })
+    }
+
+    fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
+        validate_relative(relative)?;
+        if !self
+            .inner
+            .lock()
+            .expect("memory storage lock")
+            .files
+            .contains_key(relative)
+        {
+            return Err(WorkspaceError::InvalidPath);
+        }
+        Ok(format!("/memory-workspace/{relative}"))
     }
 }
 

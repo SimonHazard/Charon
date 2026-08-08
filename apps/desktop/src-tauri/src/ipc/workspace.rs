@@ -180,7 +180,7 @@ fn default_candidate_is_safe(path: &Path) -> Result<bool, crate::workspace::Work
     }
 }
 
-fn with_workspace<T>(
+pub(crate) fn with_workspace<T>(
     runtime: &State<'_, WorkspaceRuntime>,
     operation: impl FnOnce(&mut Workspace) -> Result<T, crate::workspace::WorkspaceError>,
 ) -> Result<T, WorkspaceIpcError> {
@@ -195,12 +195,6 @@ fn with_workspace<T>(
         .as_mut()
         .ok_or(crate::workspace::WorkspaceError::NotOpen)?;
     operation(workspace).map_err(WorkspaceIpcError::from)
-}
-
-pub(crate) fn current_snapshot(
-    runtime: &State<'_, WorkspaceRuntime>,
-) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    with_workspace(runtime, Workspace::snapshot)
 }
 
 pub(crate) fn create_capture_note(
@@ -251,54 +245,26 @@ mod tests {
     use std::fs;
 
     use super::{execute_capture_note, open_or_create_workspace, resolve_default_workspace_path};
-    use crate::workspace::{Workspace, WorkspaceCommand};
+    use crate::workspace::Workspace;
     use tempfile::tempdir;
 
     #[test]
-    fn capture_note_uses_preferred_section_and_one_versioned_command() {
-        let mut workspace = Workspace::in_memory("Inbox".to_owned()).expect("workspace");
-        let initial = workspace.snapshot().expect("snapshot");
-        let second = workspace
-            .execute(WorkspaceCommand::CreateSection {
-                expected_revision: initial.revision,
-                name: "Ideas".to_owned(),
-                sort_key: 1024,
-            })
-            .expect("section");
-        let ideas_id = second
-            .snapshot
-            .sections
-            .iter()
-            .find(|section| section.name == "Ideas")
-            .expect("Ideas section")
-            .id
-            .clone();
-
-        assert!(execute_capture_note(
-            &mut workspace,
-            Some(&ideas_id),
-            "  exact selection\n".to_owned(),
-        )
-        .expect("capture note"));
-        let snapshot = workspace.snapshot().expect("snapshot");
-        assert_eq!(snapshot.notes.len(), 1);
-        assert_eq!(snapshot.notes[0].section_id, ideas_id);
-        assert_eq!(snapshot.notes[0].body, "  exact selection\n");
-        assert_eq!(snapshot.revision, second.snapshot.revision + 1);
-    }
-
-    #[test]
-    fn capture_note_falls_back_to_the_first_deterministic_section() {
-        let mut workspace = Workspace::in_memory("First".to_owned()).expect("workspace");
-        let initial = workspace.snapshot().expect("snapshot");
-        let expected_section_id = initial.sections[0].id.clone();
+    fn capture_note_creates_one_flat_note_with_exact_body() {
+        let mut workspace = Workspace::in_memory().expect("workspace");
         assert!(
-            execute_capture_note(&mut workspace, Some("missing"), "body".to_owned(),)
+            execute_capture_note(&mut workspace, "  exact selection\n".to_owned())
                 .expect("capture note")
         );
         let snapshot = workspace.snapshot().expect("snapshot");
         assert_eq!(snapshot.notes.len(), 1);
-        assert_eq!(snapshot.notes[0].section_id, expected_section_id);
+        assert_eq!(snapshot.notes[0].body, "  exact selection\n");
+        assert_eq!(snapshot.revision, 1);
+    }
+
+    #[test]
+    fn capture_note_rejects_whitespace() {
+        let mut workspace = Workspace::in_memory().expect("workspace");
+        assert!(!execute_capture_note(&mut workspace, "  \n".to_owned()).expect("capture note"));
     }
 
     #[test]
@@ -331,8 +297,7 @@ mod tests {
     fn default_workspace_reopens_an_existing_workspace() {
         let documents = tempdir().expect("documents");
         let path = documents.path().join("Charon");
-        let mut created =
-            open_or_create_workspace(&path, "Inbox".to_owned()).expect("create workspace");
+        let mut created = open_or_create_workspace(&path).expect("create workspace");
         let workspace_id = created.snapshot().expect("created snapshot").workspace_id;
         drop(created);
 
@@ -340,11 +305,10 @@ mod tests {
             resolve_default_workspace_path(documents.path()).expect("existing path"),
             path
         );
-        let mut reopened =
-            open_or_create_workspace(&path, "Ignored".to_owned()).expect("reopen workspace");
+        let mut reopened = open_or_create_workspace(&path).expect("reopen workspace");
         let snapshot = reopened.snapshot().expect("reopened snapshot");
         assert_eq!(snapshot.workspace_id, workspace_id);
-        assert_eq!(snapshot.sections[0].name, "Inbox");
+        assert!(snapshot.notes.is_empty());
     }
 
     #[test]

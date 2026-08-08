@@ -1,8 +1,14 @@
 use std::fs;
+use std::path::Path;
 
-use charon_desktop_lib::workspace::{NoteStatus, Workspace, WorkspaceCommand, WorkspaceError};
+use charon_desktop_lib::workspace::{
+    AttachmentDto, NoteDto, NoteStatus, Workspace, WorkspaceChangedEvent, WorkspaceCommand,
+    WorkspaceCommandResult, WorkspaceError, WorkspaceHealth, WorkspaceHealthIssue,
+    WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
+};
 use serde_json::json;
 use tempfile::tempdir;
+use ts_rs::{Config, TS};
 
 fn exercise_flat_contract(mut workspace: Workspace) {
     let initial = workspace.snapshot().expect("initial snapshot");
@@ -273,4 +279,32 @@ fn read_tree(root: &std::path::Path) -> Vec<u8> {
     let mut output = Vec::new();
     visit(root, &mut output);
     output
+}
+
+#[test]
+#[ignore = "invoked by scripts/check-bindings.ts"]
+fn export_bindings() {
+    let output = std::env::var_os("CHARON_BINDINGS_OUT").expect("CHARON_BINDINGS_OUT");
+    let config = Config::default().with_large_int("number");
+    let declarations = [
+        NoteStatus::decl(&config),
+        AttachmentDto::decl(&config),
+        NoteDto::decl(&config),
+        WorkspaceSnapshot::decl(&config),
+        WorkspaceHealthIssueKind::decl(&config),
+        WorkspaceHealthIssue::decl(&config),
+        WorkspaceHealth::decl(&config),
+        WorkspaceChangedEvent::decl(&config),
+        WorkspaceCommand::decl(&config),
+        WorkspaceCommandResult::decl(&config),
+        WorkspaceIpcError::decl(&config),
+    ];
+    let mut bindings =
+        String::from("// Generated from Rust by `bun run bindings:generate`. Do not edit.\n\n");
+    for declaration in declarations {
+        bindings.push_str("export ");
+        bindings.push_str(&declaration);
+        bindings.push_str("\n\n");
+    }
+    fs::write(Path::new(&output), bindings).expect("write TypeScript bindings");
 }
