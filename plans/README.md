@@ -30,7 +30,7 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 008 | [Refound Charon around rapid capture](./008-freeze-rapid-capture-product.md) | P1 | M | 001-007 | DONE |
 | 009 | [Integrate the approved brand and Solarized-first token system](./009-integrate-brand-and-solarized-system.md) | P1 | M | 008 | DONE |
 | 010 | [Simplify the Workspace and agent-ready copy domain](./010-simplify-workspace-and-copy-domain.md) | P1 | XL | 008 | DONE |
-| 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | IN PROGRESS |
+| 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | BLOCKED: native matrix incomplete |
 | 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | TODO |
 | 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | TODO |
 | 014 | [Close rapid-capture release quality gaps](./014-close-rapid-capture-quality-gaps.md) | P1 | L | 009-013 | TODO |
@@ -46,11 +46,14 @@ Plans 008 and 009 are complete. Plan 010 completed on 2026-08-05 on branch
 Its Workspace, ClipboardComposer, binding, frontend-domain, Rust quality,
 aggregate Bun, full Cargo, privacy, deletion, and generated-file gates passed.
 
-Plan 011's DTO-compatible single-shelf implementation is co-located on the same
-branch and remains `IN PROGRESS`. Complete its Bun-owned obsolete dependency and
-lockfile removal, then run the required real-window visual matrix before marking
-it `DONE`. The next implementation after that is Plan 012; do not resume Plans
-008 or 009 from history.
+Plan 011 branch `codex/011-single-shelf-desktop` contains commits `45c1211`,
+`046ae78`, and `71814f3`, fixing the main-thread native chooser deadlock,
+collapsed shelf grid, and Dark wordmark. All automated gates and native
+960x640, 800x600, and 720x480 Solarized, Light, and Dark EN/FR evidence pass.
+Remaining blockers are true 200% WebView zoom, OS reduced motion, transparency,
+and increased contrast, coarse pointer, 0.25x and mid-flight reversal, and full
+native failure and cleanup states. Plan 012 must not start until these Plan 011
+rows pass.
 
 ## Dependency graph
 
