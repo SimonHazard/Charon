@@ -35,28 +35,22 @@ pub fn workspace_choose_directory(app: AppHandle) -> Result<Option<String>, Work
 #[tauri::command]
 pub fn workspace_create(
     path: String,
-    initial_section_name: String,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    replace_workspace(&runtime, Workspace::create(path, initial_section_name)?)
+    replace_workspace(&runtime, Workspace::create(path)?)
 }
 
 #[tauri::command]
 pub fn workspace_open_or_create(
     path: String,
-    initial_section_name: String,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    replace_workspace(
-        &runtime,
-        open_or_create_workspace(Path::new(&path), initial_section_name)?,
-    )
+    replace_workspace(&runtime, open_or_create_workspace(Path::new(&path))?)
 }
 
 #[tauri::command]
 pub fn workspace_bootstrap_default(
     app: AppHandle,
-    initial_section_name: String,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
     let documents = app
@@ -64,10 +58,7 @@ pub fn workspace_bootstrap_default(
         .document_dir()
         .map_err(|_| crate::workspace::WorkspaceError::InvalidPath)?;
     let path = resolve_default_workspace_path(&documents)?;
-    replace_workspace(
-        &runtime,
-        open_or_create_workspace(&path, initial_section_name)?,
-    )
+    replace_workspace(&runtime, open_or_create_workspace(&path)?)
 }
 
 #[tauri::command]
@@ -150,15 +141,10 @@ fn replace_workspace(
     Ok(snapshot)
 }
 
-fn open_or_create_workspace(
-    path: &Path,
-    initial_section_name: String,
-) -> Result<Workspace, crate::workspace::WorkspaceError> {
+fn open_or_create_workspace(path: &Path) -> Result<Workspace, crate::workspace::WorkspaceError> {
     match fs::symlink_metadata(path.join("charon.workspace.json")) {
         Ok(_) => Workspace::open(path),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            Workspace::create(path, initial_section_name)
-        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Workspace::create(path),
         Err(error) => Err(error.into()),
     }
 }
@@ -220,7 +206,6 @@ pub(crate) fn current_snapshot(
 pub(crate) fn create_capture_note(
     app: &AppHandle,
     runtime: &State<'_, WorkspaceRuntime>,
-    preferred_section_id: Option<&str>,
     body: String,
 ) -> Result<bool, WorkspaceIpcError> {
     let mut current = runtime.current.lock().map_err(|_| WorkspaceIpcError {
@@ -233,7 +218,7 @@ pub(crate) fn create_capture_note(
     let Some(workspace) = current.as_mut() else {
         return Ok(false);
     };
-    let created = execute_capture_note(workspace, preferred_section_id, body)?;
+    let created = execute_capture_note(workspace, body)?;
     if created {
         emit_pending(app, workspace);
     }
@@ -242,34 +227,15 @@ pub(crate) fn create_capture_note(
 
 fn execute_capture_note(
     workspace: &mut Workspace,
-    preferred_section_id: Option<&str>,
     body: String,
 ) -> Result<bool, crate::workspace::WorkspaceError> {
-    let snapshot = workspace.snapshot()?;
-    let section = preferred_section_id
-        .and_then(|id| snapshot.sections.iter().find(|section| section.id == id))
-        .or_else(|| {
-            snapshot
-                .sections
-                .iter()
-                .min_by_key(|section| (section.sort_key, section.id.as_str()))
-        });
-    let Some(section) = section else {
+    if body.trim().is_empty() {
         return Ok(false);
-    };
-    let sort_key = snapshot
-        .notes
-        .iter()
-        .filter(|note| note.section_id == section.id)
-        .map(|note| note.sort_key)
-        .max()
-        .unwrap_or(-1024)
-        .saturating_add(1024);
+    }
+    let snapshot = workspace.snapshot()?;
     workspace.execute(WorkspaceCommand::CreateNote {
         expected_revision: snapshot.revision,
-        section_id: section.id.clone(),
         body,
-        sort_key,
     })?;
     Ok(true)
 }

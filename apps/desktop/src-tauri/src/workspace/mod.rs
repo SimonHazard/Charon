@@ -1,5 +1,6 @@
 mod command;
 mod error;
+mod migration;
 mod model;
 mod recovery;
 mod storage;
@@ -13,8 +14,8 @@ use uuid::Uuid;
 pub use command::{WorkspaceCommand, WorkspaceCommandResult};
 pub use error::{WorkspaceError, WorkspaceIpcError};
 pub use model::{
-    NoteDto, NoteStatus, SectionDto, WorkspaceChangedEvent, WorkspaceHealth, WorkspaceHealthIssue,
-    WorkspaceHealthIssueKind, WorkspaceSnapshot,
+    AttachmentDto, NoteDto, NoteStatus, WorkspaceChangedEvent, WorkspaceHealth,
+    WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceSnapshot,
 };
 
 use command::apply_command;
@@ -22,7 +23,7 @@ use model::{
     now_utc, validate_body, PersistedManifest, WorkspaceHealthIssueKind::ImportCandidate,
     MAX_NOTE_BYTES,
 };
-use recovery::{commit, read_manifest, recover_incomplete, replace_manifest, undo};
+use recovery::{commit, read_manifest, recover_incomplete, replace_manifest};
 use storage::MemoryWorkspaceStorage;
 use storage::{RealWorkspaceStorage, WorkspaceStorage};
 use watch::WorkspaceWatcher;
@@ -37,12 +38,9 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    pub fn create(
-        path: impl AsRef<Path>,
-        initial_section_name: String,
-    ) -> Result<Self, WorkspaceError> {
+    pub fn create(path: impl AsRef<Path>) -> Result<Self, WorkspaceError> {
         let storage = RealWorkspaceStorage::create(path.as_ref())?;
-        Self::create_in(Box::new(storage), initial_section_name)
+        Self::create_in(Box::new(storage))
     }
 
     pub fn open(path: impl AsRef<Path>) -> Result<Self, WorkspaceError> {
@@ -51,16 +49,14 @@ impl Workspace {
     }
 
     #[doc(hidden)]
-    pub fn in_memory(initial_section_name: String) -> Result<Self, WorkspaceError> {
-        Self::create_in(
-            Box::new(MemoryWorkspaceStorage::new()),
-            initial_section_name,
-        )
+    pub fn in_memory() -> Result<Self, WorkspaceError> {
+        Self::create_in(Box::new(MemoryWorkspaceStorage::new()))
     }
 
     pub fn snapshot(&mut self) -> Result<WorkspaceSnapshot, WorkspaceError> {
         self.reconcile_external_changes()?;
-        self.manifest.snapshot(&self.bodies)
+        self.manifest
+            .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)
     }
 
     pub fn execute(
@@ -68,37 +64,6 @@ impl Workspace {
         command: WorkspaceCommand,
     ) -> Result<WorkspaceCommandResult, WorkspaceError> {
         self.reconcile_external_changes()?;
-        if let WorkspaceCommand::Undo {
-            expected_revision,
-            transaction_id,
-        } = &command
-        {
-            if *expected_revision != self.manifest.revision {
-                return Err(WorkspaceError::StaleRevision {
-                    expected: *expected_revision,
-                    actual: self.manifest.revision,
-                });
-            }
-            let (manifest, bodies, undo_transaction_id) = undo(
-                self.storage.as_ref(),
-                &self.manifest,
-                &self.bodies,
-                transaction_id,
-            )?;
-            self.manifest = manifest;
-            self.bodies = bodies;
-            let snapshot = self.manifest.snapshot(&self.bodies)?;
-            self.events.push(WorkspaceChangedEvent {
-                revision: snapshot.revision,
-                snapshot: snapshot.clone(),
-            });
-            return Ok(WorkspaceCommandResult {
-                snapshot,
-                transaction_id: undo_transaction_id.clone(),
-                undo_token: Some(undo_transaction_id),
-            });
-        }
-
         let applied = apply_command(
             &self.manifest,
             &self.bodies,
@@ -116,15 +81,16 @@ impl Workspace {
         self.manifest = applied.manifest;
         self.bodies = applied.bodies;
         self.health = self.scan_health();
-        let snapshot = self.manifest.snapshot(&self.bodies)?;
+        let snapshot = self
+            .manifest
+            .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)?;
         self.events.push(WorkspaceChangedEvent {
             revision: snapshot.revision,
             snapshot: snapshot.clone(),
         });
         Ok(WorkspaceCommandResult {
             snapshot,
-            transaction_id: output.transaction_id.clone(),
-            undo_token: applied.undoable.then_some(output.transaction_id),
+            transaction_id: output.transaction_id,
         })
     }
 
@@ -154,24 +120,16 @@ impl Workspace {
         std::mem::take(&mut self.events)
     }
 
-    fn create_in(
-        storage: Box<dyn WorkspaceStorage>,
-        initial_section_name: String,
-    ) -> Result<Self, WorkspaceError> {
+    fn create_in(storage: Box<dyn WorkspaceStorage>) -> Result<Self, WorkspaceError> {
         if storage.exists("charon.workspace.json")? {
             return Err(WorkspaceError::Validation(
                 "a Workspace already exists in this directory".to_owned(),
             ));
         }
         storage.create_dir_all("notes")?;
+        storage.create_dir_all("attachments")?;
         storage.create_dir_all("backups")?;
-        model::validate_name(&initial_section_name)?;
-        let manifest = PersistedManifest::empty(
-            Uuid::new_v4().to_string(),
-            Uuid::new_v4().to_string(),
-            initial_section_name.trim().to_owned(),
-            now_utc(),
-        );
+        let manifest = PersistedManifest::empty(Uuid::new_v4().to_string());
         let bodies = HashMap::new();
         manifest.validate(&bodies)?;
         replace_manifest(storage.as_ref(), &Uuid::new_v4().to_string(), &manifest)?;
@@ -189,7 +147,11 @@ impl Workspace {
     }
 
     fn open_in(storage: Box<dyn WorkspaceStorage>) -> Result<Self, WorkspaceError> {
+        migration::recover_incomplete_migration(storage.as_ref())?;
         recover_incomplete(storage.as_ref())?;
+        if migration::schema_version(storage.as_ref())? == 1 {
+            migration::migrate_v1(storage.as_ref())?;
+        }
         let (manifest, bodies, health) = load_state(storage.as_ref())?;
         Ok(Self {
             storage,
@@ -345,7 +307,9 @@ impl Workspace {
     }
 
     fn push_external_event(&mut self) -> Result<(), WorkspaceError> {
-        let snapshot = self.manifest.snapshot(&self.bodies)?;
+        let snapshot = self
+            .manifest
+            .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)?;
         self.events.push(WorkspaceChangedEvent {
             revision: snapshot.revision,
             snapshot,
@@ -435,26 +399,21 @@ mod tests {
 
     #[test]
     fn memory_workspace_runs_complete_command_contract() {
-        let mut workspace = Workspace::in_memory("Inbox".to_owned()).expect("memory workspace");
+        let mut workspace = Workspace::in_memory().expect("memory workspace");
         let initial = workspace.snapshot().expect("initial snapshot");
-        let section_id = initial.sections[0].id.clone();
         let created = workspace
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: initial.revision,
-                section_id,
                 body: "hello".to_owned(),
-                sort_key: 0,
             })
             .expect("create note");
         assert_eq!(created.snapshot.notes.len(), 1);
-        assert!(created.undo_token.is_some());
-        let restored = workspace
-            .execute(WorkspaceCommand::Undo {
+        let deleted = workspace
+            .execute(WorkspaceCommand::DeleteNotes {
                 expected_revision: created.snapshot.revision,
-                transaction_id: created.undo_token.expect("undo token"),
+                note_ids: vec![created.snapshot.notes[0].id.clone()],
             })
-            .expect("undo");
-        assert!(restored.snapshot.notes.is_empty());
-        assert_eq!(restored.snapshot.revision, 2);
+            .expect("delete");
+        assert!(deleted.snapshot.notes.is_empty());
     }
 }

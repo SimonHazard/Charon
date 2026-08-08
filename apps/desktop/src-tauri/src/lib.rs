@@ -46,7 +46,6 @@ pub fn run() {
             ipc::capture::capture_open,
             ipc::capture::capture_request_permission,
             ipc::capture::capture_set_shortcut,
-            ipc::capture::capture_set_active_section,
             ipc::capture::capture_editor_ready,
         ])
         .setup(|app| {

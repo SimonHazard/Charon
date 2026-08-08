@@ -20,7 +20,6 @@ use super::workspace::{self, WorkspaceRuntime};
 pub struct CaptureRuntime {
     coordinator: Mutex<Option<CaptureCoordinator>>,
     worker: Mutex<Option<CaptureWorker>>,
-    active_section_id: Mutex<Option<String>>,
     editor_listener_ready: Mutex<bool>,
     pending_editor_request: Mutex<Option<CaptureEditorRequest>>,
     pending_status: Mutex<Option<CaptureStatusEvent>>,
@@ -32,7 +31,6 @@ impl Default for CaptureRuntime {
         Self {
             coordinator: Mutex::new(None),
             worker: Mutex::new(None),
-            active_section_id: Mutex::new(None),
             editor_listener_ready: Mutex::new(false),
             pending_editor_request: Mutex::new(None),
             pending_status: Mutex::new(None),
@@ -254,19 +252,6 @@ pub fn capture_set_shortcut(
 }
 
 #[tauri::command]
-pub fn capture_set_active_section(
-    section_id: Option<String>,
-    runtime: State<'_, CaptureRuntime>,
-) -> Result<(), CaptureIpcError> {
-    let mut active = runtime
-        .active_section_id
-        .lock()
-        .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?;
-    *active = section_id;
-    Ok(())
-}
-
-#[tauri::command]
 pub fn capture_editor_ready(app: AppHandle) -> Result<(), CaptureIpcError> {
     let runtime = app.state::<CaptureRuntime>();
     *runtime
@@ -293,19 +278,8 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
     dispatch_action(
         action,
         |body, warning| {
-            let runtime = app.state::<CaptureRuntime>();
-            let section_id = runtime
-                .active_section_id
-                .lock()
-                .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?
-                .clone();
             let workspace_runtime = app.state::<WorkspaceRuntime>();
-            let result = match workspace::create_capture_note(
-                app,
-                &workspace_runtime,
-                section_id.as_deref(),
-                body,
-            ) {
+            let result = match workspace::create_capture_note(app, &workspace_runtime, body) {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(CaptureIpcError {
                     code: "workspace_unavailable".to_owned(),

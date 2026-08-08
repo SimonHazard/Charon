@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::path::{Component, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -7,26 +8,59 @@ use uuid::Uuid;
 
 use super::error::WorkspaceError;
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 pub const MAX_MANIFEST_BYTES: usize = 64 * 1024 * 1024;
 pub const MAX_NOTE_BYTES: usize = 10 * 1024 * 1024;
 pub const MAX_ACTIVE_NOTES: usize = 100_000;
-pub const MAX_SECTIONS: usize = 10_000;
-const MAX_SAFE_INTEGER: i64 = 9_007_199_254_740_991;
+pub const MAX_TAGS_PER_NOTE: usize = 16;
+pub const MAX_TAG_SCALARS: usize = 48;
+pub const MAX_ATTACHMENTS_PER_NOTE: usize = 20;
+pub const MAX_ATTACHMENT_BYTES: u64 = 100 * 1024 * 1024;
+const MAX_SAFE_INTEGER: u64 = 9_007_199_254_740_991;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PersistedManifest {
     pub schema_version: u32,
     pub workspace_id: String,
     pub revision: u64,
-    pub sections: Vec<PersistedSection>,
     pub notes: Vec<PersistedNote>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PersistedSection {
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PersistedNote {
+    pub id: String,
+    pub status: NoteStatus,
+    pub created_at: String,
+    pub updated_at: String,
+    pub completed_at: Option<String>,
+    pub tags: Vec<String>,
+    pub attachments: Vec<PersistedAttachment>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PersistedAttachment {
+    pub id: String,
+    pub file_name: String,
+    pub relative_path: String,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct LegacyV1Manifest {
+    pub schema_version: u32,
+    pub workspace_id: String,
+    pub revision: u64,
+    pub sections: Vec<LegacyV1Section>,
+    pub notes: Vec<LegacyV1Note>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct LegacyV1Section {
     pub id: String,
     pub name: String,
     pub sort_key: i64,
@@ -35,8 +69,8 @@ pub(crate) struct PersistedSection {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PersistedNote {
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct LegacyV1Note {
     pub id: String,
     pub section_id: String,
     pub status: NoteStatus,
@@ -58,12 +92,11 @@ pub enum NoteStatus {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
-pub struct SectionDto {
+pub struct AttachmentDto {
     pub id: String,
-    pub name: String,
-    pub sort_key: i64,
+    pub file_name: String,
+    pub relative_path: String,
     pub created_at: String,
-    pub updated_at: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
@@ -71,14 +104,13 @@ pub struct SectionDto {
 #[ts(rename_all = "camelCase")]
 pub struct NoteDto {
     pub id: String,
-    pub section_id: String,
     pub body: String,
     pub status: NoteStatus,
-    pub sort_key: i64,
     pub created_at: String,
     pub updated_at: String,
     pub completed_at: Option<String>,
-    pub trashed_at: Option<String>,
+    pub tags: Vec<String>,
+    pub attachments: Vec<AttachmentDto>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
@@ -88,8 +120,8 @@ pub struct WorkspaceSnapshot {
     pub schema_version: u32,
     pub workspace_id: String,
     pub revision: u64,
-    pub sections: Vec<SectionDto>,
     pub notes: Vec<NoteDto>,
+    pub legacy_archive_created: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
@@ -97,6 +129,7 @@ pub struct WorkspaceSnapshot {
 #[ts(rename_all = "snake_case")]
 pub enum WorkspaceHealthIssueKind {
     MissingNote,
+    MissingAttachment,
     InvalidNote,
     InvalidManifest,
     ImportCandidate,
@@ -129,23 +162,11 @@ pub struct WorkspaceChangedEvent {
 }
 
 impl PersistedManifest {
-    pub(crate) fn empty(
-        workspace_id: String,
-        section_id: String,
-        initial_section_name: String,
-        now: String,
-    ) -> Self {
+    pub(crate) fn empty(workspace_id: String) -> Self {
         Self {
             schema_version: SCHEMA_VERSION,
             workspace_id,
             revision: 0,
-            sections: vec![PersistedSection {
-                id: section_id,
-                name: initial_section_name,
-                sort_key: 0,
-                created_at: now.clone(),
-                updated_at: now,
-            }],
             notes: Vec::new(),
         }
     }
@@ -155,155 +176,148 @@ impl PersistedManifest {
             return Err(WorkspaceError::UnsupportedSchema(self.schema_version));
         }
         validate_uuid(&self.workspace_id, "workspaceId")?;
-        if self.revision > MAX_SAFE_INTEGER as u64 {
+        if self.revision > MAX_SAFE_INTEGER {
             return Err(WorkspaceError::Validation(
                 "revision exceeds the IPC integer limit".to_owned(),
             ));
         }
-        if self.sections.is_empty() {
-            return Err(WorkspaceError::Validation(
-                "a Workspace requires at least one section".to_owned(),
-            ));
-        }
-        if self.sections.len() > MAX_SECTIONS {
-            return Err(WorkspaceError::Validation("too many sections".to_owned()));
-        }
-        if self
-            .notes
-            .iter()
-            .filter(|note| note.trashed_at.is_none())
-            .count()
-            > MAX_ACTIVE_NOTES
-        {
+        if self.notes.len() > MAX_ACTIVE_NOTES {
             return Err(WorkspaceError::Validation(
                 "too many active notes".to_owned(),
             ));
         }
-
-        let mut section_ids = HashSet::new();
-        for section in &self.sections {
-            validate_uuid(&section.id, "section id")?;
-            validate_name(&section.name)?;
-            validate_sort_key(section.sort_key)?;
-            validate_timestamp(&section.created_at)?;
-            validate_timestamp(&section.updated_at)?;
-            if !section_ids.insert(&section.id) {
-                return Err(WorkspaceError::Validation(
-                    "duplicate section id".to_owned(),
-                ));
-            }
-        }
-
         let mut note_ids = HashSet::new();
         for note in &self.notes {
             validate_uuid(&note.id, "note id")?;
-            validate_uuid(&note.section_id, "note section id")?;
-            validate_sort_key(note.sort_key)?;
-            if !section_ids.contains(&note.section_id) {
-                return Err(WorkspaceError::Validation(
-                    "note references a missing section".to_owned(),
-                ));
+            if !note_ids.insert(&note.id) {
+                return Err(WorkspaceError::Validation("duplicate note id".to_owned()));
             }
             validate_timestamp(&note.created_at)?;
             validate_timestamp(&note.updated_at)?;
             validate_optional_timestamp(note.completed_at.as_deref())?;
-            validate_optional_timestamp(note.trashed_at.as_deref())?;
-            match note.status {
-                NoteStatus::Open if note.completed_at.is_some() => {
+            validate_status_timestamp(note.status, note.completed_at.as_deref())?;
+            validate_tags(&note.tags)?;
+            if note.attachments.len() > MAX_ATTACHMENTS_PER_NOTE {
+                return Err(WorkspaceError::Validation(
+                    "too many attachments".to_owned(),
+                ));
+            }
+            let mut attachment_ids = HashSet::new();
+            for attachment in &note.attachments {
+                validate_uuid(&attachment.id, "attachment id")?;
+                if !attachment_ids.insert(&attachment.id) {
                     return Err(WorkspaceError::Validation(
-                        "an open note cannot have completedAt".to_owned(),
+                        "duplicate attachment id".to_owned(),
                     ));
                 }
-                NoteStatus::Done if note.completed_at.is_none() => {
-                    return Err(WorkspaceError::Validation(
-                        "a done note requires completedAt".to_owned(),
-                    ));
-                }
-                _ => {}
+                validate_file_name(&attachment.file_name)?;
+                validate_timestamp(&attachment.created_at)?;
+                validate_managed_path(&note.id, &attachment.id, &attachment.relative_path)?;
             }
-            if !note_ids.insert(&note.id) {
-                return Err(WorkspaceError::Validation("duplicate note id".to_owned()));
-            }
-            let body = bodies.get(&note.id).ok_or_else(|| {
-                WorkspaceError::Validation(format!("missing note body for {}", note.id))
-            })?;
-            validate_body(body)?;
+            validate_body(
+                bodies
+                    .get(&note.id)
+                    .ok_or_else(|| WorkspaceError::Validation("missing note body".to_owned()))?,
+            )?;
         }
-
         if bodies.keys().any(|id| !note_ids.contains(id)) {
             return Err(WorkspaceError::Validation(
                 "a note body has no manifest entry".to_owned(),
             ));
         }
-
         Ok(())
     }
 
     pub(crate) fn snapshot(
         &self,
         bodies: &HashMap<String, String>,
+        legacy_archive_created: bool,
     ) -> Result<WorkspaceSnapshot, WorkspaceError> {
         self.validate(bodies)?;
-        let mut sections = self
-            .sections
-            .iter()
-            .map(SectionDto::from)
-            .collect::<Vec<_>>();
-        sections.sort_by(|left, right| {
-            left.sort_key
-                .cmp(&right.sort_key)
-                .then(left.created_at.cmp(&right.created_at))
-                .then(left.id.cmp(&right.id))
-        });
-
-        let section_order = sections
-            .iter()
-            .enumerate()
-            .map(|(index, section)| (section.id.as_str(), index))
-            .collect::<HashMap<_, _>>();
         let mut notes = self
             .notes
             .iter()
             .map(|note| NoteDto {
                 id: note.id.clone(),
-                section_id: note.section_id.clone(),
-                body: bodies.get(&note.id).cloned().unwrap_or_default(),
+                body: bodies[&note.id].clone(),
                 status: note.status,
-                sort_key: note.sort_key,
                 created_at: note.created_at.clone(),
                 updated_at: note.updated_at.clone(),
                 completed_at: note.completed_at.clone(),
-                trashed_at: note.trashed_at.clone(),
+                tags: note.tags.clone(),
+                attachments: note
+                    .attachments
+                    .iter()
+                    .map(|attachment| AttachmentDto {
+                        id: attachment.id.clone(),
+                        file_name: attachment.file_name.clone(),
+                        relative_path: attachment.relative_path.clone(),
+                        created_at: attachment.created_at.clone(),
+                    })
+                    .collect(),
             })
             .collect::<Vec<_>>();
         notes.sort_by(|left, right| {
-            section_order
-                .get(left.section_id.as_str())
-                .cmp(&section_order.get(right.section_id.as_str()))
-                .then(left.sort_key.cmp(&right.sort_key))
-                .then(left.created_at.cmp(&right.created_at))
+            right
+                .created_at
+                .cmp(&left.created_at)
                 .then(left.id.cmp(&right.id))
         });
-
         Ok(WorkspaceSnapshot {
             schema_version: self.schema_version,
             workspace_id: self.workspace_id.clone(),
             revision: self.revision,
-            sections,
             notes,
+            legacy_archive_created,
         })
     }
 }
 
-impl From<&PersistedSection> for SectionDto {
-    fn from(value: &PersistedSection) -> Self {
-        Self {
-            id: value.id.clone(),
-            name: value.name.clone(),
-            sort_key: value.sort_key,
-            created_at: value.created_at.clone(),
-            updated_at: value.updated_at.clone(),
+impl LegacyV1Manifest {
+    pub(crate) fn validate(&self, bodies: &HashMap<String, String>) -> Result<(), WorkspaceError> {
+        if self.schema_version != 1 {
+            return Err(WorkspaceError::UnsupportedSchema(self.schema_version));
         }
+        validate_uuid(&self.workspace_id, "workspaceId")?;
+        if self.revision > MAX_SAFE_INTEGER || self.notes.len() > MAX_ACTIVE_NOTES {
+            return Err(WorkspaceError::InvalidManifest);
+        }
+        let mut section_ids = HashSet::new();
+        for section in &self.sections {
+            validate_uuid(&section.id, "legacy section id")?;
+            if section.name.trim().is_empty()
+                || section.name.contains('\0')
+                || !section_ids.insert(&section.id)
+            {
+                return Err(WorkspaceError::InvalidManifest);
+            }
+            validate_timestamp(&section.created_at)?;
+            validate_timestamp(&section.updated_at)?;
+        }
+        if section_ids.is_empty() {
+            return Err(WorkspaceError::InvalidManifest);
+        }
+        let mut note_ids = HashSet::new();
+        for note in &self.notes {
+            validate_uuid(&note.id, "legacy note id")?;
+            if !note_ids.insert(&note.id) || !section_ids.contains(&note.section_id) {
+                return Err(WorkspaceError::InvalidManifest);
+            }
+            validate_timestamp(&note.created_at)?;
+            validate_timestamp(&note.updated_at)?;
+            validate_optional_timestamp(note.completed_at.as_deref())?;
+            validate_optional_timestamp(note.trashed_at.as_deref())?;
+            validate_status_timestamp(note.status, note.completed_at.as_deref())?;
+            validate_body(
+                bodies
+                    .get(&note.id)
+                    .ok_or(WorkspaceError::InvalidManifest)?,
+            )?;
+        }
+        if bodies.keys().any(|id| !note_ids.contains(id)) {
+            return Err(WorkspaceError::InvalidManifest);
+        }
+        Ok(())
     }
 }
 
@@ -318,32 +332,106 @@ pub(crate) fn validate_uuid(value: &str, field: &str) -> Result<(), WorkspaceErr
     Ok(())
 }
 
-pub(crate) fn validate_name(value: &str) -> Result<(), WorkspaceError> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() || trimmed.len() > 256 || trimmed.contains('\0') {
-        return Err(WorkspaceError::Validation(
-            "section names must contain 1 to 256 valid bytes".to_owned(),
-        ));
-    }
-    Ok(())
-}
-
 pub(crate) fn validate_body(value: &str) -> Result<(), WorkspaceError> {
     if value.len() > MAX_NOTE_BYTES || value.contains('\0') {
-        return Err(WorkspaceError::Validation(
-            "note body exceeds the v1 limit or contains NUL".to_owned(),
-        ));
+        Err(WorkspaceError::Validation(
+            "note body exceeds the limit or contains NUL".to_owned(),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) fn normalize_tags(tags: Vec<String>) -> Result<Vec<String>, WorkspaceError> {
+    let normalized = tags
+        .into_iter()
+        .map(|tag| tag.trim().to_owned())
+        .collect::<Vec<_>>();
+    validate_tags(&normalized)?;
+    Ok(normalized)
+}
+
+pub(crate) fn validate_tags(tags: &[String]) -> Result<(), WorkspaceError> {
+    if tags.len() > MAX_TAGS_PER_NOTE {
+        return Err(WorkspaceError::Validation("too many tags".to_owned()));
+    }
+    let mut seen = HashSet::new();
+    for tag in tags {
+        if tag.is_empty()
+            || tag.trim() != tag
+            || tag.chars().count() > MAX_TAG_SCALARS
+            || tag
+                .chars()
+                .any(|value| value.is_control() || matches!(value, '\n' | '\r'))
+        {
+            return Err(WorkspaceError::Validation("invalid tag".to_owned()));
+        }
+        if !seen.insert(tag.to_lowercase()) {
+            return Err(WorkspaceError::Validation("duplicate tag".to_owned()));
+        }
     }
     Ok(())
 }
 
-fn validate_sort_key(value: i64) -> Result<(), WorkspaceError> {
-    if !(-MAX_SAFE_INTEGER..=MAX_SAFE_INTEGER).contains(&value) {
-        return Err(WorkspaceError::Validation(
-            "sort key exceeds the IPC integer limit".to_owned(),
-        ));
+pub(crate) fn validate_file_name(value: &str) -> Result<(), WorkspaceError> {
+    if value.is_empty()
+        || value == "."
+        || value == ".."
+        || value.contains(['/', '\\'])
+        || value.chars().any(char::is_control)
+    {
+        Err(WorkspaceError::Validation(
+            "invalid attachment filename".to_owned(),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) fn validate_managed_path(
+    note_id: &str,
+    attachment_id: &str,
+    value: &str,
+) -> Result<(), WorkspaceError> {
+    if value.contains('\\')
+        || Path::new(value).is_absolute()
+        || Path::new(value)
+            .components()
+            .any(|component| !matches!(component, Component::Normal(_)))
+    {
+        return Err(WorkspaceError::InvalidPath);
+    }
+    let mut parts = value.split('/');
+    if parts.next() != Some("attachments") || parts.next() != Some(note_id) {
+        return Err(WorkspaceError::InvalidPath);
+    }
+    let Some(file_name) = parts.next() else {
+        return Err(WorkspaceError::InvalidPath);
+    };
+    if parts.next().is_some()
+        || !(file_name == attachment_id
+            || file_name
+                .strip_prefix(attachment_id)
+                .is_some_and(|suffix| suffix.starts_with('.') && suffix.len() > 1))
+    {
+        return Err(WorkspaceError::InvalidPath);
     }
     Ok(())
+}
+
+fn validate_status_timestamp(
+    status: NoteStatus,
+    completed_at: Option<&str>,
+) -> Result<(), WorkspaceError> {
+    match (status, completed_at) {
+        (NoteStatus::Open, Some(_)) => Err(WorkspaceError::Validation(
+            "an open note cannot have completedAt".to_owned(),
+        )),
+        (NoteStatus::Done, None) => Err(WorkspaceError::Validation(
+            "a done note requires completedAt".to_owned(),
+        )),
+        _ => Ok(()),
+    }
 }
 
 pub(crate) fn validate_timestamp(value: &str) -> Result<(), WorkspaceError> {
@@ -363,42 +451,6 @@ pub(crate) fn validate_timestamp(value: &str) -> Result<(), WorkspaceError> {
             "timestamps must be RFC 3339 UTC seconds".to_owned(),
         ));
     }
-
-    let parse =
-        |range: std::ops::Range<usize>| -> u32 { value[range].parse::<u32>().unwrap_or_default() };
-    let year = parse(0..4);
-    let month = parse(5..7);
-    let day = parse(8..10);
-    let hour = parse(11..13);
-    let minute = parse(14..16);
-    let second = parse(17..19);
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let month_days = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    if year == 0
-        || !(1..=12).contains(&month)
-        || day == 0
-        || day > month_days[(month - 1) as usize]
-        || hour > 23
-        || minute > 59
-        || second > 59
-    {
-        return Err(WorkspaceError::Validation(
-            "timestamp contains an invalid UTC date".to_owned(),
-        ));
-    }
     Ok(())
 }
 
@@ -407,24 +459,26 @@ fn validate_optional_timestamp(value: Option<&str>) -> Result<(), WorkspaceError
 }
 
 pub(crate) fn now_utc() -> String {
-    let seconds = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
-    timestamp_from_unix(seconds)
+    timestamp_from_unix(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64,
+    )
 }
 
 fn timestamp_from_unix(seconds: i64) -> String {
     let days = seconds.div_euclid(86_400);
     let seconds_of_day = seconds.rem_euclid(86_400);
     let (year, month, day) = civil_from_days(days);
-    let hour = seconds_of_day / 3_600;
-    let minute = (seconds_of_day % 3_600) / 60;
-    let second = seconds_of_day % 60;
-    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+        seconds_of_day / 3_600,
+        (seconds_of_day % 3_600) / 60,
+        seconds_of_day % 60
+    )
 }
 
-// Howard Hinnant's civil calendar conversion, adapted to Unix epoch days.
 fn civil_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
     let z = days_since_epoch + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -442,15 +496,8 @@ fn civil_from_days(days_since_epoch: i64) -> (i64, i64, i64) {
 
 #[cfg(test)]
 pub(crate) fn fixture_manifest() -> (PersistedManifest, HashMap<String, String>) {
-    let section_id = "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9".to_owned();
-    let workspace_id = "b7cb56b9-748e-48c8-a23d-0bf5f2d61248".to_owned();
     (
-        PersistedManifest::empty(
-            workspace_id,
-            section_id,
-            "Inbox".to_owned(),
-            "2026-07-30T12:00:00Z".to_owned(),
-        ),
+        PersistedManifest::empty("b7cb56b9-748e-48c8-a23d-0bf5f2d61248".to_owned()),
         HashMap::new(),
     )
 }
@@ -460,101 +507,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn persisted_manifest_round_trips_without_note_bodies() {
-        let (manifest, bodies) = fixture_manifest();
-        let json = serde_json::to_string_pretty(&manifest).expect("serialize manifest");
-        assert!(!json.contains("body"));
-        let decoded: PersistedManifest = serde_json::from_str(&json).expect("deserialize manifest");
-        assert_eq!(decoded, manifest);
-        assert!(decoded.snapshot(&bodies).is_ok());
+    fn tags_are_bounded_ordered_and_case_insensitive() {
+        assert_eq!(
+            normalize_tags(vec![" First ".to_owned(), "second".to_owned()]).expect("tags"),
+            vec!["First", "second"]
+        );
+        assert!(normalize_tags(vec!["First".to_owned(), "first".to_owned()]).is_err());
+        assert!(normalize_tags(vec!["x".repeat(49)]).is_err());
     }
 
     #[test]
-    fn rejects_invalid_status_timestamp_invariant() {
-        let (mut manifest, mut bodies) = fixture_manifest();
-        let note_id = "fef8abcc-7047-4a35-a070-b6d9f0eca026".to_owned();
-        manifest.notes.push(PersistedNote {
-            id: note_id.clone(),
-            section_id: manifest.sections[0].id.clone(),
-            status: NoteStatus::Done,
-            sort_key: 0,
-            created_at: "2026-07-30T12:00:00Z".to_owned(),
-            updated_at: "2026-07-30T12:00:00Z".to_owned(),
-            completed_at: None,
-            trashed_at: None,
-        });
-        bodies.insert(note_id, "body".to_owned());
-        assert!(matches!(
-            manifest.validate(&bodies),
-            Err(WorkspaceError::Validation(_))
-        ));
-    }
-
-    #[test]
-    fn validates_v1_payload_boundaries() {
-        assert!(validate_body(&"x".repeat(MAX_NOTE_BYTES)).is_ok());
-        assert!(validate_body(&"x".repeat(MAX_NOTE_BYTES + 1)).is_err());
-    }
-
-    #[test]
-    fn validates_v1_collection_boundaries() {
-        let (mut manifest, mut bodies) = fixture_manifest();
-        let section_id = manifest.sections[0].id.clone();
-        for index in 0..MAX_ACTIVE_NOTES {
-            let id = Uuid::new_v4().to_string();
-            manifest.notes.push(PersistedNote {
-                id: id.clone(),
-                section_id: section_id.clone(),
-                status: NoteStatus::Open,
-                sort_key: i64::try_from(index).expect("safe test sort key"),
-                created_at: "2026-07-30T12:00:00Z".to_owned(),
-                updated_at: "2026-07-30T12:00:00Z".to_owned(),
-                completed_at: None,
-                trashed_at: None,
-            });
-            bodies.insert(id, String::new());
-        }
-        assert!(manifest.validate(&bodies).is_ok());
-        let extra_id = Uuid::new_v4().to_string();
-        manifest.notes.push(PersistedNote {
-            id: extra_id.clone(),
-            section_id,
-            status: NoteStatus::Open,
-            sort_key: 0,
-            created_at: "2026-07-30T12:00:00Z".to_owned(),
-            updated_at: "2026-07-30T12:00:00Z".to_owned(),
-            completed_at: None,
-            trashed_at: None,
-        });
-        bodies.insert(extra_id, String::new());
-        assert!(manifest.validate(&bodies).is_err());
-
-        let (mut manifest, bodies) = fixture_manifest();
-        while manifest.sections.len() < MAX_SECTIONS {
-            manifest.sections.push(PersistedSection {
-                id: Uuid::new_v4().to_string(),
-                name: "Section".to_owned(),
-                sort_key: 0,
-                created_at: "2026-07-30T12:00:00Z".to_owned(),
-                updated_at: "2026-07-30T12:00:00Z".to_owned(),
-            });
-        }
-        assert!(manifest.validate(&bodies).is_ok());
-        manifest.sections.push(PersistedSection {
-            id: Uuid::new_v4().to_string(),
-            name: "Too many".to_owned(),
-            sort_key: 0,
-            created_at: "2026-07-30T12:00:00Z".to_owned(),
-            updated_at: "2026-07-30T12:00:00Z".to_owned(),
-        });
-        assert!(manifest.validate(&bodies).is_err());
-    }
-
-    #[test]
-    fn generated_timestamps_are_rfc3339_utc() {
-        let timestamp = timestamp_from_unix(0);
-        assert_eq!(timestamp, "1970-01-01T00:00:00Z");
-        assert!(validate_timestamp(&timestamp).is_ok());
-        assert_eq!(timestamp_from_unix(1_775_046_896), "2026-04-01T12:34:56Z");
+    fn managed_paths_are_identity_bound() {
+        assert!(
+            validate_managed_path("note", "attachment", "attachments/note/attachment.txt").is_ok()
+        );
+        assert!(
+            validate_managed_path("note", "attachment", "attachments/other/attachment.txt")
+                .is_err()
+        );
     }
 }

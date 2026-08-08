@@ -18,6 +18,10 @@ pub enum WorkspaceError {
     Io(#[source] std::io::Error),
     #[error("Workspace recovery requires user action: {backup_location}")]
     RecoveryRequired { backup_location: String },
+    #[error("deleted content cleanup requires retry")]
+    DeletionCleanupRequired { transaction_id: String },
+    #[error("the legacy Trash archive path already exists")]
+    LegacyArchiveCollision,
     #[error("the requested Workspace value was not found: {0}")]
     NotFound(String),
     #[error("the Workspace runtime is not open")]
@@ -82,6 +86,15 @@ impl From<WorkspaceError> for WorkspaceIpcError {
                 result.code = "recovery_required".to_owned();
                 result.message_key = "workspace_error_recovery_required".to_owned();
                 result.recovery_location = Some(backup_location);
+            }
+            WorkspaceError::DeletionCleanupRequired { transaction_id } => {
+                result.code = "deletion_cleanup_required".to_owned();
+                result.message_key = "workspace_error_deletion_cleanup_required".to_owned();
+                result.recovery_location = Some(format!("backups/{transaction_id}"));
+            }
+            WorkspaceError::LegacyArchiveCollision => {
+                result.code = "legacy_archive_collision".to_owned();
+                result.message_key = "workspace_error_legacy_archive_collision".to_owned();
             }
             WorkspaceError::NotFound(_) => {
                 result.code = "not_found".to_owned();
