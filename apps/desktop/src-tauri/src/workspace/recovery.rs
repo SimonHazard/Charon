@@ -46,12 +46,31 @@ pub(crate) fn commit(
     next_manifest: &PersistedManifest,
     next_bodies: &HashMap<String, String>,
 ) -> Result<CommitOutput, WorkspaceError> {
+    commit_with_new_attachments(
+        storage,
+        previous_manifest,
+        previous_bodies,
+        next_manifest,
+        next_bodies,
+        &HashMap::new(),
+    )
+}
+
+pub(crate) fn commit_with_new_attachments(
+    storage: &dyn WorkspaceStorage,
+    previous_manifest: &PersistedManifest,
+    previous_bodies: &HashMap<String, String>,
+    next_manifest: &PersistedManifest,
+    next_bodies: &HashMap<String, String>,
+    supplied_attachments: &HashMap<String, Vec<u8>>,
+) -> Result<CommitOutput, WorkspaceError> {
     commit_with_hook(
         storage,
         previous_manifest,
         previous_bodies,
         next_manifest,
         next_bodies,
+        supplied_attachments,
         |_| Ok(()),
     )
 }
@@ -62,6 +81,7 @@ fn commit_with_hook(
     previous_bodies: &HashMap<String, String>,
     next_manifest: &PersistedManifest,
     next_bodies: &HashMap<String, String>,
+    supplied_attachments: &HashMap<String, Vec<u8>>,
     mut hook: impl FnMut(TransactionState) -> Result<(), WorkspaceError>,
 ) -> Result<CommitOutput, WorkspaceError> {
     previous_manifest.validate(previous_bodies)?;
@@ -71,6 +91,9 @@ fn commit_with_hook(
             "a transaction must advance the revision exactly once".to_owned(),
         ));
     }
+    let previous_attachments =
+        current_attachment_bytes(storage, previous_manifest, &HashMap::new())?;
+    let next_attachments = current_attachment_bytes(storage, next_manifest, supplied_attachments)?;
     let transaction_id = Uuid::new_v4().to_string();
     let transaction_dir = format!("backups/{transaction_id}");
     storage.create_dir_all("backups")?;
@@ -81,6 +104,20 @@ fn commit_with_hook(
     write_manifest_copy(storage, &transaction_dir, "next", next_manifest)?;
     write_body_copies(storage, &transaction_dir, "previous", previous_bodies)?;
     write_body_copies(storage, &transaction_dir, "next", next_bodies)?;
+    write_attachment_copies(
+        storage,
+        &transaction_dir,
+        "previous",
+        previous_manifest,
+        &previous_attachments,
+    )?;
+    write_attachment_copies(
+        storage,
+        &transaction_dir,
+        "next",
+        next_manifest,
+        &next_attachments,
+    )?;
     let mut record = TransactionRecord {
         transaction_id: transaction_id.clone(),
         previous_revision: previous_manifest.revision,
@@ -90,12 +127,13 @@ fn commit_with_hook(
     write_record(storage, &transaction_dir, &record)?;
     storage.sync_dir(&transaction_dir)?;
     hook(TransactionState::Staged)?;
-    apply_note_state(
+    apply_state(
         storage,
         &transaction_id,
         previous_manifest,
         next_manifest,
         next_bodies,
+        &next_attachments,
     )?;
     record.state = TransactionState::FilesApplied;
     write_record(storage, &transaction_dir, &record)?;
@@ -105,7 +143,7 @@ fn commit_with_hook(
     write_record(storage, &transaction_dir, &record)?;
     hook(TransactionState::ManifestCommitted)?;
     storage.remove_dir_all(&transaction_dir).map_err(|_| {
-        if previous_manifest.notes.len() > next_manifest.notes.len() {
+        if deletion_occurred(previous_manifest, next_manifest) {
             WorkspaceError::DeletionCleanupRequired {
                 transaction_id: transaction_id.clone(),
             }
@@ -142,16 +180,33 @@ pub(crate) fn recover_incomplete(storage: &dyn WorkspaceStorage) -> Result<(), W
         let next = read_manifest_copy(storage, &transaction_dir, "next")?;
         let previous_bodies = read_body_copies(storage, &transaction_dir, "previous", &previous)?;
         let next_bodies = read_body_copies(storage, &transaction_dir, "next", &next)?;
+        let previous_attachments =
+            read_attachment_copies(storage, &transaction_dir, "previous", &previous)?;
+        let next_attachments = read_attachment_copies(storage, &transaction_dir, "next", &next)?;
         previous.validate(&previous_bodies)?;
         next.validate(&next_bodies)?;
         let current = read_manifest(storage).map_err(|_| WorkspaceError::RecoveryRequired {
             backup_location: transaction_dir.clone(),
         })?;
         if current == next {
-            apply_note_state(storage, &transaction_id, &previous, &next, &next_bodies)?;
+            apply_state(
+                storage,
+                &transaction_id,
+                &previous,
+                &next,
+                &next_bodies,
+                &next_attachments,
+            )?;
             replace_manifest(storage, &transaction_id, &next)?;
         } else if current == previous {
-            apply_note_state(storage, &transaction_id, &next, &previous, &previous_bodies)?;
+            apply_state(
+                storage,
+                &transaction_id,
+                &next,
+                &previous,
+                &previous_bodies,
+                &previous_attachments,
+            )?;
             replace_manifest(storage, &transaction_id, &previous)?;
         } else {
             return Err(WorkspaceError::RecoveryRequired {
@@ -187,12 +242,13 @@ pub(crate) fn replace_manifest(
     Ok(())
 }
 
-fn apply_note_state(
+fn apply_state(
     storage: &dyn WorkspaceStorage,
     transaction_id: &str,
     from_manifest: &PersistedManifest,
     to_manifest: &PersistedManifest,
     to_bodies: &HashMap<String, String>,
+    to_attachments: &HashMap<String, Vec<u8>>,
 ) -> Result<(), WorkspaceError> {
     storage.create_dir_all("notes")?;
     for note in &to_manifest.notes {
@@ -200,9 +256,8 @@ fn apply_note_state(
             .get(&note.id)
             .ok_or_else(|| WorkspaceError::NotFound("transaction note body".to_owned()))?;
         let temporary = format!("notes/.charon-{transaction_id}-{}.tmp", note.id);
-        let destination = format!("notes/{}.md", note.id);
         storage.write_synced(&temporary, body.as_bytes())?;
-        storage.rename(&temporary, &destination)?;
+        storage.rename(&temporary, &format!("notes/{}.md", note.id))?;
     }
     let target_ids = to_manifest
         .notes
@@ -215,9 +270,94 @@ fn apply_note_state(
         }
     }
     storage.sync_dir("notes")?;
+
+    storage.create_dir_all("attachments")?;
+    for note in &to_manifest.notes {
+        if !note.attachments.is_empty() {
+            storage.create_dir_all(&format!("attachments/{}", note.id))?;
+        }
+        for attachment in &note.attachments {
+            let bytes = to_attachments
+                .get(&attachment.relative_path)
+                .ok_or_else(|| {
+                    WorkspaceError::NotFound("transaction attachment bytes".to_owned())
+                })?;
+            let file_name = attachment
+                .relative_path
+                .rsplit('/')
+                .next()
+                .ok_or(WorkspaceError::InvalidPath)?;
+            let temporary = format!(
+                "attachments/{}/.charon-{transaction_id}-{file_name}.tmp",
+                note.id
+            );
+            storage.write_synced(&temporary, bytes)?;
+            storage.rename(&temporary, &attachment.relative_path)?;
+        }
+    }
+    let target_paths = to_manifest
+        .notes
+        .iter()
+        .flat_map(|note| {
+            note.attachments
+                .iter()
+                .map(|attachment| attachment.relative_path.as_str())
+        })
+        .collect::<HashSet<_>>();
+    for note in &from_manifest.notes {
+        for attachment in &note.attachments {
+            if !target_paths.contains(attachment.relative_path.as_str()) {
+                storage.remove_file(&attachment.relative_path)?;
+            }
+        }
+        storage.remove_dir_if_empty(&format!("attachments/{}", note.id))?;
+    }
+    storage.sync_dir("attachments")?;
     Ok(())
 }
 
+fn deletion_occurred(previous: &PersistedManifest, next: &PersistedManifest) -> bool {
+    let next_notes = next
+        .notes
+        .iter()
+        .map(|note| note.id.as_str())
+        .collect::<HashSet<_>>();
+    let next_attachments = next
+        .notes
+        .iter()
+        .flat_map(|note| {
+            note.attachments
+                .iter()
+                .map(|attachment| attachment.id.as_str())
+        })
+        .collect::<HashSet<_>>();
+    previous.notes.iter().any(|note| {
+        !next_notes.contains(note.id.as_str())
+            || note
+                .attachments
+                .iter()
+                .any(|attachment| !next_attachments.contains(attachment.id.as_str()))
+    })
+}
+
+fn current_attachment_bytes(
+    storage: &dyn WorkspaceStorage,
+    manifest: &PersistedManifest,
+    supplied: &HashMap<String, Vec<u8>>,
+) -> Result<HashMap<String, Vec<u8>>, WorkspaceError> {
+    manifest
+        .notes
+        .iter()
+        .flat_map(|note| &note.attachments)
+        .map(|attachment| {
+            let bytes = supplied
+                .get(&attachment.relative_path)
+                .cloned()
+                .map_or_else(|| storage.read(&attachment.relative_path), Ok)?;
+            Ok((attachment.relative_path.clone(), bytes))
+        })
+        .collect()
+}
 fn write_manifest_copy(
     storage: &dyn WorkspaceStorage,
     transaction_dir: &str,
@@ -271,6 +411,54 @@ fn read_body_copies(
         })
         .collect()
 }
+fn write_attachment_copies(
+    storage: &dyn WorkspaceStorage,
+    transaction_dir: &str,
+    state: &str,
+    manifest: &PersistedManifest,
+    attachments: &HashMap<String, Vec<u8>>,
+) -> Result<(), WorkspaceError> {
+    if attachments.is_empty() {
+        return Ok(());
+    }
+    storage.create_dir_all(&format!("{transaction_dir}/{state}/attachments"))?;
+    for (index, attachment) in manifest
+        .notes
+        .iter()
+        .flat_map(|note| &note.attachments)
+        .enumerate()
+    {
+        let bytes = attachments
+            .get(&attachment.relative_path)
+            .ok_or_else(|| WorkspaceError::NotFound("transaction attachment bytes".to_owned()))?;
+        storage.write_synced(
+            &format!("{transaction_dir}/{state}/attachments/{index}.bin"),
+            bytes,
+        )?;
+    }
+    Ok(())
+}
+fn read_attachment_copies(
+    storage: &dyn WorkspaceStorage,
+    transaction_dir: &str,
+    state: &str,
+    manifest: &PersistedManifest,
+) -> Result<HashMap<String, Vec<u8>>, WorkspaceError> {
+    manifest
+        .notes
+        .iter()
+        .flat_map(|note| &note.attachments)
+        .enumerate()
+        .map(|(index, attachment)| {
+            Ok((
+                attachment.relative_path.clone(),
+                storage.read(&format!(
+                    "{transaction_dir}/{state}/attachments/{index}.bin"
+                ))?,
+            ))
+        })
+        .collect()
+}
 fn write_record(
     storage: &dyn WorkspaceStorage,
     transaction_dir: &str,
@@ -280,9 +468,8 @@ fn write_record(
         serde_json::to_vec_pretty(record).map_err(|_| WorkspaceError::InvalidManifest)?;
     bytes.push(b'\n');
     let temporary = format!("{transaction_dir}/.record.tmp");
-    let destination = format!("{transaction_dir}/transaction.json");
     storage.write_synced(&temporary, &bytes)?;
-    storage.rename(&temporary, &destination)?;
+    storage.rename(&temporary, &format!("{transaction_dir}/transaction.json"))?;
     storage.sync_dir(transaction_dir)?;
     Ok(())
 }
@@ -320,6 +507,7 @@ pub(crate) fn commit_with_failure(
         previous_bodies,
         next_manifest,
         next_bodies,
+        &HashMap::new(),
         |state| {
             let fail = matches!(
                 (state, failure),
