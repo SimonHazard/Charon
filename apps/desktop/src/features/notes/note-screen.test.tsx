@@ -65,6 +65,20 @@ describe('single note shelf', () => {
     expect(screen.queryByText('Attachment note')).toBeNull();
   });
 
+  it('keeps the list and composer in stable grid rows without contextual feedback', () => {
+    renderScreen();
+    const list = screen.getByRole('listbox');
+    const shelf = list.parentElement;
+
+    expect(shelf?.className).toBe('note-screen');
+    expect(Array.from(shelf?.children ?? []).map((child) => child.className)).toEqual([
+      'note-workbar',
+      'note-context',
+      'note-list',
+      'composer-dock transient-material',
+    ]);
+  });
+
   it('copies only note IDs through the canonical ClipboardComposer request', async () => {
     const user = userEvent.setup();
     const composeAndWrite = vi
