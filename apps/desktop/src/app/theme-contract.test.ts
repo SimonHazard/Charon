@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 const repositoryRoot = resolve(process.cwd(), '../..');
 const tokensCss = readFileSync(resolve(repositoryRoot, 'packages/theme/src/tokens.css'), 'utf8');
 const desktopHtml = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+const desktopCss = readFileSync(resolve(process.cwd(), 'src/styles/app.css'), 'utf8');
 
 const requiredSemanticTokens = [
   '--canvas',
@@ -174,5 +175,11 @@ describe('theme token contract', () => {
         .digest('hex');
       expect(actual, path).toBe(expected);
     }
+  });
+
+  it('uses the reversed wordmark on the dark titlebar', () => {
+    expect(desktopCss).toMatch(
+      /\[data-theme=['"]dark['"]\]\s+\.titlebar-wordmark\s*\{[^}]*charon-wordmark-reversed\.svg/s,
+    );
   });
 });

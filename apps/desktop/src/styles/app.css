@@ -87,6 +87,9 @@
   object-fit: contain;
   object-position: left center;
 }
+[data-theme="dark"] .titlebar-wordmark {
+  content: url("../assets/brand/charon-wordmark-reversed.svg");
+}
 .titlebar-actions {
   display: flex;
   gap: 0.15rem;
@@ -132,12 +135,11 @@
 
 .note-screen {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   width: min(100%, 72rem);
   height: 100%;
   margin: 0 auto;
 }
-
 .note-workbar {
   display: flex;
   min-width: 0;

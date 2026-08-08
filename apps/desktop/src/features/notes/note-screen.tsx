@@ -331,24 +331,26 @@ export function NoteScreen({
           </Button>
         )}
       </div>
-      {tag ? (
-        <div className="active-tag-filter">
-          <Badge variant="secondary">{tag}</Badge>
-          <Button
-            aria-label={m.tag_filter_clear({ tag })}
-            onClick={() => setTag(null)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <IconX aria-hidden="true" />
-          </Button>
-        </div>
-      ) : null}
-      {bulkCopyError ? (
-        <p className="inline-error" role="alert">
-          {m.clipboard_error_write_failed()}
-        </p>
-      ) : null}
+      <div className="note-context">
+        {tag ? (
+          <div className="active-tag-filter">
+            <Badge variant="secondary">{tag}</Badge>
+            <Button
+              aria-label={m.tag_filter_clear({ tag })}
+              onClick={() => setTag(null)}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <IconX aria-hidden="true" />
+            </Button>
+          </div>
+        ) : null}
+        {bulkCopyError ? (
+          <p className="inline-error" role="alert">
+            {m.clipboard_error_write_failed()}
+          </p>
+        ) : null}
+      </div>
       {notes.length ? (
         <NoteList
           allTags={allTags}
