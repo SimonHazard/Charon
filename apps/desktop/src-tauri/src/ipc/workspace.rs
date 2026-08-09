@@ -20,9 +20,17 @@ pub struct WorkspaceRuntime {
 pub async fn workspace_choose_directory(
     app: AppHandle,
 ) -> Result<Option<String>, WorkspaceIpcError> {
-    app.dialog()
-        .file()
-        .blocking_pick_folder()
+    let (sender, mut receiver) = tauri::async_runtime::channel(1);
+    app.dialog().file().pick_folder(move |selection| {
+        let _ = sender.blocking_send(selection);
+    });
+    selected_folder_path(receiver.recv().await.flatten())
+}
+
+fn selected_folder_path(
+    selection: Option<tauri_plugin_dialog::FilePath>,
+) -> Result<Option<String>, WorkspaceIpcError> {
+    selection
         .map(|path| {
             path.into_path()
                 .map_err(|_| crate::workspace::WorkspaceError::InvalidPath.into())
@@ -322,7 +330,7 @@ mod tests {
 
     use super::{
         execute_capture_note, open_or_create_workspace, resolve_default_workspace_path,
-        workspace_choose_directory,
+        selected_folder_path, workspace_choose_directory,
     };
     use crate::workspace::{Workspace, WorkspaceIpcError};
     use tempfile::tempdir;
@@ -356,6 +364,15 @@ mod tests {
         }
 
         assert_async_command(workspace_choose_directory);
+    }
+
+    #[test]
+    fn workspace_chooser_returns_the_selected_local_folder() {
+        let root = tempdir().expect("folder");
+        let selected =
+            selected_folder_path(Some(root.path().to_path_buf().into())).expect("selected folder");
+        assert_eq!(selected.as_deref(), root.path().to_str());
+        assert_eq!(selected_folder_path(None).expect("cancelled folder"), None);
     }
 
     #[test]

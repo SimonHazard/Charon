@@ -99,6 +99,25 @@ describe('compact Preferences', () => {
     expect(native.requestPermission).toHaveBeenCalledWith('inputMonitoring');
   });
 
+  it('keeps detailed capture disclosures in keyboard-accessible tooltips', async () => {
+    const native = clients();
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <Titlebar />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    const disclosure = /Required only to observe the double-Shift/;
+    expect(screen.queryByText(disclosure)).toBeNull();
+    await user.hover(screen.getByRole('button', { name: 'About Input Monitoring' }));
+    expect(await screen.findByText(disclosure)).toBeTruthy();
+  });
+
   it('blocks folder switching while an editor draft is dirty', async () => {
     const native = clients();
     const client = {

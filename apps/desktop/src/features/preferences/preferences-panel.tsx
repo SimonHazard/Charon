@@ -1,6 +1,7 @@
 import {
   IconCheck,
   IconFolder,
+  IconInfoCircle,
   IconKeyboard,
   IconLanguage,
   IconPalette,
@@ -21,6 +22,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { usePressFeedback } from '@/motion/press';
 
@@ -60,15 +62,24 @@ export function PreferencesPanel() {
     state: CapabilityState,
     label: string,
     description: string,
+    detailsLabel: string,
   ) => (
     <div className="preferences-permission-row">
-      <div>
-        <div className="preferences-row-title">
-          <span className="capability-dot" data-tone={capabilityTone(state)} />
-          <span>{label}</span>
-          <span className="preferences-state">{stateLabel(state)}</span>
-        </div>
-        <p>{description}</p>
+      <div className="preferences-row-title">
+        <span className="capability-dot" data-tone={capabilityTone(state)} />
+        <span>{label}</span>
+        <Tooltip>
+          <TooltipTrigger
+            aria-label={detailsLabel}
+            render={<Button size="icon-xs" variant="ghost" />}
+          >
+            <IconInfoCircle aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent align="start" side="left" sideOffset={8}>
+            <p>{description}</p>
+          </TooltipContent>
+        </Tooltip>
+        <span className="preferences-state">{stateLabel(state)}</span>
       </div>
       {state !== 'unsupported' ? (
         <Button
@@ -213,12 +224,14 @@ export function PreferencesPanel() {
                     native.capabilities.inputMonitoring,
                     m.capture_input_monitoring_action(),
                     m.capture_input_monitoring_description(),
+                    m.capture_input_monitoring_details(),
                   )}
                   {permissionRow(
                     'accessibility',
                     native.capabilities.accessibility,
                     m.capture_accessibility_action(),
                     m.capture_accessibility_description(),
+                    m.capture_accessibility_details(),
                   )}
                 </div>
               ) : (
