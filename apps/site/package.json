@@ -12,7 +12,7 @@
     "preview": "astro preview",
     "check": "astro check",
     "typecheck": "astro check",
-    "test": "astro check && astro build",
+    "test": "astro check && astro build && bun scripts/verify-site.ts",
     "astro": "astro"
   },
   "dependencies": {

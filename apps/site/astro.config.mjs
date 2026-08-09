@@ -5,7 +5,8 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   output: 'static',
-  site: 'https://charon.example',
+  site: process.env.CHARON_SITE_ORIGIN ?? 'https://simonhazard.github.io',
+  base: process.env.CHARON_SITE_BASE ?? '/Charon',
   integrations: [sitemap()],
   i18n: {
     defaultLocale: 'en',

@@ -1,0 +1,46 @@
+---
+import { copy, type Locale, type PageKind } from '../content/site';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Props {
+  locale: Locale;
+  page: Exclude<PageKind, 'home'>;
+}
+const { locale, page } = Astro.props;
+const c = copy[locale];
+const content =
+  page === 'privacy'
+    ? { title: c.privacyTitle, intro: c.privacyIntro }
+    : page === 'download'
+      ? { title: c.downloadTitle, intro: c.downloadIntro }
+      : { title: c.changelogTitle, intro: c.changelogIntro };
+const title = `${content.title} | Charon`;
+---
+
+<BaseLayout locale={locale} page={page} title={title} description={content.intro}>
+  <article class="text-page section-shell">
+    <header>
+      <p class="eyebrow">Charon</p>
+      <h1>{content.title}</h1>
+      <p class="lede">{content.intro}</p>
+    </header>
+    {page === 'privacy' ? (
+      <div class="text-sections">
+        {c.privacySections.map(([heading, body]) => (
+          <section><h2>{heading}</h2><p>{body}</p></section>
+        ))}
+      </div>
+    ) : page === 'download' ? (
+      <section class="release-status">
+        <span aria-hidden="true"></span>
+        <div><h2>{c.releases}</h2><p>{c.noRelease}</p></div>
+        <a class="primary-action" href="https://github.com/SimonHazard/Charon/releases">{c.viewReleases}</a>
+      </section>
+    ) : (
+      <section class="changelog-entry">
+        <time datetime="2026-08">{c.changeDate}</time>
+        <ul>{c.changeItems.map((item) => <li>{item}</li>)}</ul>
+      </section>
+    )}
+  </article>
+</BaseLayout>

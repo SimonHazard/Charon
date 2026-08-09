@@ -1,0 +1,133 @@
+---
+import '../styles/global.css';
+import { copy, type Locale, type PageKind, routes } from '../content/site';
+
+interface Props {
+  locale: Locale;
+  page: PageKind;
+  title: string;
+  description: string;
+}
+
+const { locale, page, title, description } = Astro.props;
+const c = copy[locale];
+const alternate = locale === 'en' ? 'fr' : 'en';
+const base = import.meta.env.BASE_URL.replace(/\/$/u, '');
+const path = (route: string) => `${base}${route}` || '/';
+const canonical = new URL(path(routes[locale][page]), Astro.site);
+const alternateUrl = new URL(path(routes[alternate][page]), Astro.site);
+const defaultUrl = new URL(path(routes.en[page]), Astro.site);
+const socialImage = new URL(`${base}/media/charon-shelf-solarized.webp`, Astro.site);
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Charon',
+  applicationCategory: 'ProductivityApplication',
+  description,
+};
+---
+
+<!doctype html>
+<html lang={locale} data-theme="solarized">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#fdf6e3" />
+    <link rel="icon" href={path('/favicon.ico')} sizes="any" />
+    <link rel="icon" href={path('/brand/charon-app-icon.svg')} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={path('/apple-touch-icon.png')} />
+    <link rel="manifest" href={path('/site.webmanifest')} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang={locale} href={canonical} />
+    <link rel="alternate" hreflang={alternate} href={alternateUrl} />
+    <link rel="alternate" hreflang="x-default" href={defaultUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Charon" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={socialImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
+    <title>{title}</title>
+    <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <script is:inline>
+      (() => {
+        try {
+          const value = localStorage.getItem('charon-theme');
+          document.documentElement.dataset.theme = ['solarized', 'light', 'dark'].includes(value)
+            ? value
+            : 'solarized';
+        } catch {
+          document.documentElement.dataset.theme = 'solarized';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">{c.skip}</a>
+    <header class="site-header">
+      <a class="brand" href={path(routes[locale].home)} aria-label="Charon">
+        <picture class="brand-color">
+          <source media="(max-width: 31rem)" srcset={path('/brand/charon-icon-lavender.svg')} />
+          <img src={path('/brand/charon-wordmark-color.svg')} width="138" height="30" alt="Charon" />
+        </picture>
+        <picture class="brand-reversed">
+          <source media="(max-width: 31rem)" srcset={path('/brand/charon-icon-light.svg')} />
+          <img src={path('/brand/charon-wordmark-reversed.svg')} width="138" height="30" alt="Charon" />
+        </picture>
+      </a>
+      <nav aria-label="Primary">
+        <a href={path(routes[locale].home)}>{c.product}</a>
+        <a href={path(routes[locale].privacy)}>{c.privacy}</a>
+        <a href={path(routes[locale].download)}>{c.releases}</a>
+      </nav>
+      <div class="header-controls">
+        <a class="locale-link" href={path(routes[alternate][page])} hreflang={alternate}>{c.switchName}</a>
+        <div class="theme-control" aria-label={c.theme} role="group">
+          <button type="button" data-theme-choice="solarized" aria-label={c.solarized}>S</button>
+          <button type="button" data-theme-choice="light" aria-label={c.light}>L</button>
+          <button type="button" data-theme-choice="dark" aria-label={c.dark}>D</button>
+        </div>
+      </div>
+    </header>
+    <main id="content">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <img src={path('/brand/charon-icon-lavender.svg')} width="28" height="28" alt="" />
+      <span>{c.footer}</span>
+      <nav aria-label="Footer">
+        <a href={path(routes[locale].privacy)}>{c.privacy}</a>
+        <a href={path(routes[locale].download)}>{c.releases}</a>
+        <a href={path(routes[locale].changelog)}>{c.changelog}</a>
+        <a href="https://github.com/SimonHazard/Charon">GitHub</a>
+      </nav>
+    </footer>
+    <script>
+      const root = document.documentElement;
+      document.querySelectorAll('[data-theme-choice]').forEach((control) => {
+        control.addEventListener('click', () => {
+          const value = control.getAttribute('data-theme-choice');
+          if (!value || !['solarized', 'light', 'dark'].includes(value)) return;
+          root.dataset.theme = value;
+          try { localStorage.setItem('charon-theme', value); } catch {}
+        });
+      });
+      const passage = document.querySelector('[data-capture-passage]');
+      if (passage && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        passage.setAttribute('data-motion-ready', 'true');
+        const observer = new IntersectionObserver((entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          passage.setAttribute('data-visible', 'true');
+          observer.disconnect();
+        }, { threshold: 0.35 });
+        observer.observe(passage);
+      }
+    </script>
+  </body>
+</html>

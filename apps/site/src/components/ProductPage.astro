@@ -1,0 +1,127 @@
+---
+import { copy, type Locale, routes } from '../content/site';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const c = copy[locale];
+const base = import.meta.env.BASE_URL.replace(/\/$/u, '');
+const path = (route: string) => `${base}${route}`;
+const title = locale === 'en' ? 'Charon: rapid local capture' : 'Charon : capture locale rapide';
+const description = c.intro;
+---
+
+<BaseLayout locale={locale} page="home" title={title} description={description}>
+  <section class="hero section-shell">
+    <div class="hero-copy">
+      <p class="eyebrow">{c.eyebrow}</p>
+      <h1>{c.title}</h1>
+      <p class="lede">{c.intro}</p>
+      <div class="hero-actions">
+        <a class="primary-action" href={path(routes[locale].download)}>{c.viewReleases}</a>
+        <a class="quiet-action" href="https://github.com/SimonHazard/Charon">{c.source}</a>
+      </div>
+      <p class="ownership">{c.ownership}</p>
+    </div>
+    <figure class="hero-media">
+      <picture>
+        <source srcset={path('/media/charon-shelf-solarized.avif')} type="image/avif" />
+        <img
+          src={path('/media/charon-shelf-solarized.webp')}
+          width="1440"
+          height="960"
+          alt={c.mediaAlt}
+          fetchpriority="high"
+        />
+      </picture>
+    </figure>
+  </section>
+
+  <section class="capture-passage section-shell" data-capture-passage>
+    <div class="passage-copy">
+      <p class="section-index">01</p>
+      <h2>{c.captureTitle}</h2>
+      <p>{c.captureBody}</p>
+    </div>
+    <div class="passage-visual" aria-label={c.captureTitle}>
+      <blockquote>{c.selected}</blockquote>
+      <div class="crossing-line" aria-hidden="true"></div>
+      <div class="note-result">
+        <span>{c.note}</span>
+        <strong>{c.selected}</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="editor-story section-shell">
+    <div class="story-copy">
+      <p class="section-index">02</p>
+      <h2>{c.enrichTitle}</h2>
+      <p>{c.enrichBody}</p>
+    </div>
+    <figure class="editor-media">
+      <picture>
+        <source srcset={path('/media/charon-editor-dark.avif')} type="image/avif" />
+        <img src={path('/media/charon-editor-dark.webp')} width="1440" height="960" alt={c.mediaAlt} loading="lazy" />
+      </picture>
+      <figcaption>{c.demoCaption}</figcaption>
+    </figure>
+  </section>
+
+  <section class="copy-story section-shell">
+    <div class="copy-statement">
+      <p class="section-index">03</p>
+      <h2>{c.copyTitle}</h2>
+      <p>{c.copyBody}</p>
+    </div>
+    <pre aria-label={c.copyTitle}><code>{c.specimen}</code></pre>
+  </section>
+
+  <section class="demo section-shell">
+    <video
+      controls
+      playsinline
+      preload="metadata"
+      poster={path('/media/charon-shelf-solarized.webp')}
+      width="1440"
+      height="960"
+    >
+      <source src={path('/media/charon-demo.webm')} type="video/webm" />
+      <track kind="captions" srclang={locale} src={path(`/media/charon-demo.${locale}.vtt`)} label={c.localeName} default />
+    </video>
+    <details>
+      <summary>{c.transcript}</summary>
+      <p>{c.transcriptBody}</p>
+    </details>
+  </section>
+
+  <section class="local-proof">
+    <div class="section-shell local-proof-inner">
+      <img src={path('/brand/charon-icon-light.svg')} width="58" height="58" alt="" />
+      <h2>{c.localTitle}</h2>
+      <p>{c.localBody}</p>
+      <a href={path(routes[locale].privacy)}>{c.privacy}</a>
+    </div>
+  </section>
+
+  <section class="platforms section-shell">
+    <div>
+      <p class="section-index">04</p>
+      <h2>{c.platformTitle}</h2>
+    </div>
+    <dl>
+      <div><dt>{c.platformMac}</dt><dd>{c.platformMacValue}</dd></div>
+      <div><dt>{c.platformLinux}</dt><dd>{c.platformLinuxValue}</dd></div>
+      <div><dt>{c.platformWindows}</dt><dd>{c.platformWindowsValue}</dd></div>
+    </dl>
+  </section>
+
+  <section class="release-section section-shell">
+    <p class="section-index">05</p>
+    <h2>{c.releaseTitle}</h2>
+    <p>{c.releaseBody}</p>
+    <a class="primary-action" href={path(routes[locale].download)}>{c.viewReleases}</a>
+  </section>
+</BaseLayout>

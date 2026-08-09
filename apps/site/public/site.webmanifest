@@ -1,0 +1,12 @@
+{
+  "name": "Charon",
+  "short_name": "Charon",
+  "start_url": "/Charon/",
+  "display": "browser",
+  "background_color": "#fdf6e3",
+  "theme_color": "#fdf6e3",
+  "icons": [
+    { "src": "/Charon/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/Charon/brand/charon-app-icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

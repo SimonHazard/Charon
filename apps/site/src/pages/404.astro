@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout locale="en" page="home" title="Page not found | Charon" description="This static Charon page does not exist.">
+  <section class="text-page section-shell">
+    <header>
+      <p class="eyebrow">404</p>
+      <h1>Page not found</h1>
+      <p class="lede">The requested static page does not exist.</p>
+      <a class="primary-action" href={`${import.meta.env.BASE_URL}`}>Return to Charon</a>
+    </header>
+  </section>
+</BaseLayout>
