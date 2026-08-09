@@ -223,9 +223,13 @@ impl Workspace {
 
     fn open_in(storage: Box<dyn WorkspaceStorage>) -> Result<Self, WorkspaceError> {
         migration::recover_incomplete_migration(storage.as_ref())?;
-        recover_incomplete(storage.as_ref())?;
-        if migration::schema_version(storage.as_ref())? == 1 {
-            migration::migrate_v1(storage.as_ref())?;
+        match migration::schema_version(storage.as_ref())? {
+            1 => {
+                migration::remove_completed_v1_transactions(storage.as_ref())?;
+                migration::migrate_v1(storage.as_ref())?;
+            }
+            2 => recover_incomplete(storage.as_ref())?,
+            version => return Err(WorkspaceError::UnsupportedSchema(version)),
         }
         let (manifest, bodies, health) = load_state(storage.as_ref())?;
         Ok(Self {
@@ -244,9 +248,13 @@ impl Workspace {
         failure: MigrationFailure,
     ) -> Result<Self, WorkspaceError> {
         migration::recover_incomplete_migration(storage.as_ref())?;
-        recover_incomplete(storage.as_ref())?;
-        if migration::schema_version(storage.as_ref())? == 1 {
-            migration::migrate_v1_with_failure(storage.as_ref(), failure)?;
+        match migration::schema_version(storage.as_ref())? {
+            1 => {
+                migration::remove_completed_v1_transactions(storage.as_ref())?;
+                migration::migrate_v1_with_failure(storage.as_ref(), failure)?;
+            }
+            2 => recover_incomplete(storage.as_ref())?,
+            version => return Err(WorkspaceError::UnsupportedSchema(version)),
         }
         let (manifest, bodies, health) = load_state(storage.as_ref())?;
         Ok(Self {
