@@ -1,5 +1,6 @@
 {
   "name": "@charon/desktop",
+  "description": "Free local-first capture shelf for agent-ready Markdown",
   "version": "0.0.0",
   "private": true,
   "type": "module",

@@ -4,6 +4,15 @@ Charon releases are human-approved. No agent or workflow promotes a public
 release, installs an artifact, enables an update, or changes public platform
 claims without an operator decision and evidence from the exact artifact.
 
+## Distribution posture
+
+Charon is free. No Mac App Store or Microsoft Store listing is planned. macOS
+ships, if approved, as a direct app or DMG; local and review builds use Tauri's
+ad-hoc identity until an optional Developer ID and notarization path is supplied.
+Windows review artifacts may remain unsigned and must disclose the resulting
+SmartScreen warning. Unsigned artifacts never promote an unproved capture
+capability or enable an unsigned updater path.
+
 ## Immutable action ledger
 
 Resolved from official repositories on 2026-08-09. Each workflow uses the

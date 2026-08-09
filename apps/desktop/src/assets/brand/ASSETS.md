@@ -14,12 +14,18 @@ only and must never enter the product UI, diagnostics, or generated metadata.
 | `charon-icon-light.svg` | `svg/charon-icon-light.svg` | `a756df75f47e6aa094a6f02f11f3a4e1184c8a92a6352f817f7cf01ba0213758` | Standalone icon for prune surfaces. |
 | `charon-wordmark-color.svg` | `svg/charon-wordmark-color.svg` | `312bc0ef2f5ec7ac90ba5306f20c6bf05af143ede6d06ef9602ca7b2cc75abc7` | Primary wordmark on light and Solarized surfaces. |
 | `charon-wordmark-reversed.svg` | `svg/charon-wordmark-reversed.svg` | `9b506740e53ce12545799ebb019c251b9b7db88d4e0dbc250a1cdcd50cf858f1` | Reversed wordmark on prune or dark surfaces. |
-| `../../../src-tauri/icons/charon-app-icon-1024.png` | `favicon/charon-app-icon-1024.png` | `301bd102040763a2d33460f6433d483831d9fff5433fb0405a17ba05b550dea6` | Sole input to the pinned Tauri icon generator. |
+| `../../../src-tauri/icons/charon-app-icon-1024.png` | `favicon/charon-app-icon-1024.png` | `301bd102040763a2d33460f6433d483831d9fff5433fb0405a17ba05b550dea6` | Archived square master render. |
+| `../../../src-tauri/icons/charon-native-app-icon.svg` | Local native wrapper | `e31ad12c5c7e53105377c4dfc8ca2d7b9f1eca9ffd7b5783f11126219936cc87` | Sole input to the pinned Tauri icon generator. |
+
+`src-tauri/icons/charon-native-app-icon.svg` wraps the approved app artwork in
+a platform-safe rounded container with transparent outer corners. It does not
+redraw or alter the approved Charon glyph. The pinned generator produces the
+desktop, AppX, iOS, and Android icon families from this one source.
 
 Regenerate native outputs from the desktop workspace with:
 
 ```sh
-bun run tauri icon src-tauri/icons/charon-app-icon-1024.png
+bun run tauri icon src-tauri/icons/charon-native-app-icon.svg
 ```
 
 Never hand-edit the generated PNG, ICO, or ICNS files.
