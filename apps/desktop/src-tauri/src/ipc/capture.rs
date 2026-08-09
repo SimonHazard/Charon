@@ -7,10 +7,9 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-use crate::capture::gesture::CaptureGestureIntent;
 use crate::capture::platform;
 use crate::capture::{
-    CaptureAction, CaptureCapabilities, CaptureCoordinator, CaptureEditorRequest, CaptureError,
+    CaptureAction, CaptureCapabilities, CaptureComposerRequest, CaptureCoordinator, CaptureError,
     CaptureIpcError, CapturePermissionKind, CaptureStatusEvent, CaptureTrigger, CaptureWarning,
     ShortcutPort,
 };
@@ -20,8 +19,8 @@ use super::workspace::{self, WorkspaceRuntime};
 pub struct CaptureRuntime {
     coordinator: Mutex<Option<CaptureCoordinator>>,
     worker: Mutex<Option<CaptureWorker>>,
-    editor_listener_ready: Mutex<bool>,
-    pending_editor_request: Mutex<Option<CaptureEditorRequest>>,
+    composer_listener_ready: Mutex<bool>,
+    pending_composer_request: Mutex<Option<CaptureComposerRequest>>,
     pending_status: Mutex<Option<CaptureStatusEvent>>,
     started_at: Instant,
 }
@@ -31,8 +30,8 @@ impl Default for CaptureRuntime {
         Self {
             coordinator: Mutex::new(None),
             worker: Mutex::new(None),
-            editor_listener_ready: Mutex::new(false),
-            pending_editor_request: Mutex::new(None),
+            composer_listener_ready: Mutex::new(false),
+            pending_composer_request: Mutex::new(None),
             pending_status: Mutex::new(None),
             started_at: Instant::now(),
         }
@@ -136,8 +135,8 @@ pub fn initialize(app: &AppHandle) -> Result<(), CaptureError> {
         return Ok(());
     }
     let trigger_app = app.clone();
-    let callback = Arc::new(move |intent| {
-        handle_double_shift(&trigger_app, intent);
+    let callback = Arc::new(move |_| {
+        handle_double_shift(&trigger_app);
     });
     let platform = platform::create(callback);
     *current = Some(CaptureCoordinator::new(
@@ -172,18 +171,8 @@ pub fn handle_global_shortcut(app: &AppHandle) {
     let _ = trigger(app, CaptureTrigger::StandardShortcut);
 }
 
-pub fn handle_double_shift(app: &AppHandle, intent: CaptureGestureIntent) {
-    match intent {
-        CaptureGestureIntent::CaptureSelection => {
-            let _ = enqueue_capture(app);
-        }
-        CaptureGestureIntent::OpenEditor => {
-            let intent_app = app.clone();
-            let _ = app.run_on_main_thread(move || {
-                let _ = trigger(&intent_app, CaptureTrigger::CommandDoubleShift);
-            });
-        }
-    }
+pub fn handle_double_shift(app: &AppHandle) {
+    let _ = enqueue_capture(app);
 }
 
 pub fn shutdown(app: &AppHandle) {
@@ -244,22 +233,14 @@ pub fn capture_request_permission(
 }
 
 #[tauri::command]
-pub fn capture_set_shortcut(
-    shortcut: String,
-    runtime: State<'_, CaptureRuntime>,
-) -> Result<CaptureCapabilities, CaptureIpcError> {
-    with_coordinator(&runtime, |coordinator| coordinator.set_shortcut(&shortcut))
-}
-
-#[tauri::command]
-pub fn capture_editor_ready(app: AppHandle) -> Result<(), CaptureIpcError> {
+pub fn capture_composer_ready(app: AppHandle) -> Result<(), CaptureIpcError> {
     let runtime = app.state::<CaptureRuntime>();
     *runtime
-        .editor_listener_ready
+        .composer_listener_ready
         .lock()
         .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))? = true;
     emit_pending_status(&app)?;
-    emit_pending_editor_request(&app)
+    emit_pending_composer_request(&app)
 }
 
 fn trigger(app: &AppHandle, source: CaptureTrigger) -> Result<(), CaptureIpcError> {
@@ -310,27 +291,27 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
                 .map_err(|_| CaptureIpcError::from(CaptureError::MainEditorUnavailable))?;
             let runtime = app.state::<CaptureRuntime>();
             *runtime
-                .pending_editor_request
+                .pending_composer_request
                 .lock()
                 .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))? =
-                Some(CaptureEditorRequest { request_id });
-            emit_pending_editor_request(app)
+                Some(CaptureComposerRequest { request_id });
+            emit_pending_composer_request(app)
         },
         |warning| remember_status(app, warning.message_key().to_owned()),
     )
 }
 
-fn emit_pending_editor_request(app: &AppHandle) -> Result<(), CaptureIpcError> {
+fn emit_pending_composer_request(app: &AppHandle) -> Result<(), CaptureIpcError> {
     let runtime = app.state::<CaptureRuntime>();
     if !*runtime
-        .editor_listener_ready
+        .composer_listener_ready
         .lock()
         .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?
     {
         return Ok(());
     }
     let request = runtime
-        .pending_editor_request
+        .pending_composer_request
         .lock()
         .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?
         .take();
@@ -340,9 +321,12 @@ fn emit_pending_editor_request(app: &AppHandle) -> Result<(), CaptureIpcError> {
     let main = app
         .get_webview_window("main")
         .ok_or_else(|| CaptureIpcError::from(CaptureError::MainEditorUnavailable))?;
-    if main.emit("capture://editor-requested", request).is_err() {
+    if main
+        .emit("capture://composer-focus-requested", request)
+        .is_err()
+    {
         *runtime
-            .pending_editor_request
+            .pending_composer_request
             .lock()
             .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))? = Some(request);
         return Err(CaptureIpcError::from(CaptureError::MainEditorUnavailable));
@@ -363,7 +347,7 @@ fn remember_status(app: &AppHandle, message_key: String) -> Result<(), CaptureIp
 fn emit_pending_status(app: &AppHandle) -> Result<(), CaptureIpcError> {
     let runtime = app.state::<CaptureRuntime>();
     if !*runtime
-        .editor_listener_ready
+        .composer_listener_ready
         .lock()
         .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?
     {
@@ -398,7 +382,7 @@ fn dispatch_action(
 ) -> Result<(), CaptureIpcError> {
     match action {
         CaptureAction::CreateNote { body, warning } => create_note(body, warning),
-        CaptureAction::OpenEditor { request_id } => open_editor(request_id),
+        CaptureAction::FocusComposer { request_id } => open_editor(request_id),
         CaptureAction::ShowWarning { warning } => show_warning(warning),
     }
 }
@@ -458,7 +442,7 @@ mod tests {
         let mut note_writes = 0;
         let mut editor_requests = Vec::new();
         dispatch_action(
-            CaptureAction::OpenEditor { request_id: 9 },
+            CaptureAction::FocusComposer { request_id: 9 },
             |_, _| {
                 note_writes += 1;
                 Ok(())

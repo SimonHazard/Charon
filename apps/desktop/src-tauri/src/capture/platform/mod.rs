@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use super::{PlatformCapturePort, PlatformKind};
+use super::PlatformCapturePort;
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+use super::PlatformKind;
 use crate::capture::gesture::CaptureGestureIntent;
 
 #[cfg(target_os = "linux")]
@@ -62,9 +64,4 @@ impl PlatformCapturePort for UnsupportedCaptureAdapter {
     }
     fn reset_gesture(&mut self) {}
     fn shutdown(&mut self) {}
-}
-
-#[allow(dead_code)]
-fn _platform_kind_contract(kind: PlatformKind) -> PlatformKind {
-    kind
 }

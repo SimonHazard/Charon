@@ -16,7 +16,7 @@ export type CaptureCapabilities = {
   activeShortcut: string;
 };
 
-export type CaptureEditorRequest = { requestId: number };
+export type CaptureComposerRequest = { requestId: number };
 
 export type CaptureStatusEvent = { messageKey: string };
 

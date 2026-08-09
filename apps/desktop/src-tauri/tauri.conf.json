@@ -43,11 +43,5 @@
     "macOS": {
       "signingIdentity": "-"
     }
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [],
-      "pubkey": ""
-    }
   }
 }

@@ -1,6 +1,7 @@
 pub mod capture;
 pub mod clipboard;
 mod ipc;
+pub mod preferences;
 pub mod workspace;
 
 use tauri::Manager;
@@ -25,13 +26,11 @@ pub fn run() {
                 })
                 .build(),
         )
-        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
             ipc::workspace::workspace_choose_directory,
+            ipc::workspace::workspace_bootstrap,
             ipc::workspace::workspace_bootstrap_default,
             ipc::workspace::workspace_create,
             ipc::workspace::workspace_open,
@@ -44,8 +43,10 @@ pub fn run() {
             ipc::capture::capture_capabilities,
             ipc::capture::capture_open,
             ipc::capture::capture_request_permission,
-            ipc::capture::capture_set_shortcut,
-            ipc::capture::capture_editor_ready,
+            ipc::capture::capture_composer_ready,
+            ipc::preferences::preferences_read,
+            ipc::preferences::preferences_update,
+            ipc::preferences::preferences_reset,
         ])
         .setup(|app| {
             ipc::capture::initialize(app.handle())?;

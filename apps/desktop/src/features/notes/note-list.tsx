@@ -25,6 +25,7 @@ export function NoteList({
   onAddAttachments,
   onRemoveAttachment,
   onRetryCleanup,
+  onDirtyChange,
 }: {
   notes: readonly NoteDto[];
   selection: SelectionState;
@@ -47,6 +48,7 @@ export function NoteList({
   onAddAttachments(noteId: string): Promise<void>;
   onRemoveAttachment(noteId: string, attachment: AttachmentDto): Promise<void>;
   onRetryCleanup(): Promise<void>;
+  onDirtyChange(dirty: boolean): void;
 }) {
   const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -69,26 +71,22 @@ export function NoteList({
   }, [notes, selection.activeId, virtualizer]);
 
   return (
-    <div
-      aria-label={m.note_list_label()}
-      aria-multiselectable={selectionMode || undefined}
-      className="note-list"
-      onKeyDown={(event) => onSelection({ type: 'keyboard', event })}
-      ref={parentRef}
-      role="listbox"
-    >
-      <div className="note-list-inner" style={{ height: virtualizer.getTotalSize() }}>
+    <div className="note-list" ref={parentRef}>
+      <ul
+        aria-label={m.note_list_label()}
+        className="note-list-inner"
+        onKeyDown={(event) => onSelection({ type: 'keyboard', event })}
+        style={{ height: virtualizer.getTotalSize() }}
+      >
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const note = notes[virtualRow.index];
           if (!note) return null;
           return (
-            <div
+            <li
               className="note-virtual-row"
               data-index={virtualRow.index}
               key={note.id}
               ref={virtualizer.measureElement}
-              role="option"
-              aria-selected={selected.has(note.id)}
               style={{ transform: `translateY(${virtualRow.start}px)` }}
               tabIndex={-1}
             >
@@ -108,6 +106,7 @@ export function NoteList({
                 onAddAttachments={onAddAttachments}
                 onCloseEditor={onCloseEditor}
                 onCopy={onCopy}
+                onDirtyChange={onDirtyChange}
                 onExpand={onExpand}
                 onRemoveAttachment={onRemoveAttachment}
                 onRetryCleanup={onRetryCleanup}
@@ -119,10 +118,10 @@ export function NoteList({
                 selected={selected.has(note.id)}
                 selectionMode={selectionMode}
               />
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }

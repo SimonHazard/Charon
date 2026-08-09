@@ -1,12 +1,14 @@
 import type { ThemeName } from '@charon/theme/theme-contract';
 import { createContext, type PropsWithChildren, useContext, useEffect, useState } from 'react';
-import { CaptureEditorProvider, useCaptureEditor } from '@/app/capture-editor-context';
 import { captureStatusTone } from '@/app/capture-status';
+import { ComposerFocusProvider, useComposerFocus } from '@/app/composer-focus-context';
 import { type AppLocale, applyLocale, readLocale } from '@/app/locale';
 import { readTheme, saveTheme } from '@/app/theme';
 import { WorkspaceProvider } from '@/app/workspace-context';
 import { toast } from '@/components/ui/toast';
-import { tauriCaptureClient } from '@/lib/ipc/capture-client';
+import { NativePreferencesProvider } from '@/features/preferences/preferences-context';
+import { type CaptureClient, tauriCaptureClient } from '@/lib/ipc/capture-client';
+import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
 import type { WorkspaceClient } from '@/lib/ipc/workspace-client';
 import { isTauriRuntime } from '@/lib/platform';
 import { MotionSystem } from '@/motion/system';
@@ -24,9 +26,17 @@ const PreferencesContext = createContext<Preferences | null>(null);
 export function AppProviders({
   children,
   workspaceClient,
-}: PropsWithChildren<{ workspaceClient?: WorkspaceClient }>) {
+  captureClient,
+  preferencesClient,
+}: PropsWithChildren<{
+  workspaceClient?: WorkspaceClient;
+  captureClient?: CaptureClient;
+  preferencesClient?: NativePreferencesClient;
+}>) {
   const [theme, updateTheme] = useState(readTheme);
   const [locale, updateLocale] = useState(readLocale);
+  const activeCaptureClient = captureClient ?? tauriCaptureClient;
+  const nativePreferencesEnabled = isTauriRuntime() || Boolean(captureClient || preferencesClient);
 
   const setTheme = (next: ThemeName) => {
     saveTheme(next);
@@ -41,28 +51,34 @@ export function AppProviders({
     <PreferencesContext.Provider value={{ theme, locale, setTheme, setLocale }}>
       <MotionSystem>
         <WorkspaceProvider client={workspaceClient}>
-          <CaptureEditorProvider>
-            <CaptureBridge />
-            {children}
-          </CaptureEditorProvider>
+          <NativePreferencesProvider
+            captureClient={activeCaptureClient}
+            enabled={nativePreferencesEnabled}
+            preferencesClient={preferencesClient}
+          >
+            <ComposerFocusProvider>
+              <CaptureBridge client={activeCaptureClient} enabled={nativePreferencesEnabled} />
+              {children}
+            </ComposerFocusProvider>
+          </NativePreferencesProvider>
         </WorkspaceProvider>
       </MotionSystem>
     </PreferencesContext.Provider>
   );
 }
 
-function CaptureBridge() {
-  const { receive } = useCaptureEditor();
+function CaptureBridge({ client, enabled }: { client: CaptureClient; enabled: boolean }) {
+  const { receive } = useComposerFocus();
 
   useEffect(() => {
-    if (!isTauriRuntime()) return;
+    if (!enabled) return;
     let active = true;
     let unsubscribe: (() => void) | undefined;
     void Promise.all([
-      tauriCaptureClient.subscribeEditor((request) => {
+      client.subscribeComposerFocus((request) => {
         if (active) receive(request);
       }),
-      tauriCaptureClient.subscribeStatus((status) => {
+      client.subscribeStatus((status) => {
         if (!active) return;
         const tone = captureStatusTone(status.messageKey);
         const description =
@@ -86,13 +102,13 @@ function CaptureBridge() {
         stops.forEach((stop) => {
           stop();
         });
-      void tauriCaptureClient.editorReady();
+      void client.composerReady();
     });
     return () => {
       active = false;
       unsubscribe?.();
     };
-  }, [receive]);
+  }, [client, enabled, receive]);
 
   return null;
 }

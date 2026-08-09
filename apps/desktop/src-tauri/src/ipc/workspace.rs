@@ -13,6 +13,7 @@ use crate::workspace::{
 #[derive(Default)]
 pub struct WorkspaceRuntime {
     current: Mutex<Option<Workspace>>,
+    switching: Mutex<()>,
 }
 
 #[tauri::command]
@@ -36,18 +37,39 @@ pub async fn workspace_choose_directory(
 
 #[tauri::command]
 pub fn workspace_create(
+    app: AppHandle,
     path: String,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    replace_workspace(&runtime, Workspace::create(path)?)
+    let path = PathBuf::from(path);
+    let snapshot = replace_workspace(&runtime, Workspace::create(&path)?)?;
+    remember_workspace(&app, &path)?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
 pub fn workspace_open_or_create(
+    app: AppHandle,
     path: String,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    replace_workspace(&runtime, open_or_create_workspace(Path::new(&path))?)
+    let path = PathBuf::from(path);
+    let snapshot = replace_workspace(&runtime, open_or_create_workspace(&path)?)?;
+    remember_workspace(&app, &path)?;
+    Ok(snapshot)
+}
+
+#[tauri::command]
+pub fn workspace_bootstrap(
+    app: AppHandle,
+    runtime: State<'_, WorkspaceRuntime>,
+) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
+    let preferences = super::preferences::read_persisted(&app).map_err(preferences_error)?;
+    if let Some(path) = preferences.last_workspace_path {
+        let path = PathBuf::from(path);
+        return replace_workspace(&runtime, Workspace::open(&path)?);
+    }
+    workspace_bootstrap_default(app, runtime)
 }
 
 #[tauri::command]
@@ -60,15 +82,21 @@ pub fn workspace_bootstrap_default(
         .document_dir()
         .map_err(|_| crate::workspace::WorkspaceError::InvalidPath)?;
     let path = resolve_default_workspace_path(&documents)?;
-    replace_workspace(&runtime, open_or_create_workspace(&path)?)
+    let snapshot = replace_workspace(&runtime, open_or_create_workspace(&path)?)?;
+    remember_workspace(&app, &path)?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
 pub fn workspace_open(
+    app: AppHandle,
     path: String,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    replace_workspace(&runtime, Workspace::open(path)?)
+    let path = PathBuf::from(path);
+    let snapshot = replace_workspace(&runtime, Workspace::open(&path)?)?;
+    remember_workspace(&app, &path)?;
+    Ok(snapshot)
 }
 
 #[tauri::command]
@@ -127,6 +155,9 @@ fn replace_workspace(
     runtime: &State<'_, WorkspaceRuntime>,
     mut workspace: Workspace,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
+    let _switch = runtime.switching.lock().map_err(|_| runtime_lock_error())?;
+    workspace.start_watching()?;
+    let snapshot = validate_candidate(&mut workspace)?;
     let mut current = runtime.current.lock().map_err(|_| WorkspaceIpcError {
         code: "runtime_lock".to_owned(),
         message_key: "workspace_error_runtime_lock".to_owned(),
@@ -134,13 +165,55 @@ fn replace_workspace(
         actual_revision: None,
         recovery_location: None,
     })?;
-    if let Some(mut previous) = current.take() {
+    let mut previous = current.replace(workspace);
+    drop(current);
+    if let Some(previous) = previous.as_mut() {
         previous.stop_watching();
     }
-    workspace.start_watching()?;
-    let snapshot = workspace.snapshot()?;
-    *current = Some(workspace);
     Ok(snapshot)
+}
+
+fn validate_candidate(workspace: &mut Workspace) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
+    let snapshot = workspace.snapshot()?;
+    let health = workspace.health()?;
+    if !health.is_healthy {
+        return Err(crate::workspace::WorkspaceError::Validation(
+            "candidate Workspace has unresolved health issues".to_owned(),
+        )
+        .into());
+    }
+    for note in &snapshot.notes {
+        for attachment in &note.attachments {
+            workspace.canonical_managed_path(&attachment.relative_path)?;
+        }
+    }
+    Ok(snapshot)
+}
+
+fn remember_workspace(app: &AppHandle, path: &Path) -> Result<(), WorkspaceIpcError> {
+    super::preferences::remember_workspace(app, path)
+        .map(|_| ())
+        .map_err(preferences_error)
+}
+
+fn preferences_error(error: crate::preferences::PreferencesIpcError) -> WorkspaceIpcError {
+    WorkspaceIpcError {
+        code: format!("preferences_{}", error.code),
+        message_key: error.message_key,
+        expected_revision: None,
+        actual_revision: None,
+        recovery_location: None,
+    }
+}
+
+fn runtime_lock_error() -> WorkspaceIpcError {
+    WorkspaceIpcError {
+        code: "runtime_lock".to_owned(),
+        message_key: "workspace_error_runtime_lock".to_owned(),
+        expected_revision: None,
+        actual_revision: None,
+        recovery_location: None,
+    }
 }
 
 fn open_or_create_workspace(path: &Path) -> Result<Workspace, crate::workspace::WorkspaceError> {

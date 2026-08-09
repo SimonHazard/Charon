@@ -9,7 +9,6 @@ pub enum ShiftKey {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CaptureGestureIntent {
     CaptureSelection,
-    OpenEditor,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -211,13 +210,8 @@ impl DoubleShiftGesture {
             Some(first_release)
                 if timestamp_ms.saturating_sub(first_release) <= GESTURE_WINDOW_MS =>
             {
-                let intent = if command_held {
-                    CaptureGestureIntent::OpenEditor
-                } else {
-                    CaptureGestureIntent::CaptureSelection
-                };
                 self.clear_sequence();
-                Some(intent)
+                (!command_held).then_some(CaptureGestureIntent::CaptureSelection)
             }
             _ => {
                 self.first_tap_released_at = Some(timestamp_ms);
@@ -279,11 +273,8 @@ mod tests {
     }
 
     #[test]
-    fn command_double_shift_requests_the_editor() {
-        assert_eq!(
-            feed(&mut DoubleShiftGesture::default(), &taps(true)),
-            [(120, CaptureGestureIntent::OpenEditor)]
-        );
+    fn command_double_shift_is_not_a_product_shortcut() {
+        assert!(feed(&mut DoubleShiftGesture::default(), &taps(true)).is_empty());
     }
 
     #[test]
@@ -392,10 +383,7 @@ mod tests {
             (50, down(ShiftKey::Left, true)),
             (60, up(ShiftKey::Left, true)),
         ];
-        assert_eq!(
-            feed(&mut DoubleShiftGesture::default(), &events),
-            [(60, CaptureGestureIntent::OpenEditor)]
-        );
+        assert!(feed(&mut DoubleShiftGesture::default(), &events).is_empty());
 
         let changed_while_held = [
             (0, down(ShiftKey::Left, false)),

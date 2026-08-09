@@ -29,6 +29,7 @@ function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}
     onAddAttachments: vi.fn().mockResolvedValue(undefined),
     onRemoveAttachment: vi.fn().mockResolvedValue(undefined),
     onRetryCleanup: vi.fn().mockResolvedValue(undefined),
+    onDirtyChange: vi.fn(),
     onClose: vi.fn(),
     ...overrides,
   };

@@ -47,7 +47,6 @@ pub struct CaptureCapabilities {
 pub enum CaptureTrigger {
     StandardShortcut,
     DoubleShiftCapture,
-    CommandDoubleShift,
     InApp,
 }
 
@@ -57,7 +56,7 @@ pub enum CaptureAction {
         body: String,
         warning: Option<CaptureWarning>,
     },
-    OpenEditor {
+    FocusComposer {
         request_id: u32,
     },
     ShowWarning {
@@ -96,7 +95,7 @@ impl CapturedSelection {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
-pub struct CaptureEditorRequest {
+pub struct CaptureComposerRequest {
     pub request_id: u32,
 }
 
