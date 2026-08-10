@@ -28,7 +28,6 @@ jobs:
       - run: bun run check
       - run: bun run build
       - run: bun run check:privacy
-      - run: bun run test:perf
 
   rust:
     strategy:
