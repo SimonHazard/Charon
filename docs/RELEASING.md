@@ -24,6 +24,9 @@ The quality workflow runs the Rust test suite on macOS and Linux. Windows still
 formats and runs Clippy across all targets, including test targets; runtime
 filesystem tests remain blocked by unresolved Windows path, directory-sync, and
 watcher semantics. This compile-only gate is not Windows release evidence.
+Frontend and browser jobs validate the desktop app only. Site typechecking,
+tests, builds, and deployment belong to the separate future Cloudflare workflow;
+the full local release gate continues to cover both desktop and site.
 The timing-sensitive performance budget remains in `bun run verify:release`
 rather than PR CI, where shared-runner contention makes the 20k-search benchmark
 non-deterministic.

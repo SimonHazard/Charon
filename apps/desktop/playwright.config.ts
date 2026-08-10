@@ -1,9 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const desktopOnly = process.env.CHARON_DESKTOP_ONLY_E2E === '1';
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   forbidOnly: true,
+  grepInvert: desktopOnly ? /site / : undefined,
   retries: 0,
   reporter: [['list']],
   use: {
@@ -28,11 +31,15 @@ export default defineConfig({
       port: 1420,
       reuseExistingServer: true,
     },
-    {
-      command: 'bun run build && bun run preview -- --host 127.0.0.1 --port 4321',
-      cwd: '../site',
-      port: 4321,
-      reuseExistingServer: true,
-    },
+    ...(desktopOnly
+      ? []
+      : [
+          {
+            command: 'bun run build && bun run preview -- --host 127.0.0.1 --port 4321',
+            cwd: '../site',
+            port: 4321,
+            reuseExistingServer: true,
+          },
+        ]),
   ],
 });
