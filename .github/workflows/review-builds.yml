@@ -1,7 +1,6 @@
 name: Unsigned review builds
 
 on:
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,10 +14,13 @@ jobs:
         include:
           - os: macos-15
             label: macos-arm64-unsigned
+            tauri_args: --no-sign --bundles app,dmg
           - os: ubuntu-24.04
             label: linux-x64-unsigned
+            tauri_args: --no-sign --bundles deb,appimage
           - os: windows-2025
             label: windows-x64-unsigned
+            tauri_args: --no-sign --bundles msi,nsis
     runs-on: ${{ matrix.os }}
     steps:
       - uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
@@ -40,25 +42,11 @@ jobs:
         env:
           APPLE_SIGNING_IDENTITY: '-'
         with:
-          args: --no-sign
+          projectPath: apps/desktop
+          args: ${{ matrix.tauri_args }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.label }}
           path: apps/desktop/src-tauri/target/release/bundle/**
           if-no-files-found: error
-          retention-days: 7
-
-  site:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.3.12
-      - run: bun install --frozen-lockfile
-      - run: bun run test:site
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: static-site
-          path: apps/site/dist
           retention-days: 7

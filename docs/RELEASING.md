@@ -13,6 +13,13 @@ Windows review artifacts may remain unsigned and must disclose the resulting
 SmartScreen warning. Unsigned artifacts never promote an unproved capture
 capability or enable an unsigned updater path.
 
+GitHub Releases is the desktop distribution destination. An annotated `vX.Y.Z`
+tag runs the protected Tauri workflow, which creates a draft GitHub Release and
+uploads the signed macOS app and DMG for human verification. Unsigned macOS,
+Linux, and Windows review bundles are available only through the manual review
+workflow. The static site has no deployment workflow; Cloudflare hosting will
+be configured separately.
+
 ## Immutable action ledger
 
 Resolved from official repositories on 2026-08-09. Each workflow uses the
@@ -26,9 +33,6 @@ Resolved from official repositories on 2026-08-09. Each workflow uses the
 | `Swatinem/rust-cache` | `v2.9.2` | `6323deb102c322ba6fcbdcafc7e3dddab59af2b6` | Cargo cache |
 | `actions/upload-artifact` | `v7.0.1` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Review artifacts |
 | `tauri-apps/tauri-action` | `action-v1.0.0` | `1deb371b0cd8bd54025b384f1cd735e725c4060f` | Desktop bundles and draft release |
-| `actions/configure-pages` | `v6.0.0` | `45bfe0192ca1faeb007ade9deae92b16b8254a0d` | Pages configuration |
-| `actions/upload-pages-artifact` | `v5.0.0` | `fc324d3547104276b827a68afc52ff2a11cc49c9` | Static artifact |
-| `actions/deploy-pages` | `v5.0.0` | `cd2ce8fcbc39b97be8ca5fce6e763baed58fa128` | Protected Pages deployment |
 | `step-security/harden-runner` | `v2.20.1` | `b09bb98e06d4d774595224525879c09bc6e98c40` | Runner egress audit |
 
 `actions/download-artifact` at `v8.0.1` was reviewed at commit
@@ -41,7 +45,7 @@ these Actions secrets: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`,
 `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`,
 `TAURI_SIGNING_PRIVATE_KEY`, and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Store no
 certificate, password, private updater key, or notarization credential in Git,
-artifacts, logs, repository variables, or Pages.
+artifacts, logs, or repository variables.
 
 The updater public key and real endpoint may enter Tauri configuration only
 after the first protected key ceremony. Until then, updater dependencies and UI
@@ -66,8 +70,8 @@ not a feature.
 
 ## Rollback and incidents
 
-- To roll back Pages, redeploy a previously verified Pages artifact or revert
-  the site commit. Do not add a runtime redirect service.
+- Site publication and rollback will be documented with the separate Cloudflare
+  hosting configuration. Do not add a runtime redirect service.
 - To yank a release, mark it prerelease or draft, remove it from checked-in site
   metadata, and state the reason. Never replace an asset under the same tag.
 - For a signing or updater key compromise, stop release jobs, remove the public

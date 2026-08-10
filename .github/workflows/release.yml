@@ -65,6 +65,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: apps/desktop
+          args: --bundles app,dmg
           tagName: v__VERSION__
           releaseName: Charon v__VERSION__
           releaseBody: See the checked-in changelog and attached SHA-256 checksums.
@@ -73,4 +75,3 @@ jobs:
       - name: Remove materialized signing files
         if: always()
         run: find "${RUNNER_TEMP}" -maxdepth 1 -type f -name 'charon-signing-*' -delete
-
