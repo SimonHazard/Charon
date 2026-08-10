@@ -1,6 +1,8 @@
 import { readdir } from 'node:fs/promises';
 
-const roots = ['apps/desktop/dist', 'apps/site/dist'];
+const defaultRoots = ['apps/desktop/dist', 'apps/site/dist'];
+const requestedRoots = Bun.argv.slice(2);
+const roots = requestedRoots.length > 0 ? requestedRoots : defaultRoots;
 const forbidden = [
   /\/Users\/[A-Za-z0-9._-]+/u,
   /BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY/u,
@@ -25,4 +27,4 @@ async function walk(path: string): Promise<void> {
 
 for (const root of roots) await walk(root);
 if (failures.length) throw new Error(failures.join('\n'));
-console.log('privacy scan passed for built desktop and site artifacts');
+console.log(`privacy scan passed for ${roots.join(', ')}`);
