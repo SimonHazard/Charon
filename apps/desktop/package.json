@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
-    "@inlang/paraglide-js": "2.23.0",
+    "@inlang/paraglide-js": "2.23.2",
     "@playwright/test": "1.62.0",
     "@tailwindcss/vite": "4.3.3",
     "@tauri-apps/cli": "2.11.4",
