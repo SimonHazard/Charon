@@ -20,6 +20,11 @@ Linux, and Windows review bundles are available only through the manual review
 workflow. The static site has no deployment workflow; Cloudflare hosting will
 be configured separately.
 
+The quality workflow runs the Rust test suite on macOS and Linux. Windows still
+formats, lints, and compiles every test with `cargo test --no-run`; runtime
+filesystem tests remain blocked by unresolved Windows path, directory-sync, and
+watcher semantics. This compile-only gate is not Windows release evidence.
+
 ## Immutable action ledger
 
 Resolved from official repositories on 2026-08-09. Each workflow uses the
