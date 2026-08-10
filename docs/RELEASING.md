@@ -21,7 +21,7 @@ workflow. The static site has no deployment workflow; Cloudflare hosting will
 be configured separately.
 
 The quality workflow runs the Rust test suite on macOS and Linux. Windows still
-formats, lints, and compiles every test with `cargo test --no-run`; runtime
+formats and runs Clippy across all targets, including test targets; runtime
 filesystem tests remain blocked by unresolved Windows path, directory-sync, and
 watcher semantics. This compile-only gate is not Windows release evidence.
 

@@ -62,9 +62,6 @@ jobs:
       - name: Run Rust tests
         if: runner.os != 'Windows'
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
-      - name: Compile Rust tests on Windows
-        if: runner.os == 'Windows'
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked --no-run
       - name: Verify generated bindings
         if: runner.os == 'Linux'
         run: bun run bindings:check
