@@ -18,12 +18,18 @@
     "build": "bun run build:desktop && bun run build:site",
     "typecheck": "bun run --cwd apps/desktop typecheck && bun run --cwd apps/site typecheck",
     "test": "bun run test:desktop && bun run test:site",
+    "test:e2e": "bun run --cwd apps/desktop test:e2e",
+    "test:a11y": "bun run --cwd apps/desktop test:a11y",
+    "test:perf": "bun scripts/check-performance.ts",
+    "check:privacy": "bun scripts/check-privacy.ts",
+    "check:workflows": "bun scripts/check-workflows.ts",
     "lint": "biome check .",
     "check": "bun run lint && bun run typecheck && bun run test",
     "bindings:generate": "bun scripts/check-bindings.ts --write",
     "bindings:check": "bun scripts/check-bindings.ts",
     "tauri:dev": "bun run --cwd apps/desktop tauri:dev",
-    "tauri:build": "bun run --cwd apps/desktop tauri:build"
+    "tauri:build": "bun run --cwd apps/desktop tauri:build",
+    "verify:release": "bun run bindings:check && bun run lint && bun run typecheck && bun run test && bun run build && bun run test:e2e && bun run check:privacy && bun run test:perf && bun run check:workflows && cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",

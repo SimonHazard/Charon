@@ -425,6 +425,62 @@ fn v1_migration_preserves_active_bytes_and_archives_legacy_trash() {
 }
 
 #[test]
+fn v1_migration_removes_verified_completed_legacy_transactions() {
+    let root = tempdir().expect("Workspace");
+    let workspace_id = "b7cb56b9-748e-48c8-a23d-0bf5f2d61248";
+    let section_id = "a4ad6d74-ea60-45df-a0ad-2c6f82c271f9";
+    let note_id = "fef8abcc-7047-4a35-a070-b6d9f0eca026";
+    let transaction_id = "54ab01eb-ee1c-4c62-999e-147d9c0c8dab";
+    let manifest = json!({"schemaVersion":1,"workspaceId":workspace_id,"revision":41,"sections":[{"id":section_id,"name":"Inbox","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z"}],"notes":[{"id":note_id,"sectionId":section_id,"status":"open","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z","completedAt":null,"trashedAt":null}]});
+    let backup_manifest = json!({"schemaVersion":1,"workspaceId":workspace_id,"revision":37,"sections":[{"id":section_id,"name":"Inbox","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z"}],"notes":[{"id":note_id,"sectionId":section_id,"status":"open","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z","completedAt":null,"trashedAt":null}]});
+    fs::create_dir_all(root.path().join(format!("backups/{transaction_id}/next")))
+        .expect("legacy transaction");
+    fs::create_dir_all(root.path().join("notes")).expect("notes");
+    fs::write(
+        root.path().join("charon.workspace.json"),
+        serde_json::to_vec_pretty(&manifest).expect("manifest"),
+    )
+    .expect("write manifest");
+    fs::write(
+        root.path().join(format!("notes/{note_id}.md")),
+        b"byte-exact legacy body\r\n",
+    )
+    .expect("body");
+    fs::write(
+        root.path()
+            .join(format!("backups/{transaction_id}/next/manifest.json")),
+        serde_json::to_vec_pretty(&backup_manifest).expect("backup manifest"),
+    )
+    .expect("write backup manifest");
+    fs::write(
+        root.path()
+            .join(format!("backups/{transaction_id}/transaction.json")),
+        serde_json::to_vec_pretty(&json!({
+            "transactionId": transaction_id,
+            "createdUnixSeconds": 1,
+            "previousRevision": 36,
+            "nextRevision": 37,
+            "state": "committed"
+        }))
+        .expect("transaction"),
+    )
+    .expect("write transaction");
+
+    let mut workspace = Workspace::open(root.path()).expect("recover and migrate");
+    let snapshot = workspace.snapshot().expect("snapshot");
+    assert_eq!(snapshot.schema_version, 2);
+    assert_eq!(snapshot.revision, 41);
+    assert_eq!(
+        snapshot.notes[0].body.as_bytes(),
+        b"byte-exact legacy body\r\n"
+    );
+    assert!(fs::read_dir(root.path().join("backups"))
+        .expect("backups")
+        .next()
+        .is_none());
+}
+
+#[test]
 fn every_v1_migration_interruption_converges_on_real_filesystem() {
     for failure in [
         MigrationFailure::BeforeArchiveCreation,

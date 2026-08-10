@@ -1,6 +1,6 @@
 # Charon
 
-Charon is a rapid local capture shelf for AI-agent users: turn one useful
+Charon is a free rapid local capture shelf for AI-agent users: turn one useful
 selection or manual entry into one ordinary Markdown Note, enrich it lightly,
 and copy deterministic agent-ready Markdown without sending content to a
 service.

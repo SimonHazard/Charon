@@ -38,6 +38,7 @@ export function NoteEditor({
   onAddAttachments,
   onRemoveAttachment,
   onRetryCleanup,
+  onDirtyChange,
   onClose,
 }: {
   note: NoteDto;
@@ -47,6 +48,7 @@ export function NoteEditor({
   onAddAttachments(): Promise<void>;
   onRemoveAttachment(attachment: AttachmentDto): Promise<void>;
   onRetryCleanup(): Promise<void>;
+  onDirtyChange(dirty: boolean): void;
   onClose(): void;
 }) {
   const m = useMessages();
@@ -62,6 +64,11 @@ export function NoteEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+
+  useEffect(() => {
+    onDirtyChange(hasUnsavedDraft(draft) || draft.status === 'saving');
+    return () => onDirtyChange(false);
+  }, [draft, onDirtyChange]);
 
   useEffect(() => {
     const current = draftRef.current;

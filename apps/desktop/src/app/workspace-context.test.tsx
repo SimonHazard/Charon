@@ -32,6 +32,15 @@ function CommandHarness() {
   );
 }
 
+function WorkspaceChooserHarness() {
+  const workspace = useWorkspace();
+  return (
+    <button onClick={() => void workspace.chooseWorkspace()} type="button">
+      {workspace.snapshot?.workspaceId ?? 'Choose'}
+    </button>
+  );
+}
+
 describe('workspace command queue', () => {
   it('serializes body and metadata writes against each acknowledged revision', async () => {
     const user = userEvent.setup();
@@ -64,5 +73,26 @@ describe('workspace command queue', () => {
     releaseFirst?.();
     await waitFor(() => expect(seen).toHaveLength(2));
     expect(seen[1]?.expectedRevision).toBe(2);
+  });
+
+  it('opens the folder returned by the native chooser and applies its snapshot', async () => {
+    const user = userEvent.setup();
+    const initial = snapshot();
+    const selected = { ...snapshot(), workspaceId: 'selected-workspace' };
+    const client: WorkspaceClient = {
+      snapshot: vi.fn().mockResolvedValue(initial),
+      chooseDirectory: vi.fn().mockResolvedValue('/synthetic/selected'),
+      openOrCreate: vi.fn().mockResolvedValue(selected),
+      subscribe: async () => () => undefined,
+    };
+    render(
+      <AppProviders workspaceClient={client}>
+        <WorkspaceChooserHarness />
+      </AppProviders>,
+    );
+    const button = await screen.findByRole('button', { name: initial.workspaceId });
+    await user.click(button);
+    await waitFor(() => expect(client.openOrCreate).toHaveBeenCalledWith('/synthetic/selected'));
+    expect(await screen.findByRole('button', { name: 'selected-workspace' })).toBeTruthy();
   });
 });

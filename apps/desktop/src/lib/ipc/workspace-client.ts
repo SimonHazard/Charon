@@ -13,6 +13,7 @@ export type WorkspaceListener = (event: WorkspaceChangedEvent) => void;
 
 export interface WorkspaceClient {
   snapshot(): Promise<WorkspaceSnapshot>;
+  bootstrap?(): Promise<WorkspaceSnapshot>;
   bootstrapDefault?(): Promise<WorkspaceSnapshot>;
   chooseDirectory?(): Promise<string | null>;
   openOrCreate?(path: string): Promise<WorkspaceSnapshot>;
@@ -22,6 +23,7 @@ export interface WorkspaceClient {
 
 export const tauriWorkspaceClient: WorkspaceClient = {
   snapshot: () => invoke<WorkspaceSnapshot>('workspace_snapshot'),
+  bootstrap: () => invoke<WorkspaceSnapshot>('workspace_bootstrap'),
   bootstrapDefault: () => invoke<WorkspaceSnapshot>('workspace_bootstrap_default'),
   chooseDirectory: () => invoke<string | null>('workspace_choose_directory'),
   openOrCreate: (path) => invoke<WorkspaceSnapshot>('workspace_open_or_create', { path }),

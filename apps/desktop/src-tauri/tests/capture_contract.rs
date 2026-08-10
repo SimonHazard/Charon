@@ -4,10 +4,10 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use charon_desktop_lib::capture::{
-    CapabilityState, CaptureAction, CaptureCapabilities, CaptureCoordinator, CaptureEditorRequest,
-    CaptureError, CaptureIpcError, CapturePermissionKind, CaptureStatusEvent, CaptureTrigger,
-    CaptureWarning, CapturedSelection, PlatformCapturePort, PlatformKind, ShortcutPort,
-    DEFAULT_CAPTURE_SHORTCUT,
+    CapabilityState, CaptureAction, CaptureCapabilities, CaptureComposerRequest,
+    CaptureCoordinator, CaptureError, CaptureIpcError, CapturePermissionKind, CaptureStatusEvent,
+    CaptureTrigger, CaptureWarning, CapturedSelection, PlatformCapturePort, PlatformKind,
+    ShortcutPort, DEFAULT_CAPTURE_SHORTCUT,
 };
 use ts_rs::{Config, TS};
 
@@ -235,13 +235,9 @@ fn empty_denied_and_unsupported_selection_are_no_ops() {
 
 #[test]
 fn editor_sources_never_read_selected_text() {
-    for (index, source) in [
-        CaptureTrigger::StandardShortcut,
-        CaptureTrigger::CommandDoubleShift,
-        CaptureTrigger::InApp,
-    ]
-    .into_iter()
-    .enumerate()
+    for (index, source) in [CaptureTrigger::StandardShortcut, CaptureTrigger::InApp]
+        .into_iter()
+        .enumerate()
     {
         let (mut coordinator, _, platform) = coordinator(
             CapabilityState::Available,
@@ -251,7 +247,7 @@ fn editor_sources_never_read_selected_text() {
         let action = coordinator
             .trigger(source, 1_000 + index as u64 * 200)
             .expect("editor action");
-        assert!(matches!(action, Some(CaptureAction::OpenEditor { .. })));
+        assert!(matches!(action, Some(CaptureAction::FocusComposer { .. })));
         assert_eq!(platform.lock().expect("platform").reads, 0);
     }
 }
@@ -267,48 +263,13 @@ fn enhanced_triggers_fail_closed_without_input_monitoring() {
         .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
         .expect("denied selection gesture")
         .is_none());
-    assert!(coordinator
-        .trigger(CaptureTrigger::CommandDoubleShift, 1_010)
-        .expect("denied editor gesture")
-        .is_none());
     assert!(matches!(
         coordinator
             .trigger(CaptureTrigger::StandardShortcut, 1_020)
             .expect("portable fallback"),
-        Some(CaptureAction::OpenEditor { .. })
+        Some(CaptureAction::FocusComposer { .. })
     ));
     assert_eq!(platform.lock().expect("platform").reads, 0);
-}
-
-#[test]
-fn registration_conflict_restores_one_previous_shortcut() {
-    let (mut coordinator, shortcuts, _) = coordinator(
-        CapabilityState::Unsupported,
-        CapabilityState::Unsupported,
-        Ok(None),
-    );
-    shortcuts
-        .lock()
-        .expect("shortcut state")
-        .fail_for
-        .insert("CmdOrCtrl+Alt+Space".to_owned());
-
-    assert!(matches!(
-        coordinator.set_shortcut("CmdOrCtrl+Alt+Space"),
-        Err(CaptureError::ShortcutRegistration)
-    ));
-    let state = shortcuts.lock().expect("shortcut state");
-    assert_eq!(state.active.len(), 1);
-    assert!(state.active.contains(DEFAULT_CAPTURE_SHORTCUT));
-    assert_eq!(
-        state.operations,
-        [
-            format!("register:{DEFAULT_CAPTURE_SHORTCUT}"),
-            format!("unregister:{DEFAULT_CAPTURE_SHORTCUT}"),
-            "register:CmdOrCtrl+Alt+Space".to_owned(),
-            format!("register:{DEFAULT_CAPTURE_SHORTCUT}"),
-        ]
-    );
 }
 
 #[test]
@@ -327,10 +288,10 @@ fn overlapping_sources_are_deduplicated_without_an_extra_action() {
         .expect("duplicate")
         .is_none());
     assert!(coordinator
-        .trigger(CaptureTrigger::CommandDoubleShift, 1_200)
+        .trigger(CaptureTrigger::StandardShortcut, 1_200)
         .expect("later trigger")
         .is_some());
-    assert_eq!(platform.lock().expect("platform").resets, 1);
+    assert_eq!(platform.lock().expect("platform").resets, 2);
 }
 
 #[test]
@@ -416,7 +377,7 @@ fn capture_contract_serialization_has_stable_names() {
         })
     );
     assert_eq!(
-        serde_json::to_value(CaptureEditorRequest { request_id: 7 })
+        serde_json::to_value(CaptureComposerRequest { request_id: 7 })
             .expect("serialize editor request"),
         serde_json::json!({ "requestId": 7 })
     );
@@ -433,7 +394,7 @@ fn export_capture_bindings() {
         PlatformKind::decl(&config),
         CapturePermissionKind::decl(&config),
         CaptureCapabilities::decl(&config),
-        CaptureEditorRequest::decl(&config),
+        CaptureComposerRequest::decl(&config),
         CaptureStatusEvent::decl(&config),
         CaptureIpcError::decl(&config),
     ];

@@ -38,9 +38,13 @@ export type WorkspaceCommandDraft = {
 type WorkspaceContextValue = WorkspaceViewState & {
   executeWorkspaceCommand(command: WorkspaceCommandDraft): Promise<WorkspaceCommandResult>;
   refreshWorkspace(): Promise<WorkspaceSnapshot>;
-  chooseWorkspace(): Promise<void>;
+  chooseWorkspace(): Promise<'blocked' | 'cancelled' | 'success' | 'failed'>;
+  openDefaultWorkspace(): Promise<boolean>;
+  retryWorkspaceStartup(): Promise<boolean>;
   canChooseWorkspace: boolean;
   isChoosingWorkspace: boolean;
+  isWorkspaceSwitchBlocked: boolean;
+  setWorkspaceSwitchBlocked(blocked: boolean): void;
 };
 
 const browserClient: WorkspaceClient = {
@@ -73,6 +77,7 @@ export function WorkspaceProvider({
   const snapshotRef = useRef<WorkspaceSnapshot | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [isChoosingWorkspace, setIsChoosingWorkspace] = useState(false);
+  const [isWorkspaceSwitchBlocked, setWorkspaceSwitchBlocked] = useState(false);
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
     snapshotRef.current = snapshot;
@@ -141,13 +146,40 @@ export function WorkspaceProvider({
   );
 
   const chooseWorkspace = useCallback(async () => {
-    if (!client.chooseDirectory || !client.openOrCreate) return;
+    if (isWorkspaceSwitchBlocked) return 'blocked' as const;
+    if (!client.chooseDirectory || !client.openOrCreate) return 'failed' as const;
     setIsChoosingWorkspace(true);
     try {
       const path = await client.chooseDirectory();
-      if (!path) return;
+      if (!path) return 'cancelled' as const;
       const snapshot = await client.openOrCreate(path);
       applySnapshot(snapshot);
+      return 'success' as const;
+    } catch (error) {
+      const workspaceError = asWorkspaceError(error);
+      try {
+        const activeSnapshot = await client.snapshot();
+        snapshotRef.current = activeSnapshot;
+        setState({ status: 'warning', snapshot: activeSnapshot, error: workspaceError });
+      } catch {
+        setState((current) =>
+          current.snapshot
+            ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
+            : { status: 'empty', snapshot: null, error: workspaceError },
+        );
+      }
+      return 'failed' as const;
+    } finally {
+      setIsChoosingWorkspace(false);
+    }
+  }, [applySnapshot, client, isWorkspaceSwitchBlocked]);
+
+  const openDefaultWorkspace = useCallback(async () => {
+    if (isWorkspaceSwitchBlocked || !client.bootstrapDefault) return false;
+    setIsChoosingWorkspace(true);
+    try {
+      applySnapshot(await client.bootstrapDefault());
+      return true;
     } catch (error) {
       const workspaceError = asWorkspaceError(error);
       setState((current) =>
@@ -155,8 +187,21 @@ export function WorkspaceProvider({
           ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
           : { status: 'empty', snapshot: null, error: workspaceError },
       );
+      return false;
     } finally {
       setIsChoosingWorkspace(false);
+    }
+  }, [applySnapshot, client, isWorkspaceSwitchBlocked]);
+
+  const retryWorkspaceStartup = useCallback(async () => {
+    if (!client.bootstrap) return false;
+    try {
+      applySnapshot(await client.bootstrap());
+      return true;
+    } catch (error) {
+      const workspaceError = asWorkspaceError(error);
+      setState({ status: 'empty', snapshot: null, error: workspaceError });
+      return false;
     }
   }, [applySnapshot, client]);
 
@@ -168,6 +213,7 @@ export function WorkspaceProvider({
     snapshotRef.current = null;
     writeQueueRef.current = Promise.resolve();
     setIsChoosingWorkspace(false);
+    setWorkspaceSwitchBlocked(false);
 
     const connect = async () => {
       try {
@@ -176,8 +222,10 @@ export function WorkspaceProvider({
           snapshot = await client.snapshot();
         } catch (error) {
           const workspaceError = asWorkspaceError(error);
-          if (workspaceError.code !== 'not_open' || !client.bootstrapDefault) throw workspaceError;
-          snapshot = await client.bootstrapDefault();
+          if (workspaceError.code !== 'not_open') throw workspaceError;
+          if (client.bootstrap) snapshot = await client.bootstrap();
+          else if (client.bootstrapDefault) snapshot = await client.bootstrapDefault();
+          else throw workspaceError;
         }
         if (!active) return;
         applySnapshot(snapshot);
@@ -231,8 +279,12 @@ export function WorkspaceProvider({
         executeWorkspaceCommand,
         refreshWorkspace,
         chooseWorkspace,
+        openDefaultWorkspace,
+        retryWorkspaceStartup,
         canChooseWorkspace: Boolean(client.chooseDirectory && client.openOrCreate),
         isChoosingWorkspace,
+        isWorkspaceSwitchBlocked,
+        setWorkspaceSwitchBlocked,
       }}
     >
       {children}

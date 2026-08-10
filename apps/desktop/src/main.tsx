@@ -1,5 +1,6 @@
-import { Component, type ErrorInfo, type PropsWithChildren, StrictMode } from 'react';
+import { Component, type ErrorInfo, type PropsWithChildren, StrictMode, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
+import { useComposerFocus } from '@/app/composer-focus-context';
 import { AppProviders } from '@/app/providers';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,24 @@ import { NoteScreen } from '@/features/notes/note-screen';
 import { m } from '@/paraglide/messages.js';
 
 import './styles/app.css';
+
+const mediaPreview =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).get('fixture') === 'media';
+const mediaFixture = mediaPreview ? await import('@/test/media-workspace') : null;
+const mediaWorkspaceClient = mediaFixture?.mediaWorkspaceClient;
+const mediaClipboardClient = mediaFixture?.mediaClipboardClient;
+
+function MediaComposerBridge() {
+  const composer = useComposerFocus();
+  useEffect(() => {
+    if (!mediaPreview) return;
+    let requestId = 0;
+    const focus = () => composer.receive({ requestId: ++requestId });
+    window.addEventListener('charon:fixture-composer-focus', focus);
+    return () => window.removeEventListener('charon:fixture-composer-focus', focus);
+  }, [composer]);
+  return null;
+}
 
 const rootElement = document.getElementById('app');
 
@@ -44,9 +63,14 @@ if (rootElement && !rootElement.innerHTML) {
       <AppErrorBoundary>
         <Toaster>
           <TooltipProvider>
-            <AppProviders>
+            <AppProviders workspaceClient={mediaWorkspaceClient}>
+              <MediaComposerBridge />
               <AppShell>
-                <WorkspaceState>{(snapshot) => <NoteScreen snapshot={snapshot} />}</WorkspaceState>
+                <WorkspaceState>
+                  {(snapshot) => (
+                    <NoteScreen clipboardClient={mediaClipboardClient} snapshot={snapshot} />
+                  )}
+                </WorkspaceState>
               </AppShell>
             </AppProviders>
           </TooltipProvider>

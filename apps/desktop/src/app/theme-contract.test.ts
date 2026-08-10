@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -9,6 +9,49 @@ const repositoryRoot = resolve(process.cwd(), '../..');
 const tokensCss = readFileSync(resolve(repositoryRoot, 'packages/theme/src/tokens.css'), 'utf8');
 const desktopHtml = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
 const desktopCss = readFileSync(resolve(process.cwd(), 'src/styles/app.css'), 'utf8');
+const tauriConfig = JSON.parse(
+  readFileSync(resolve(process.cwd(), 'src-tauri/tauri.conf.json'), 'utf8'),
+);
+
+const generatedNativeIcons = [
+  '32x32.png',
+  '64x64.png',
+  '128x128.png',
+  '128x128@2x.png',
+  'icon.png',
+  'icon.icns',
+  'icon.ico',
+  'StoreLogo.png',
+  'Square30x30Logo.png',
+  'Square44x44Logo.png',
+  'Square71x71Logo.png',
+  'Square89x89Logo.png',
+  'Square107x107Logo.png',
+  'Square142x142Logo.png',
+  'Square150x150Logo.png',
+  'Square284x284Logo.png',
+  'Square310x310Logo.png',
+  'ios/AppIcon-20x20@1x.png',
+  'ios/AppIcon-20x20@2x.png',
+  'ios/AppIcon-20x20@3x.png',
+  'ios/AppIcon-29x29@1x.png',
+  'ios/AppIcon-29x29@2x.png',
+  'ios/AppIcon-29x29@3x.png',
+  'ios/AppIcon-40x40@1x.png',
+  'ios/AppIcon-40x40@2x.png',
+  'ios/AppIcon-40x40@3x.png',
+  'ios/AppIcon-60x60@2x.png',
+  'ios/AppIcon-60x60@3x.png',
+  'ios/AppIcon-76x76@1x.png',
+  'ios/AppIcon-76x76@2x.png',
+  'ios/AppIcon-83.5x83.5@2x.png',
+  'ios/AppIcon-512@2x.png',
+  'android/mipmap-mdpi/ic_launcher.png',
+  'android/mipmap-hdpi/ic_launcher.png',
+  'android/mipmap-xhdpi/ic_launcher.png',
+  'android/mipmap-xxhdpi/ic_launcher.png',
+  'android/mipmap-xxxhdpi/ic_launcher.png',
+] as const;
 
 const requiredSemanticTokens = [
   '--canvas',
@@ -174,6 +217,19 @@ describe('theme token contract', () => {
         .update(readFileSync(resolve(process.cwd(), path)))
         .digest('hex');
       expect(actual, path).toBe(expected);
+    }
+  });
+
+  it('ships the stable Charon bundle identity and complete generated icon families', () => {
+    expect(tauriConfig.productName).toBe('Charon');
+    expect(tauriConfig.mainBinaryName).toBe('Charon');
+    expect(tauriConfig.identifier).toBe('dev.simonhazard.charon');
+    expect(tauriConfig.bundle.macOS.minimumSystemVersion).toBe('14.0');
+    expect(tauriConfig.bundle.macOS.signingIdentity).toBe('-');
+    for (const icon of generatedNativeIcons) {
+      expect(statSync(resolve(process.cwd(), 'src-tauri/icons', icon)).size, icon).toBeGreaterThan(
+        0,
+      );
     }
   });
 

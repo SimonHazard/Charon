@@ -1,8 +1,9 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Charon",
+  "mainBinaryName": "Charon",
   "version": "0.0.0",
-  "identifier": "dev.charon.app",
+  "identifier": "dev.simonhazard.charon",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:1420",
@@ -30,10 +31,18 @@
   "bundle": {
     "active": true,
     "targets": ["app"],
+    "category": "Productivity",
+    "publisher": "Simon Hazard",
+    "copyright": "Copyright © 2026 Simon Hazard",
+    "homepage": "https://github.com/SimonHazard/Charon",
+    "shortDescription": "Free, local-first capture for agent-ready Markdown.",
+    "longDescription": "Charon is a free, local-first capture shelf for turning useful text into ordinary Markdown notes without accounts, telemetry, or content uploads.",
     "icon": [
       "icons/32x32.png",
+      "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
     ],
@@ -41,13 +50,8 @@
       "debugApplicationIdSuffix": ".debug"
     },
     "macOS": {
+      "minimumSystemVersion": "14.0",
       "signingIdentity": "-"
-    }
-  },
-  "plugins": {
-    "updater": {
-      "endpoints": [],
-      "pubkey": ""
     }
   }
 }

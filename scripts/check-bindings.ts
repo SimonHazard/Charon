@@ -24,6 +24,12 @@ const bindings = [
     testFilter: 'export_capture_bindings',
     outputVariable: 'CHARON_CAPTURE_BINDINGS_OUT',
   },
+  {
+    generatedPath: join(repositoryRoot, 'apps/desktop/src/bindings/preferences.ts'),
+    temporaryPath: join(temporaryDirectory, 'preferences.ts'),
+    testFilter: 'export_preferences_bindings',
+    outputVariable: 'CHARON_PREFERENCES_BINDINGS_OUT',
+  },
 ] as const;
 
 try {

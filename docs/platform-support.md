@@ -18,6 +18,11 @@ The macOS fallback does not create a Linux or Windows support claim. Each target
 needs its own accessibility, input, clipboard, focus, permission, and signed-
 build evidence before promotion.
 
+The current bundle identity is `dev.simonhazard.charon`. It replaces the
+pre-release `dev.charon.app` identifier because Tauri 2 warns against bundle
+identifiers ending in `.app`. The Plan 007 evidence below remains historical
+development evidence only; its TCC grants do not transfer to the new identity.
+
 ## macOS evidence collected during Plan 007
 
 Environment first recorded on 2026-07-31 and finally accepted on 2026-08-04:

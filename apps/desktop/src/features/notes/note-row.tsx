@@ -50,6 +50,7 @@ export const NoteRow = memo(function NoteRow({
   onAddAttachments,
   onRemoveAttachment,
   onRetryCleanup,
+  onDirtyChange,
 }: {
   note: NoteDto;
   active: boolean;
@@ -69,6 +70,7 @@ export const NoteRow = memo(function NoteRow({
   onAddAttachments(noteId: string): Promise<void>;
   onRemoveAttachment(noteId: string, attachment: AttachmentDto): Promise<void>;
   onRetryCleanup(): Promise<void>;
+  onDirtyChange(dirty: boolean): void;
 }) {
   const m = useMessages();
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
@@ -200,6 +202,7 @@ export const NoteRow = memo(function NoteRow({
           note={note}
           onAddAttachments={() => onAddAttachments(note.id)}
           onClose={onCloseEditor}
+          onDirtyChange={onDirtyChange}
           onRemoveAttachment={(attachment) => onRemoveAttachment(note.id, attachment)}
           onRetryCleanup={onRetryCleanup}
           onSave={(body) => onSave(note.id, body)}

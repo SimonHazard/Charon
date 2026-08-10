@@ -141,3 +141,49 @@ dash characters. Test Solarized, Light, Dark, accessibility preferences, large
 text, keyboard navigation, and responsive layouts. Play the real demo, inspect
 every frame for private content, validate metadata and platform wording, and
 follow every download link to its signed destination.
+
+## Implemented page jobs and verified claims
+
+| Surface | Job | Primary action | Source of truth |
+|---|---|---|---|
+| EN `/`, FR `/fr/` | Explain one gesture, one local Note, enrichment, explicit agent handoff | `View releases` / `Voir les versions` | PRODUCT, PRIVACY, ADR 0011 |
+| Privacy / Confidentialité | State Workspace ownership, permissions, bounded Copy, copy-path and deletion limits | Return through global navigation | PRIVACY, ADR 0010, ADR 0011 |
+| Releases / Versions | Report the checked-in artifact state without a browser API | `View releases` / `Voir les versions` | GitHub Release state and Plan 015 |
+| Changelog / Nouveautés | List only implemented product facts | None | merged source and plans |
+
+The home order is header, asymmetric promise and real shelf media, capture
+passage, editor enrichment, explicit Markdown specimen, real UI video, local
+privacy proof, platform evidence table, release state, and footer. Signed
+installers do not exist, so the action remains `View releases`. The site does
+not infer availability from a GitHub API.
+
+The only raw color in site source is the static HTML `theme-color` metadata for
+the Solarized first paint. Product components use semantic theme variables.
+The web manifest repeats this metadata value because CSS variables are not valid
+there.
+
+## Media manifest
+
+All media was captured on 2026-08-09 from the actual desktop React surface at
+1440 by 960 using `apps/desktop/scripts/capture-site-media.ts`. The injected
+Workspace contains only obvious synthetic Notes and is eliminated from the
+production bundle. The script produces Solarized shelf and Dark editor AVIF and
+WebP stills plus a short WebM interaction recording. English and French VTT
+captions and visible transcripts describe the same synthetic flow. No private
+path, notification, credential, third-party account, or unsupported platform
+surface appears.
+
+## Design and quality preflight
+
+Reviewed at 390, 768, 1280, and 1536 CSS pixels with Solarized, Light, and Dark
+as the required matrix. The authored signature is one Lavender crossing line;
+the remaining structure uses type, space, and hairline rules. There are no
+gradients, glow, stock devices, fake UI rectangles, equal feature-card grid,
+framework island, form, analytics, tracker, or runtime request.
+
+Performance targets are LCP below 2.5 seconds, INP below 200 milliseconds, and
+CLS below 0.1 on a representative production deployment. Critical media has
+explicit dimensions and optimized alternatives, later media is lazy, the site
+has no remote font or third-party request, and all content remains present with
+JavaScript disabled. Reduced motion displays the completed capture relationship;
+reduced transparency is solid; increased contrast strengthens boundaries.

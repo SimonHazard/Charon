@@ -30,11 +30,11 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 008 | [Refound Charon around rapid capture](./008-freeze-rapid-capture-product.md) | P1 | M | 001-007 | DONE |
 | 009 | [Integrate the approved brand and Solarized-first token system](./009-integrate-brand-and-solarized-system.md) | P1 | M | 008 | DONE |
 | 010 | [Simplify the Workspace and agent-ready copy domain](./010-simplify-workspace-and-copy-domain.md) | P1 | XL | 008 | DONE |
-| 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | BLOCKED: native matrix incomplete |
-| 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | TODO |
-| 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | TODO |
-| 014 | [Close rapid-capture release quality gaps](./014-close-rapid-capture-quality-gaps.md) | P1 | L | 009-013 | TODO |
-| 015 | [Automate signed builds, static hosting, and releases](./015-automate-builds-and-releases.md) | P1 | XL | 014 | TODO |
+| 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | BLOCKED: physical accessibility and motion matrix incomplete |
+| 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | BLOCKED: physical macOS, Linux, and Windows smoke incomplete |
+| 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | DONE |
+| 014 | [Close rapid-capture release quality gaps](./014-close-rapid-capture-quality-gaps.md) | P1 | L | 009-013 | BLOCKED: signed native and assistive-technology matrix incomplete |
+| 015 | [Automate signed builds, static hosting, and releases](./015-automate-builds-and-releases.md) | P1 | XL | 014 | BLOCKED: signing secrets, updater endpoint, and operator approval absent |
 
 Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED: <reason>`, or
 `REJECTED: <reason>`.
@@ -52,8 +52,18 @@ collapsed shelf grid, and Dark wordmark. All automated gates and native
 960x640, 800x600, and 720x480 Solarized, Light, and Dark EN/FR evidence pass.
 Remaining blockers are true 200% WebView zoom, OS reduced motion, transparency,
 and increased contrast, coarse pointer, 0.25x and mid-flight reversal, and full
-native failure and cleanup states. Plan 012 must not start until these Plan 011
-rows pass.
+native failure and cleanup states.
+
+Plans 012 through 015 were implemented together on
+`codex/012-minimal-preferences` at the operator's explicit request. Automated
+bindings, lint, type, unit, integration, build, Playwright Chromium/WebKit,
+Axe, privacy, performance, immutable-workflow, Clippy, and Cargo gates pass.
+Plan 013 is complete. Plans 011, 012, and 014 retain only the physical native,
+assistive-technology, and signed-candidate evidence that local automation cannot
+substitute. Plan 015 has pinned review, quality, security, Pages, and protected
+draft-release workflows plus runbooks, but remains blocked until the operator
+provides signing/notarization secrets, a public updater endpoint and key, and
+release approval. No public deployment, tag, release, or installer claim exists.
 
 ## Dependency graph
 
@@ -262,9 +272,6 @@ explicitly rejected.
 | `tauri-plugin-global-shortcut` | `2.3.2` | keep portable shortcut |
 | `tauri-plugin-single-instance` | `2.4.3` | keep if lifecycle use remains |
 | `tauri-plugin-window-state` | `2.4.1` | keep if lifecycle use remains |
-| `tauri-plugin-fs` | `2.5.1` | remove in Plan 012 if no call site |
-| `tauri-plugin-process` | `2.3.1` | remove until Plan 015 if unused |
-| `tauri-plugin-updater` | `2.10.1` | remove until Plan 015 |
 | `core-foundation`, `core-graphics` | `0.10.1`, `0.25.0` | keep macOS capture |
 | `objc2`, `objc2-app-kit`, `objc2-foundation` | `0.6.4`, `0.3.2`, `0.3.2` | keep macOS public APIs/pasteboard |
 

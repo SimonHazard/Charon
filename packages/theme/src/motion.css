@@ -6,6 +6,7 @@
   --motion-duration-surface: 360ms;
   --motion-easing-surface: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-surface-distance: 16px;
+  --motion-surface-scale: 0.985;
 
   --motion-gesture-release-response: 400ms;
   --motion-gesture-release-damping: 0.8;
@@ -19,6 +20,7 @@
     --motion-press-scale: 1;
     --motion-duration-surface: 120ms;
     --motion-surface-distance: 0px;
+    --motion-surface-scale: 1;
     --motion-gesture-release-response: 0ms;
     --motion-gesture-release-damping: 1;
   }

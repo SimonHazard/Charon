@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use serde::Deserialize;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
@@ -13,6 +14,23 @@ use super::storage::WorkspaceStorage;
 const MIGRATION_DIR: &str = "backups/migration-v1-v2";
 const LEGACY_ARCHIVE: &str = "legacy-trash-v1";
 const ARCHIVE_README: &str = "These Markdown files were already in Charon's legacy Trash before the schema v2 migration.\n\nThey are not loaded or indexed by Charon. Review or delete them with normal filesystem tools.\n";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyTransactionRecord {
+    transaction_id: String,
+    previous_revision: u64,
+    next_revision: u64,
+    state: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyManifestHeader {
+    schema_version: u32,
+    workspace_id: String,
+    revision: u64,
+}
 
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -49,6 +67,62 @@ pub(crate) fn recover_incomplete_migration(
         1 => rollback_staged_migration(storage),
         version => Err(WorkspaceError::UnsupportedSchema(version)),
     }
+}
+
+pub(crate) fn remove_completed_v1_transactions(
+    storage: &dyn WorkspaceStorage,
+) -> Result<(), WorkspaceError> {
+    if !storage.exists("backups")? {
+        return Ok(());
+    }
+    let current = read_legacy_manifest_header(storage, "charon.workspace.json")?;
+    if current.schema_version != 1 {
+        return Ok(());
+    }
+
+    let mut completed = Vec::new();
+    for transaction_id in storage.list("backups")? {
+        if transaction_id == "migration-v1-v2" {
+            continue;
+        }
+        let transaction_dir = format!("backups/{transaction_id}");
+        let record = serde_json::from_slice::<LegacyTransactionRecord>(
+            &storage.read(&format!("{transaction_dir}/transaction.json"))?,
+        )
+        .map_err(|_| WorkspaceError::RecoveryRequired {
+            backup_location: transaction_dir.clone(),
+        })?;
+        let next =
+            read_legacy_manifest_header(storage, &format!("{transaction_dir}/next/manifest.json"))?;
+        let is_verified_complete = record.transaction_id == transaction_id
+            && record.state == "committed"
+            && record.previous_revision.checked_add(1) == Some(record.next_revision)
+            && record.next_revision == next.revision
+            && next.schema_version == 1
+            && next.workspace_id == current.workspace_id
+            && current.revision >= next.revision;
+        if !is_verified_complete {
+            return Err(WorkspaceError::RecoveryRequired {
+                backup_location: transaction_dir,
+            });
+        }
+        completed.push(transaction_id);
+    }
+    for transaction_id in completed {
+        storage.remove_dir_all(&format!("backups/{transaction_id}"))?;
+    }
+    storage.sync_dir("backups")
+}
+
+fn read_legacy_manifest_header(
+    storage: &dyn WorkspaceStorage,
+    path: &str,
+) -> Result<LegacyManifestHeader, WorkspaceError> {
+    let bytes = storage.read(path)?;
+    if bytes.len() > MAX_MANIFEST_BYTES {
+        return Err(WorkspaceError::InvalidManifest);
+    }
+    serde_json::from_slice(&bytes).map_err(|_| WorkspaceError::InvalidManifest)
 }
 
 pub(crate) fn migrate_v1(storage: &dyn WorkspaceStorage) -> Result<bool, WorkspaceError> {

@@ -126,12 +126,14 @@ or copied into preferences.
 
 ## Network access and updates
 
-Update checks are the only optional desktop network request permitted in v1.
-They are disclosed, controlled by a clear setting, and limited to release
-metadata needed to determine whether an update exists. A check includes no Note
-content, Tags, Attachment metadata or bytes, Workspace metadata, stable user
-identifier, or behavioral event. Downloading and installing an update requires
-clear user action and verified signed artifacts.
+The current build has no update client and performs no desktop network request.
+An update check is the only optional desktop request permitted for a future
+signed v1 release. It must be disclosed, default off, controlled by a clear
+setting, and limited to release metadata. GitHub will observe ordinary network
+metadata, but the request includes no Note content, Tags, Attachment metadata or
+bytes, Workspace metadata or path, stable user identifier, or behavioral event.
+Downloading and installing requires clear user action and verified signed
+artifacts, and restart must defer while a draft is dirty.
 
 With update checks disabled, the desktop performs no network requests. Charon
 does not require connectivity for capture, manual creation, search, Open/Done,

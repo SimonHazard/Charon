@@ -49,6 +49,16 @@ export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnaps
           >
             {state.isChoosingWorkspace ? m.workspace_choosing() : m.workspace_choose()}
           </Button>
+          {state.error ? (
+            <div className="workspace-recovery-actions">
+              <Button onClick={() => void state.retryWorkspaceStartup()} variant="ghost">
+                {m.common_retry()}
+              </Button>
+              <Button onClick={() => void state.openDefaultWorkspace()} variant="outline">
+                {m.workspace_use_default()}
+              </Button>
+            </div>
+          ) : null}
         </EmptyContent>
       </Empty>
     );

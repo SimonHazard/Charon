@@ -2,7 +2,7 @@ import { IconCopy, IconSearch, IconTrash, IconX } from '@tabler/icons-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
-import { useCaptureEditor } from '@/app/capture-editor-context';
+import { useComposerFocus } from '@/app/composer-focus-context';
 import { useMessages } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
 import type { NoteDto, NoteStatus, WorkspaceSnapshot } from '@/bindings/workspace';
@@ -31,6 +31,7 @@ import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-
 import { NoteList } from '@/features/notes/note-list';
 import { filterNotes } from '@/features/notes/search';
 import { emptySelection, selectionReducer } from '@/features/notes/selection-model';
+import { useNativePreferences } from '@/features/preferences/preferences-context';
 import {
   asClipboardError,
   type ClipboardClient,
@@ -55,8 +56,9 @@ export function NoteScreen({
   pickAttachments?: AttachmentPicker;
 }) {
   const m = useMessages();
-  const captureEditor = useCaptureEditor();
-  const { executeWorkspaceCommand, refreshWorkspace } = useWorkspace();
+  const composerFocus = useComposerFocus();
+  const nativePreferences = useNativePreferences();
+  const { executeWorkspaceCommand, refreshWorkspace, setWorkspaceSwitchBlocked } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<NoteStatus>('open');
   const [tag, setTag] = useState<string | null>(null);
@@ -96,10 +98,10 @@ export function NoteScreen({
   }, [visibleIds]);
 
   useEffect(() => {
-    if (!captureEditor.request) return;
+    if (!composerFocus.request) return;
     captureRef.current?.focus();
-    captureEditor.consume(captureEditor.request.requestId);
-  }, [captureEditor]);
+    composerFocus.consume(composerFocus.request.requestId);
+  }, [composerFocus]);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -366,6 +368,7 @@ export function NoteScreen({
               }
             });
           }}
+          onDirtyChange={setWorkspaceSwitchBlocked}
           onCopy={(noteId) => copyNotes([noteId])}
           onExpand={setExpandedId}
           onRemoveAttachment={(noteId, attachment) =>
@@ -417,6 +420,20 @@ export function NoteScreen({
         </Empty>
       )}
       <div className="composer-dock transient-material">
+        {nativePreferences.capabilities?.platform === 'macos' &&
+        !nativePreferences.preferences.captureHintDismissed ? (
+          <div className="capture-hint" role="status">
+            <span>{m.capture_hint()}</span>
+            <Button
+              aria-label={m.capture_hint_dismiss()}
+              onClick={() => void nativePreferences.dismissCaptureHint()}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <IconX aria-hidden="true" />
+            </Button>
+          </div>
+        ) : null}
         <CaptureInput
           onCreate={async (body) => {
             await executeWorkspaceCommand({ type: 'createNote', body });

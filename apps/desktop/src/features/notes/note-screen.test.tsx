@@ -67,8 +67,8 @@ describe('single note shelf', () => {
 
   it('keeps the list and composer in stable grid rows without contextual feedback', () => {
     renderScreen();
-    const list = screen.getByRole('listbox');
-    const shelf = list.parentElement;
+    const list = screen.getByRole('list', { name: 'Notes' });
+    const shelf = list.parentElement?.parentElement;
 
     expect(shelf?.className).toBe('note-screen');
     expect(Array.from(shelf?.children ?? []).map((child) => child.className)).toEqual([

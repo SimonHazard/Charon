@@ -75,34 +75,6 @@ impl CaptureCoordinator {
         self.capabilities.clone()
     }
 
-    pub fn set_shortcut(&mut self, next: &str) -> Result<CaptureCapabilities, CaptureError> {
-        self.ensure_active()?;
-        let next = next.trim();
-        if next.is_empty() || !next.contains('+') {
-            return Err(CaptureError::InvalidShortcut);
-        }
-        if next == self.capabilities.active_shortcut {
-            return Ok(self.capabilities());
-        }
-
-        let previous = self.capabilities.active_shortcut.clone();
-        if self.capabilities.standard_shortcut == CapabilityState::Available {
-            self.shortcut.unregister(&previous)?;
-        }
-        if let Err(error) = self.shortcut.register(next) {
-            self.capabilities.standard_shortcut = match self.shortcut.register(&previous) {
-                Ok(()) => CapabilityState::Available,
-                Err(_) => CapabilityState::Error,
-            };
-            return Err(error);
-        }
-
-        self.capabilities.active_shortcut = next.to_owned();
-        self.capabilities.standard_shortcut = CapabilityState::Available;
-        self.platform.reset_gesture();
-        Ok(self.capabilities())
-    }
-
     pub fn refresh_capabilities(&mut self) -> Result<CaptureCapabilities, CaptureError> {
         self.ensure_active()?;
         self.refresh_platform_states();
@@ -130,10 +102,8 @@ impl CaptureCoordinator {
         if trigger == CaptureTrigger::StandardShortcut {
             self.platform.reset_gesture();
         }
-        if matches!(
-            trigger,
-            CaptureTrigger::DoubleShiftCapture | CaptureTrigger::CommandDoubleShift
-        ) && self.capabilities.double_shift != CapabilityState::Available
+        if trigger == CaptureTrigger::DoubleShiftCapture
+            && self.capabilities.double_shift != CapabilityState::Available
         {
             return Ok(None);
         }
@@ -151,11 +121,11 @@ impl CaptureCoordinator {
 
         match trigger {
             CaptureTrigger::DoubleShiftCapture => self.capture_selection(),
-            CaptureTrigger::StandardShortcut
-            | CaptureTrigger::CommandDoubleShift
-            | CaptureTrigger::InApp => Ok(Some(CaptureAction::OpenEditor {
-                request_id: self.take_request_id(),
-            })),
+            CaptureTrigger::StandardShortcut | CaptureTrigger::InApp => {
+                Ok(Some(CaptureAction::FocusComposer {
+                    request_id: self.take_request_id(),
+                }))
+            }
         }
     }
 

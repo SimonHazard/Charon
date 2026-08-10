@@ -18,6 +18,6 @@ describe('single shelf shell', () => {
     expect(document.querySelector('.section-rail')).toBeNull();
     expect(document.querySelector('.context-inspector')).toBeNull();
     expect(document.querySelector('footer')).toBeNull();
-    expect(screen.getByLabelText('Charon')).toBeTruthy();
+    expect(screen.getByAltText('Charon')).toBeTruthy();
   });
 });

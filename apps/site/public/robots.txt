@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://simonhazard.github.io/Charon/sitemap-index.xml

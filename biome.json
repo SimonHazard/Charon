@@ -5,7 +5,9 @@
       "**",
       "!**/.astro",
       "!**/dist",
+      "!**/playwright-report",
       "!**/target",
+      "!**/test-results",
       "!apps/desktop/src/routeTree.gen.ts",
       "!apps/desktop/src/paraglide",
       "!apps/desktop/project.inlang/cache",
@@ -50,7 +52,8 @@
       "linter": {
         "rules": {
           "correctness": {
-            "noUnusedImports": "off"
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
           }
         }
       }
