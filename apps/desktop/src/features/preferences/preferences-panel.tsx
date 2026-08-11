@@ -98,20 +98,27 @@ export function PreferencesPanel() {
 
   return (
     <Popover>
-      <PopoverTrigger
-        aria-label={m.navigation_settings()}
-        onKeyDown={press.onKeyDown}
-        onKeyUp={press.onKeyUp}
-        onPointerCancel={press.onPointerCancel}
-        onPointerDown={press.onPointerDown}
-        onPointerLeave={press.onPointerLeave}
-        onPointerUp={press.onPointerUp}
-        render={<Button size="icon-sm" variant="ghost" />}
-      >
-        <motion.span aria-hidden style={press.style}>
-          <IconSettings />
-        </motion.span>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              aria-label={m.navigation_settings()}
+              onKeyDown={press.onKeyDown}
+              onKeyUp={press.onKeyUp}
+              onPointerCancel={press.onPointerCancel}
+              onPointerDown={press.onPointerDown}
+              onPointerLeave={press.onPointerLeave}
+              onPointerUp={press.onPointerUp}
+              render={<Button size="icon-sm" variant="ghost" />}
+            />
+          }
+        >
+          <motion.span aria-hidden style={press.style}>
+            <IconSettings />
+          </motion.span>
+        </TooltipTrigger>
+        <TooltipContent>{m.navigation_settings()}</TooltipContent>
+      </Tooltip>
       <PopoverContent align="end" className="preferences-popover" sideOffset={8}>
         <PopoverHeader className="preferences-heading">
           <PopoverTitle>{m.preferences_title()}</PopoverTitle>

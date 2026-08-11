@@ -58,7 +58,7 @@ export function NoteList({
     estimateSize: () => ROW_HEIGHT,
     getItemKey: (index) => notes[index]?.id ?? index,
     getScrollElement: () => parentRef.current,
-    initialRect: { width: 900, height: 600 },
+    initialRect: { width: 480, height: 600 },
     overscan: 10,
   });
 
