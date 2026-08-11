@@ -1,33 +1,37 @@
 # How to execute and launch Charon
 
-Charon is implemented through completed Plan 007 at commit `9beb3fe`. The
-desktop app, Tauri/Rust core, shared theme package, and Astro scaffold run today.
-Plans 008-015 replace the unstarted former roadmap and simplify the product
-before release.
+Charon's flat local Workspace, managed Attachments, `Copy as Markdown`, single
+shelf, minimal Preferences, automated quality harness, and static site exist at
+commit `7294773`. The remaining path first compacts the desktop around the
+approximately 450px-wide reference, then proves every workflow, exact candidate,
+and GitHub release path.
 
 ## Next implementation path
 
 Run one plan at a time from the repository root. The next prompt is:
 
 ```text
-Execute plans/008-freeze-rapid-capture-product.md completely.
+Execute plans/016-refine-premium-desktop-shelf.md completely.
 Run its drift check and every verification gate, stop on every STOP condition,
 and update plans/README.md only when its done criteria pass.
 ```
 
 Continue in the dependency order from `plans/README.md`:
 
-1. Plan 008 accepts the rapid-capture ADR and rewrites contracts.
-2. Plan 009 integrates approved brand assets and Solarized-first tokens.
-3. Plan 010 migrates Workspace to flat Notes with lightweight Tags, managed
-   Attachments, agent-ready Markdown copy, and truthful permanent deletion.
-4. Plan 011 replaces the rail/routes with the single shelf and contextual Note actions.
-5. Plan 012 adds compact preferences, folder choice, and pragmatic fallbacks.
-6. Plan 013 builds the real static product site.
-7. Plan 014 establishes the release-quality gate.
-8. Plan 015 owns signing, builds, updates, hosting, and releases.
+1. Plan 016 establishes the 480px-first-run compact shelf and responsive visual
+   foundation without changing product semantics.
+2. Plan 017 aligns every current workflow at effective 360px and above,
+   including Tags, up to 20 managed Attachments, Selection, copy, Delete,
+   Preferences, Workspace recovery, EN/FR, and accessibility.
+3. Plan 014 closes the physical matrix against the exact candidate files that
+   GitHub Releases will publish.
+4. Plan 015 accepts a distribution ADR, adds opt-in Tauri-signed updates, and
+   publishes protected macOS/Linux/Windows GitHub Releases without paid Apple
+   Developer ID/notarization or Windows Authenticode certificates.
 
-Do not execute an implementation plan before every listed dependency is DONE.
+Do not execute a plan before every listed dependency is `DONE`. Plans 011 and
+012 retain their truthful physical-evidence blockers until the matching exact
+candidate rows pass; do not confuse existing automation with final acceptance.
 
 ## Prerequisites
 
@@ -48,7 +52,7 @@ rustc --version
 cargo --version
 ```
 
-## Install and launch the current scaffold
+## Install and launch the current repository
 
 From the repository root:
 
@@ -62,18 +66,20 @@ Start the native desktop app:
 bun run tauri:dev
 ```
 
-Start the Astro scaffold in a second terminal:
+Start the static Astro site in a second terminal:
 
 ```sh
 bun run dev:site
 ```
 
 Use `bun run dev:desktop` only for browser-focused React work. Global shortcut,
-selected-text access, window focus, clipboard permissions, folder chooser, and
-native lifecycle behavior require `bun run tauri:dev`.
+selected-text access, window focus, clipboard permissions, file/folder choosers,
+and native lifecycle behavior require `bun run tauri:dev`.
 
-The current UI still shows the broad pre-pivot rail/workflows until Plans
-010-012 land. That is expected historical state, not the target product.
+The current desktop is functional but still opens on the pre-Plan-016 960px
+canvas. That is the known starting point, not the compact target. Attachment
+rows intentionally show safe metadata rather than arbitrary thumbnails, and the
+bottom composer intentionally creates body-only Notes.
 
 ## Verify the current repository
 
@@ -96,27 +102,50 @@ bun run build
 bun run tauri:build -- --debug
 ```
 
-After Plan 014, run the consolidated gate:
+Run the consolidated gate already introduced by the quality harness:
 
 ```sh
 bun run verify:release
 ```
 
-Production installers, signed updates, public downloads, and site deployment are
-not ready until Plan 015 is complete. Never publish a debug/ad-hoc bundle as a
-release.
+Each current plan adds a narrower visual, native, or artifact gate. Its commands
+and STOP conditions take precedence over this general launch guide.
+
+## Distribution target
+
+No paid Apple or Windows publisher certificate is planned:
+
+- macOS candidates use Tauri's configured ad-hoc identity and are not notarized;
+- Windows candidates are unsigned and must disclose the observed SmartScreen
+  experience;
+- Linux packages are distributed with checksums and documented dependencies;
+- Tauri's updater key signs update metadata/packages only and does not create an
+  Apple or Windows publisher identity.
+
+Plan 015 owns the exact workflow, protected updater secrets, `latest.json`,
+detached signatures, checksums, installers, draft approval, and release runbook.
+The desktop updater remains default-off and explicit. The site remains static
+and will link directly to:
+
+```text
+https://github.com/SimonHazard/Charon/releases/latest
+```
+
+It must not call the GitHub API in the browser. Until the first public release
+exists, no copy may imply that `/releases/latest`, an installer, or an updater is
+available. Site hosting/deployment remains separate from GitHub artifact
+distribution.
 
 ## Capture expectations
 
 - macOS enhanced capture requires separate Input Monitoring and Accessibility
   consent. The unmodified double-Shift path first uses public Accessibility and
   then ADR 0010's bounded Copy fallback.
-- A debug/ad-hoc permission grant is development evidence only and may need a
-  reset after rebuild.
-- Linux and Windows do not currently inherit a double-Shift selected-text claim.
-- `CmdOrCtrl+Shift+Space` is the cross-platform fallback. Before Plan 012 it
-  opens the current empty editor; after Plan 012 it reveals Charon and focuses
-  the bottom composer.
+- Rebuilding an ad-hoc macOS app can disturb TCC continuity; each exact candidate
+  must be retested rather than inheriting a previous grant.
+- Linux and Windows do not inherit a double-Shift selected-text claim.
+- `CmdOrCtrl+Shift+Space` is the cross-platform fallback: it reveals the existing
+  window and focuses the always-visible bottom composer.
 
 ## Common blockers
 
@@ -126,8 +155,11 @@ release.
 - Tauri system-library error: install the target OS prerequisites linked above.
 - Astro compiler mismatch: desktop/root resolve TypeScript `7.0.2`; the site
   intentionally resolves `6.0.3` until Astro Check proves TypeScript 7 support.
+- Compact layout clips or overflows: stop in Plan 016/017; do not hide a feature
+  or change Attachment ownership to make it fit.
 - Double Shift unavailable: use the standard fallback and inspect explicit
   capability/permission state; do not add a speculative hook.
-- Site is still a scaffold: Plan 013 owns real localized content and media.
-- Signed installer/update/site URL absent: Plan 015 owns them and requires
-  operator secrets, approval, and manual installation evidence.
+- No Apple/Windows signing certificate: expected, not a missing secret. Record
+  platform warnings and keep updater signing language distinct.
+- Release or updater URL absent: Plan 015 owns it and requires an accepted ADR,
+  protected Tauri keys, exact-candidate evidence, and operator approval.
