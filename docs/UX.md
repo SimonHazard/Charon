@@ -35,49 +35,71 @@ appear only when a layer genuinely floats.
 
 ## Single-shelf layout
 
-There is one product surface and no persistent navigation rail. The wordmark
-and compact Preferences action sit above search and Open/Done filters. One
-virtualized Note stack fills the available middle region. The composer remains
-visible at the bottom.
+There is one compact vertical utility shelf and no persistent navigation rail.
+The supplied reference video calibrates only the shelf's narrow posture,
+containment, and rhythm; Charon does not copy its proprietary chrome,
+thumbnails, or composer Attachments. The first-run window is 480 by 720 logical
+pixels, with a 400 by 480 logical-pixel minimum at 100% zoom. The 200% review
+uses a 720px-wide native window so the effective content width remains at least
+360px. User-restored window sizes remain authoritative.
+
+The shelf column is at most `34rem`/544px and stays centered in wider restored
+windows rather than stretching Notes across spare canvas. A compact titlebar
+sits above a two-line toolbar: search owns the first full-width row, while
+Open/Done and Selection share the second without horizontal scrolling. One
+virtualized stack of bounded vertical Note surfaces fills the available middle
+region. The solid composer remains anchored and visible at the bottom.
 
 ```text
-+---------------------------------------------------------------+
-| CHARON                                           [Preferences]|
-| [ Search Notes and Tags...                  ] [Open] [Done]   |
-+---------------------------------------------------------------+
-| [ ] Note body excerpt that can wrap          [Edit] [More]    |
-|     [research] [agent]                  [Paperclip: 2]        |
-|                                                               |
-| [x] Selected Note excerpt                         [More]      |
-|     [local]                             [Paperclip: 1]        |
-|                                                               |
-|               ... virtualized Note stack ...                  |
-+---------------------------------------------------------------+
-| 2 selected                                    [Delete...]     |
-| [ Capture a thought...                         ] [Create]     |
-+---------------------------------------------------------------+
++----------------------------------------------+
+| CHARON                              [?] [gear]|
++----------------------------------------------+
+| [ Search Notes and Tags...              ][x]|
+| [ Open 5 ] [ Done 1 ]             [Select] |
+|                                              |
+| +------------------------------------------+ |
+| | o  Agent handoff                     ...| |
+| |    Verify the empty state... Agent  · 1| |
+| +------------------------------------------+ |
+| | o  Local Markdown                    ...| |
+| |    Visible files, explicit copy...      | |
+| +------------------------------------------+ |
+| |             ... virtualized stack ...   | |
+|                                              |
+| [ Capture a thought...                   ^ ]|
++----------------------------------------------+
 
 Expanded from the live Note row:
-+---------------------------------------------------------------+
-| [Write] [Preview]                            [Done] [Close]   |
-|                                                               |
-| Large Markdown editor or safe preview                         |
-|                                                               |
-| Tags        [research] [agent] [+ Add]                        |
-| Attachments paper.pdf | 240 KB                   [Remove]     |
-|             [+ Add Attachment]                                |
-+---------------------------------------------------------------+
++------------------------------------------+
+| o  Agent handoff                      ...|
+| | [Write] [Preview]    Saved       [x] | |
+| |                                      | |
+| | Markdown editor or safe preview       | |
+| |                                      | |
+| | Tags        [research] [agent] [Add] | |
+| | Attachments                    [Add] | |
+| | file  release-brief.pdf          [x] | |
++------------------------------------------+
 ```
 
 Control labels in the diagram are structural placeholders; implementation uses
 Tabler outline icons and localized accessible names, never emoji glyphs.
 
+The permanent titlebar and composer are solid surfaces separated by the
+semantic separator. The wordmark stays small, native outer-window controls and
+macOS traffic-light space remain platform-owned, and one-pixel Lavender lines
+are reserved for focus, Selection, expansion, or a successful new-Note
+acknowledgement. Note rows use one semantic fill, a restrained one-pixel border,
+6-8px vertical rhythm, and no lift or shadow. They remain a list, never a card
+grid.
+
 The top chrome remains compact at large text sizes. At narrow desktop widths,
-actions collapse behind their existing compact control before search or the
-composer becomes unusable. French strings wrap or expand controls without
-clipping. Preferences is a focused transient surface containing the active
-Notes folder, an explicit validated chooser, theme and language choices, and
-capture permission state; it is not a product destination.
+secondary Tag metadata collapses before title, preview, status, Actions, search,
+errors, or the composer become unusable. French strings wrap or compact without
+clipping or horizontal scrolling. Preferences is a focused transient surface
+containing the active Notes folder, an explicit validated chooser, theme and
+language choices, and capture permission state; it is not a product
+destination.
 
 ## Note row and Actions
 
@@ -100,11 +122,13 @@ theme and are never communicated by color alone.
 
 ## Composer
 
-The bottom composer is always visible, accepts a short Markdown body, creates
-one Open Note on Enter, and does nothing for empty or whitespace-only input. It
-preserves text on failure and shows retry beside the error. Longer work moves
-into the same expanded Note editor after creation rather than opening another
-window.
+The solid bottom composer is always visible, accepts a short Markdown body,
+creates one Open Note on Enter, and does nothing for empty or whitespace-only
+input. It preserves text on failure and shows retry beside the error. Longer
+work moves into the same expanded Note editor after creation rather than
+opening another window. It has no permanent help sentence, pre-Note Attachment
+queue, thumbnail strip, drag and drop, or arbitrary preview; essential capture
+help remains available from Help and Preferences.
 
 Invoking `CmdOrCtrl+Shift+Space` reveals Charon and focuses the composer on every
 platform; the evidence ledger separately gates global operating-system delivery.
@@ -208,19 +232,30 @@ frame. Direct manipulation tracks 1:1. State transitions default to critically
 damped springs, remain interruptible and reversible, and retarget from the
 current presentation value. Input is never locked while motion settles.
 
-The editor expansion is a transform-and-opacity shared-layout transition from
-the live row. It carries the row's current presentation value, uses the same
-spatial path to expand and collapse, remains reversible at every point, and
-returns to the current row target if the list changes. Non-gesture UI has no
-decorative bounce. Virtualization keeps a stable visual placeholder while the
-expanded surface owns focus.
+The allowed motion foundation is exact and intentionally small: existing
+button/icon press feedback at scale `.98`; origin-aware opacity plus scale
+`.98-.985` for Tooltips, menus, and Popovers over 120-180ms with symmetric
+exit; the existing critically damped nested row/editor transform-and-opacity
+transition; and one 160ms one-pixel Lavender line after a successful create.
+The editor expansion begins from the live row, carries its current presentation
+value, uses the same path to expand and collapse, remains reversible at every
+point, and returns to the current row target if the list changes.
 
-Only transform and opacity animate. Translucency is limited to transient or
-navigation layers where it communicates hierarchy, is never stacked, and has
-solid semantic fallbacks. With `prefers-reduced-motion`, shared travel, springs,
-parallax, and momentum become a short opacity crossfade or static swap. With
-reduced transparency, materials become solid. Increased contrast adds clear
-boundaries without changing information architecture.
+Reject list entrance and search-result motion, a sliding Open/Done pill, row
+lift, hover shadow, parallax, bounce, gradients, grain, composer-focus
+animation, fixed gesture timelines, and animation input locks. The virtual
+`<li>` remains the sole owner of Y translation; any row/editor motion belongs
+to its nested surface. Virtualization keeps a stable visual placeholder while
+the expanded surface owns focus.
+
+Only transform and opacity animate. Translucency is limited to transient
+Popovers, menus, Tooltips, dialogs, and toasts where it communicates hierarchy,
+is never stacked, and has solid semantic fallbacks. The titlebar, shelf,
+toolbar, Notes, and composer stay solid. With `prefers-reduced-motion`, shared
+travel, scale, springs, parallax, and momentum become a short opacity crossfade
+or static swap. With reduced transparency, transient materials become solid.
+Increased contrast adds clear boundaries without changing information
+architecture.
 
 ## Accessibility and acceptance review
 
