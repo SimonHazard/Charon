@@ -65,7 +65,7 @@ describe('single note shelf', () => {
     expect(screen.queryByText('Attachment note')).toBeNull();
   });
 
-  it('keeps the list and composer in stable grid rows without contextual feedback', () => {
+  it('keeps search first, status and Selection second, then the list and solid composer', () => {
     renderScreen();
     const list = screen.getByRole('list', { name: 'Notes' });
     const shelf = list.parentElement?.parentElement;
@@ -75,8 +75,13 @@ describe('single note shelf', () => {
       'note-workbar',
       'note-context',
       'note-list',
-      'composer-dock transient-material',
+      'composer-dock',
     ]);
+    const workbar = shelf?.firstElementChild;
+    expect(workbar?.firstElementChild?.className).toBe('note-search');
+    expect(workbar?.lastElementChild?.className).toBe('note-toolbar-row');
+    expect(screen.getByRole('button', { name: /Open/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelector('.capture-hint')).toBeNull();
   });
 
   it('copies only note IDs through the canonical ClipboardComposer request', async () => {

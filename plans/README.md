@@ -39,7 +39,7 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | BLOCKED: physical accessibility and motion matrix incomplete |
 | 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | BLOCKED: physical macOS, Linux, and Windows smoke incomplete |
 | 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | DONE |
-| 016 | [Retarget the premium desktop to a compact vertical capture shelf](./016-refine-premium-desktop-shelf.md) | P1 | L | 009-013; existing 014 automated harness | TODO |
+| 016 | [Retarget the premium desktop to a compact vertical capture shelf](./016-refine-premium-desktop-shelf.md) | P1 | L | 009-013; existing 014 automated harness | DONE |
 | 017 | [Align every Charon workflow inside the compact shelf](./017-align-compact-shelf-features.md) | P1 | XL | 016 | TODO |
 | 014 | [Close release quality against exact GitHub candidate artifacts](./014-close-rapid-capture-quality-gaps.md) | P1 | L + physical matrix | 017 | TODO |
 | 015 | [Publish GitHub Releases with Tauri-signed updates and no paid platform certificates](./015-automate-builds-and-releases.md) | P1 | XL | 014 | TODO |
@@ -71,15 +71,21 @@ technology evidence that automation cannot substitute. The automated portion of
 the former Plan 014 exists and supports UI work, but its remaining acceptance is
 now sequenced after the complete compact feature matrix in Plan 017.
 
-Plan 016 is the next implementation task. It changes no product domain: first-
-run window geometry becomes 480x720 with a 400px minimum, the shelf caps at
-34rem, Notes remain one virtualized vertical stack, and the composer stays
-anchored and body-only. Plan 017 then proves every workflow at effective 360px
-and above, including 20 managed Attachments, long filenames, import/removal
-failures, Selection, copy, Delete, Preferences, Workspace recovery, EN/FR, and
-accessibility. The supplied reference's thumbnails and composer Attachments are
-explicitly not copied because Charon neither previews arbitrary files nor owns
-an Attachment before a Note exists.
+Plan 016 completed on 2026-08-11 on branch
+`codex/016-compact-desktop-shelf` in its five required commits. First-run window
+geometry is 480x720 with a 400px minimum, restored user size remains
+authoritative, the shelf caps at 34rem, Notes remain one virtualized bounded
+vertical stack, and the solid composer stays anchored and body-only. The full
+EN/FR and Solarized/Light/Dark compact matrix, effective 360px review, Axe,
+performance, privacy, Cargo, native first-run/restoration check, and two
+consecutive release gates passed.
+
+Plan 017 is the next implementation task. It proves every workflow at effective
+360px and above, including 20 managed Attachments, long filenames,
+import/removal failures, Selection, copy, Delete, Preferences, Workspace
+recovery, EN/FR, and accessibility. The supplied reference's thumbnails and
+composer Attachments remain explicitly rejected because Charon neither previews
+arbitrary files nor owns an Attachment before a Note exists.
 
 After Plan 017, Plan 014 closes exact-candidate evidence without requiring paid
 platform certificates. Plan 015 first accepts a distribution ADR, then replaces

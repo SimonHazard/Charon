@@ -54,8 +54,8 @@ describe('virtual note list', () => {
     const user = userEvent.setup();
     const item = note({
       id: 'note-a',
-      body: '# Alpha',
-      tags: ['Agent'],
+      body: '# Alpha\nOne restrained preview line',
+      tags: ['Agent', 'Research', 'Local'],
       attachments: [
         {
           id: 'a',
@@ -69,7 +69,7 @@ describe('virtual note list', () => {
       <AppProviders>
         <NoteList
           {...callbacks}
-          allTags={['Agent']}
+          allTags={['Agent', 'Research', 'Local']}
           expandedId={null}
           notes={[item]}
           selection={emptySelection}
@@ -78,7 +78,12 @@ describe('virtual note list', () => {
       </AppProviders>,
     );
     expect(screen.getByRole('button', { name: 'Agent' })).toBeTruthy();
-    expect(screen.getByText('1 attachments')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Research' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Local' })).toBeNull();
+    expect(screen.getByText('+1')).toBeTruthy();
+    expect(screen.getByText(/Tags: Agent, Research, Local\. 1 attachments\./)).toBeTruthy();
+    expect(screen.getByText('One restrained preview line')).toBeTruthy();
+    expect(document.querySelector('.note-row-main')?.children).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Mark done' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
     expect(await screen.findByText('Copy as Markdown')).toBeTruthy();
