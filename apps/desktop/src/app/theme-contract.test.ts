@@ -58,6 +58,8 @@ const requiredSemanticTokens = [
   '--surface',
   '--surface-elevated',
   '--surface-inset',
+  '--surface-hover',
+  '--surface-pressed',
   '--text',
   '--text-muted',
   '--text-subtle',
@@ -68,9 +70,11 @@ const requiredSemanticTokens = [
   '--action-pressed',
   '--action-text',
   '--selection-surface',
+  '--selection-subtle',
   '--selection-text',
   '--selection-border',
   '--focus',
+  '--separator',
   '--danger',
   '--danger-text',
   '--danger-surface',
@@ -90,6 +94,7 @@ const requiredSemanticTokens = [
   '--radius-field',
   '--radius-control',
   '--shadow-floating',
+  '--shadow-transient',
 ] as const;
 
 type ThemeFixture = 'light' | 'solarized' | 'dark';
@@ -177,6 +182,12 @@ describe('theme token contract', () => {
         ['--text', '--canvas'],
         ['--text-muted', '--canvas'],
         ['--text-subtle', '--canvas'],
+        ['--text', '--surface-hover'],
+        ['--text-muted', '--surface-hover'],
+        ['--text', '--surface-pressed'],
+        ['--text-muted', '--surface-pressed'],
+        ['--text', '--selection-subtle'],
+        ['--text-muted', '--selection-subtle'],
         ['--action-text', '--action'],
         ['--action-text', '--action-hover'],
         ['--action-text', '--action-pressed'],
@@ -200,7 +211,11 @@ describe('theme token contract', () => {
         ['--focus', '--surface'],
         ['--focus', '--surface-elevated'],
         ['--focus', '--selection-surface'],
+        ['--focus', '--surface-hover'],
+        ['--focus', '--surface-pressed'],
+        ['--focus', '--selection-subtle'],
         ['--selection-border', '--selection-surface'],
+        ['--selection-border', '--selection-subtle'],
       ] as const;
       for (const [foreground, background] of nonTextPairs) {
         expect(
