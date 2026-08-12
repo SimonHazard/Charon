@@ -3,6 +3,10 @@
   --motion-easing-direct: cubic-bezier(0.2, 0, 0, 1);
   --motion-press-scale: 0.98;
 
+  --motion-duration-transient: 160ms;
+  --motion-easing-transient: cubic-bezier(0.2, 0, 0, 1);
+  --motion-transient-scale: 0.985;
+
   --motion-duration-surface: 360ms;
   --motion-easing-surface: cubic-bezier(0.2, 0.8, 0.2, 1);
   --motion-surface-distance: 16px;
@@ -18,6 +22,8 @@
   :root {
     --motion-duration-direct: 0ms;
     --motion-press-scale: 1;
+    --motion-duration-transient: 120ms;
+    --motion-transient-scale: 1;
     --motion-duration-surface: 120ms;
     --motion-surface-distance: 0px;
     --motion-surface-scale: 1;

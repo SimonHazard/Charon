@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
@@ -19,5 +20,25 @@ describe('single shelf shell', () => {
     expect(document.querySelector('.context-inspector')).toBeNull();
     expect(document.querySelector('footer')).toBeNull();
     expect(screen.getByAltText('Charon')).toBeTruthy();
+  });
+
+  it('keeps native drag chrome compact and opens ordinary Help as an anchored Popover', async () => {
+    const user = userEvent.setup();
+    render(
+      <AppProviders>
+        <AppShell>
+          <p>content</p>
+        </AppShell>
+      </AppProviders>,
+    );
+
+    const titlebar = document.querySelector('.titlebar');
+    expect(titlebar?.getAttribute('data-tauri-drag-region')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(await screen.findByText('Capture from anywhere')).toBeTruthy();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 });

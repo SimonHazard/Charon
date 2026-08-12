@@ -80,6 +80,8 @@ export const NoteRow = memo(function NoteRow({
     .filter((line) => line.trim())
     .slice(1, 3)
     .join(' ');
+  const attachmentSummary = m.attachment_count({ count: note.attachments.length });
+  const tagSummary = note.tags.length ? note.tags.join(', ') : m.note_metadata_no_tags();
 
   const copy = async () => {
     try {
@@ -100,62 +102,70 @@ export const NoteRow = memo(function NoteRow({
       data-selected={selected}
     >
       <div className="note-row-main">
-        {selectionMode ? (
-          <Checkbox
-            aria-label={m.note_select_label({ title })}
-            checked={selected}
-            onCheckedChange={() => onToggleSelection(note.id)}
-          />
-        ) : (
-          <Button
-            aria-label={note.status === 'done' ? m.note_mark_open() : m.note_mark_done()}
-            className="note-status-button"
-            onClick={() => void onToggleStatus(note)}
-            size="icon-sm"
-            variant="ghost"
-          >
-            <span aria-hidden className="note-status-dot" data-status={note.status}>
-              {note.status === 'done' ? <IconCheck /> : null}
-            </span>
-          </Button>
-        )}
-        <button
-          className="note-row-activation"
-          data-note-focus={note.id}
-          onClick={(event) => (selectionMode ? onActivate(note.id, event) : onExpand(note.id))}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              if (selectionMode) onActivate(note.id, event);
-              else onExpand(note.id);
-            }
-          }}
-          type="button"
-        >
-          <span className="note-row-title">{title}</span>
-          {remainingLines ? <span className="note-row-snippet">{remainingLines}</span> : null}
-        </button>
-        <div className="note-row-metadata">
-          {note.tags.slice(0, 3).map((tag) => (
-            <button
-              className="tag-filter-chip"
-              key={tag}
-              onClick={() => onTagFilter(tag)}
-              type="button"
+        <div className="note-row-leading">
+          {selectionMode ? (
+            <Checkbox
+              aria-label={m.note_select_label({ title })}
+              checked={selected}
+              onCheckedChange={() => onToggleSelection(note.id)}
+            />
+          ) : (
+            <Button
+              aria-label={note.status === 'done' ? m.note_mark_open() : m.note_mark_done()}
+              className="note-status-button"
+              onClick={() => void onToggleStatus(note)}
+              size="icon-sm"
+              variant="ghost"
             >
-              {tag}
-            </button>
-          ))}
-          {note.tags.length > 3 ? <Badge variant="secondary">+{note.tags.length - 3}</Badge> : null}
-          {note.attachments.length ? (
-            <span className="attachment-count">
-              <IconPaperclip aria-hidden="true" />
-              <span aria-hidden="true">{note.attachments.length}</span>
-              <span className="sr-only">
-                {m.attachment_count({ count: note.attachments.length })}
+              <span aria-hidden className="note-status-dot" data-status={note.status}>
+                {note.status === 'done' ? <IconCheck /> : null}
               </span>
+            </Button>
+          )}
+        </div>
+        <div className="note-row-content">
+          <button
+            className="note-row-activation"
+            data-note-focus={note.id}
+            onClick={(event) => (selectionMode ? onActivate(note.id, event) : onExpand(note.id))}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                if (selectionMode) onActivate(note.id, event);
+                else onExpand(note.id);
+              }
+            }}
+            type="button"
+          >
+            <span className="note-row-title">{title}</span>
+            {remainingLines ? <span className="note-row-snippet">{remainingLines}</span> : null}
+          </button>
+          <div className="note-row-metadata" data-note-metadata>
+            <span className="sr-only">
+              {m.note_metadata_summary({ tags: tagSummary, attachments: attachmentSummary })}
             </span>
-          ) : null}
+            {note.tags.slice(0, 2).map((tag) => (
+              <button
+                className="tag-filter-chip"
+                key={tag}
+                onClick={() => onTagFilter(tag)}
+                type="button"
+              >
+                {tag}
+              </button>
+            ))}
+            {note.tags.length > 2 ? (
+              <Badge className="tag-overflow" variant="secondary">
+                +{note.tags.length - 2}
+              </Badge>
+            ) : null}
+            {note.attachments.length ? (
+              <span aria-hidden="true" className="attachment-count">
+                <IconPaperclip />
+                <span>{note.attachments.length}</span>
+              </span>
+            ) : null}
+          </div>
         </div>
         {!selectionMode ? (
           <div className="note-row-actions">
@@ -187,6 +197,7 @@ export const NoteRow = memo(function NoteRow({
             </DropdownMenu>
             <Button
               aria-label={m.note_edit({ title })}
+              className="note-edit-button"
               onClick={() => onExpand(note.id)}
               size="icon-sm"
               variant="ghost"

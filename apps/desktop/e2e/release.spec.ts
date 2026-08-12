@@ -1,8 +1,54 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 const desktop = '/?fixture=media';
 const site = 'http://127.0.0.1:4321/Charon/';
+
+async function expectCompactShelf(page: Page, width: number, height: number) {
+  await expect(page.locator('.note-search input')).toBeVisible();
+  await expect(page.locator('.note-capture-input input')).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const shelf = document.querySelector<HTMLElement>('.note-screen');
+    const search = document.querySelector<HTMLElement>('.note-search');
+    const status = document.querySelector<HTMLElement>('.status-segment');
+    const list = document.querySelector<HTMLElement>('.note-list');
+    const composer = document.querySelector<HTMLElement>('.composer-dock');
+    const row = document.querySelector<HTMLElement>('.note-row');
+    if (!shelf || !search || !status || !list || !composer || !row) return null;
+    const shelfRect = shelf.getBoundingClientRect();
+    const searchRect = search.getBoundingClientRect();
+    const statusRect = status.getBoundingClientRect();
+    const listRect = list.getBoundingClientRect();
+    const composerRect = composer.getBoundingClientRect();
+    const rowStyle = getComputedStyle(row);
+    return {
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
+      shelfWidth: shelfRect.width,
+      shelfLeft: shelfRect.left,
+      searchBeforeStatus: searchRect.bottom <= statusRect.top,
+      listBeforeComposer: listRect.bottom <= composerRect.top + 1,
+      composerBottom: composerRect.bottom,
+      rowBorder: rowStyle.borderTopStyle,
+      rowShadow: rowStyle.boxShadow,
+      rowBackground: rowStyle.backgroundColor,
+    };
+  });
+
+  expect(geometry).not.toBeNull();
+  expect(geometry?.documentOverflow).toBeLessThanOrEqual(0);
+  expect(geometry?.bodyOverflow).toBeLessThanOrEqual(0);
+  expect(geometry?.shelfWidth).toBeLessThanOrEqual(544);
+  expect(geometry?.shelfLeft).toBeGreaterThanOrEqual(0);
+  expect(geometry?.searchBeforeStatus).toBe(true);
+  expect(geometry?.listBeforeComposer).toBe(true);
+  expect(geometry?.composerBottom).toBeLessThanOrEqual(height + 1);
+  expect(geometry?.rowBorder).toBe('solid');
+  expect(geometry?.rowShadow).toBe('none');
+  expect(geometry?.rowBackground).not.toBe('rgba(0, 0, 0, 0)');
+  expect(width - (geometry?.shelfWidth ?? width)).toBeGreaterThanOrEqual(0);
+}
 
 test('first launch and manual composer create exactly one Open Note', async ({ page }) => {
   await page.goto(desktop);
@@ -78,14 +124,123 @@ test('compact Preferences applies themes and locale without leaving the shelf', 
   await expect(page.getByRole('heading', { name: 'Préférences' })).toBeVisible();
 });
 
-test('desktop remains usable at 200 percent and reduced preferences', async ({ page }) => {
+test('compact shelf geometry holds at minimum, default, capped, and restored sizes', async ({
+  page,
+}) => {
+  for (const { width, height } of [
+    { width: 400, height: 480 },
+    { width: 480, height: 720 },
+    { width: 544, height: 720 },
+    { width: 720, height: 480 },
+  ]) {
+    await page.setViewportSize({ width, height });
+    await page.goto(desktop);
+    await expectCompactShelf(page, width, height);
+  }
+});
+
+test('compact shelf keeps EN and FR across every theme at 400 and 480 pixels', async ({ page }) => {
+  test.slow();
+  for (const width of [400, 480]) {
+    for (const locale of ['en', 'fr']) {
+      for (const theme of ['solarized', 'light', 'dark']) {
+        const matrixPage = await page.context().newPage();
+        await matrixPage.setViewportSize({ width, height: 720 });
+        await matrixPage.goto(desktop);
+        await matrixPage.getByRole('button', { name: /Settings|Réglages/ }).click();
+        await matrixPage
+          .getByRole('button', {
+            name: {
+              solarized: /Solarized/,
+              light: /Light|Clair/,
+              dark: /Graphite/,
+            }[theme],
+          })
+          .click();
+        await matrixPage
+          .getByRole('button', {
+            name: locale === 'fr' ? /English|Anglais/ : /French|Français/,
+          })
+          .click();
+        await matrixPage
+          .getByRole('button', {
+            name: locale === 'fr' ? /French|Français/ : /English|Anglais/,
+          })
+          .click();
+        await expect(matrixPage.locator('html')).toHaveAttribute('lang', locale);
+        await expect(matrixPage.locator('html')).toHaveAttribute('data-theme', theme);
+        await matrixPage.keyboard.press('Escape');
+        await expectCompactShelf(matrixPage, width, 720);
+        await matrixPage.close();
+      }
+    }
+  }
+});
+
+test('desktop remains usable at effective 360 pixels and reduced preferences', async ({
+  browserName,
+  page,
+}) => {
+  await page.setViewportSize({ width: 720, height: 720 });
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
   await page.goto(desktop);
   await page.evaluate(() => {
     document.documentElement.style.zoom = '2';
   });
-  await expect(page.getByPlaceholder('Capture a thought…')).toBeVisible();
-  await expect(page.locator('body')).not.toHaveCSS('overflow-x', 'scroll');
+  await expect(page.locator('.note-capture-input input')).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  if (browserName === 'chromium') {
+    const session = await page.context().newCDPSession(page);
+    await session.send('Emulation.setEmulatedMedia', {
+      features: [
+        { name: 'prefers-reduced-transparency', value: 'reduce' },
+        { name: 'prefers-contrast', value: 'more' },
+      ],
+    });
+    await page.reload();
+    expect(
+      await page.evaluate(
+        () =>
+          matchMedia('(prefers-reduced-transparency: reduce)').matches &&
+          matchMedia('(prefers-contrast: more)').matches,
+      ),
+    ).toBe(true);
+    await page.getByRole('button', { name: /Keyboard shortcuts|Raccourcis clavier/ }).click();
+    await expect(page.locator('.help-popover')).toHaveCSS('backdrop-filter', 'none');
+    await expect(page.locator('.note-row').first()).toHaveCSS('border-top-color', /rgb/);
+  }
+});
+
+test('changed compact controls preserve keyboard focus and coarse-pointer actions', async ({
+  browser,
+  page,
+}) => {
+  await page.setViewportSize({ width: 400, height: 480 });
+  await page.goto(desktop);
+  const help = page.getByRole('button', { name: 'Keyboard shortcuts' });
+  await help.focus();
+  await help.press('Enter');
+  await expect(page.getByText('Capture from anywhere')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(help).toBeFocused();
+  const done = page.getByRole('button', { name: 'Done', exact: true });
+  await done.focus();
+  await done.press('Space');
+  await expect(done).toHaveAttribute('aria-pressed', 'true');
+
+  const context = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 400, height: 480 },
+  });
+  const touchPage = await context.newPage();
+  await touchPage.goto(desktop);
+  expect(await touchPage.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+  await expect(touchPage.locator('.note-edit-button').first()).toHaveCSS('opacity', '1');
+  await context.close();
 });
 
 test('site routes, media, privacy and release state are truthful', async ({ page }) => {
@@ -125,6 +280,7 @@ test('site is keyboard accessible, axe-clean and makes no third-party request', 
 });
 
 test('desktop major shelf and Preferences states are axe-clean', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 480 });
   await page.goto(desktop);
   let results = await new AxeBuilder({ page }).analyze();
   expect(

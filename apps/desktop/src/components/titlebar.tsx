@@ -4,17 +4,16 @@ import { m as motion } from 'motion/react';
 import { useMessages } from '@/app/providers';
 import icon from '@/assets/brand/charon-icon-lavender.svg';
 import wordmark from '@/assets/brand/charon-wordmark-color.svg';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { PreferencesPanel } from '@/features/preferences/preferences-panel';
 import { usePressFeedback } from '@/motion/press';
 
@@ -28,31 +27,35 @@ export function Titlebar() {
         <img alt={m.app_title()} className="titlebar-wordmark" src={wordmark} />
       </picture>
       <div className="titlebar-actions">
-        <AlertDialog>
-          <AlertDialogTrigger
-            aria-label={m.shortcut_help_title()}
-            onKeyDown={helpPress.onKeyDown}
-            onKeyUp={helpPress.onKeyUp}
-            onPointerCancel={helpPress.onPointerCancel}
-            onPointerDown={helpPress.onPointerDown}
-            onPointerLeave={helpPress.onPointerLeave}
-            onPointerUp={helpPress.onPointerUp}
-            render={<Button size="icon-sm" variant="ghost" />}
-          >
-            <motion.span aria-hidden style={helpPress.style}>
-              <IconHelp />
-            </motion.span>
-          </AlertDialogTrigger>
-          <AlertDialogContent size="sm">
-            <AlertDialogHeader>
-              <AlertDialogTitle>{m.capture_help_title()}</AlertDialogTitle>
-              <AlertDialogDescription>{m.capture_help_description()}</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{m.common_close()}</AlertDialogCancel>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Popover>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <PopoverTrigger
+                  aria-label={m.shortcut_help_title()}
+                  onKeyDown={helpPress.onKeyDown}
+                  onKeyUp={helpPress.onKeyUp}
+                  onPointerCancel={helpPress.onPointerCancel}
+                  onPointerDown={helpPress.onPointerDown}
+                  onPointerLeave={helpPress.onPointerLeave}
+                  onPointerUp={helpPress.onPointerUp}
+                  render={<Button size="icon-sm" variant="ghost" />}
+                />
+              }
+            >
+              <motion.span aria-hidden style={helpPress.style}>
+                <IconHelp />
+              </motion.span>
+            </TooltipTrigger>
+            <TooltipContent>{m.shortcut_help_title()}</TooltipContent>
+          </Tooltip>
+          <PopoverContent align="end" className="help-popover" sideOffset={4}>
+            <PopoverHeader>
+              <PopoverTitle>{m.capture_help_title()}</PopoverTitle>
+              <PopoverDescription>{m.capture_help_description()}</PopoverDescription>
+            </PopoverHeader>
+          </PopoverContent>
+        </Popover>
         <PreferencesPanel />
       </div>
     </header>

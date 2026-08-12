@@ -62,6 +62,8 @@
   "note_mark_open": "Mark open",
   "note_mark_done": "Mark done",
   "note_list_label": "Notes",
+  "note_metadata_no_tags": "No tags",
+  "note_metadata_summary": "Tags: {tags}. {attachments}.",
   "note_empty_open_title": "No open notes",
   "note_empty_open_description": "Capture a note below when something needs your attention.",
   "note_empty_done_title": "No completed notes",

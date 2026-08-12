@@ -23,13 +23,18 @@ describe('motion profiles', () => {
     expect(reducedSurfaceTransition.duration).toBeLessThan(0.2);
   });
 
-  it('keeps shared CSS motion to direct, surface, and gesture-release profiles', () => {
+  it('keeps shared CSS motion to direct, transient, surface, and gesture-release profiles', () => {
     const css = readFileSync(resolve(process.cwd(), '../../packages/theme/src/motion.css'), 'utf8');
 
     expect(css).toContain('--motion-duration-direct:');
+    expect(css).toContain('--motion-duration-transient: 160ms;');
+    expect(css).toContain('--motion-easing-transient:');
+    expect(css).toContain('--motion-transient-scale: 0.985;');
     expect(css).toContain('--motion-duration-surface:');
     expect(css).toContain('--motion-gesture-release-response:');
     expect(css).toMatch(/prefers-reduced-motion:[\s\S]*--motion-surface-distance:\s*0px/);
+    expect(css).toMatch(/prefers-reduced-motion:[\s\S]*--motion-duration-transient:\s*120ms/);
+    expect(css).toMatch(/prefers-reduced-motion:[\s\S]*--motion-transient-scale:\s*1/);
     expect(css).toMatch(/prefers-reduced-transparency:[\s\S]*--material-blur:\s*0px/);
     expect(css).not.toContain(['transition:', 'all'].join(' '));
     expect(css).not.toContain(['@', 'keyframes'].join(''));

@@ -6,7 +6,13 @@ capture, then refined the same day to make lightweight Tags, managed
 Attachments, and `Copy as Markdown` part of the smaller core. Plans 001-007 are
 complete. The former TODO Plans 008-012 were replaced before implementation;
 their obsolete Settings/Insights/broad-workflow direction must not be resumed
-from git history.
+from git history. On 2026-08-11 at commit `7294773`, the operator supplied a
+reference video whose right-hand app is an approximately 450px-wide vertical
+shelf, required the current managed-Attachment feature to fit that constraint,
+and rejected paid Apple and Windows certificates. Plan 016 was retargeted to a
+480px-first-run compact shelf, Plan 017 was added to align every existing
+workflow, and Plans 014-015 were reconciled around exact GitHub artifacts and a
+separate Tauri updater signature.
 
 Execute one remaining plan at a time in the order below. Every executor must
 read `README.md`, product/architecture/privacy/UX or SITE contracts, relevant
@@ -33,11 +39,13 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 011 | [Build the single-shelf desktop experience](./011-build-single-shelf-desktop.md) | P1 | XL | 009, 010 | BLOCKED: physical accessibility and motion matrix incomplete |
 | 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | BLOCKED: physical macOS, Linux, and Windows smoke incomplete |
 | 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | DONE |
-| 014 | [Close rapid-capture release quality gaps](./014-close-rapid-capture-quality-gaps.md) | P1 | L | 009-013 | BLOCKED: signed native and assistive-technology matrix incomplete |
-| 015 | [Automate signed builds, static hosting, and releases](./015-automate-builds-and-releases.md) | P1 | XL | 014 | BLOCKED: signing secrets, updater endpoint, and operator approval absent |
+| 016 | [Retarget the premium desktop to a compact vertical capture shelf](./016-refine-premium-desktop-shelf.md) | P1 | L | 009-013; existing 014 automated harness | DONE |
+| 017 | [Align every Charon workflow inside the compact shelf](./017-align-compact-shelf-features.md) | P1 | XL | 016 | TODO |
+| 014 | [Close release quality against exact GitHub candidate artifacts](./014-close-rapid-capture-quality-gaps.md) | P1 | L + physical matrix | 017 | TODO |
+| 015 | [Publish GitHub Releases with Tauri-signed updates and no paid platform certificates](./015-automate-builds-and-releases.md) | P1 | XL | 014 | TODO |
 
-Status values: `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED: <reason>`, or
-`REJECTED: <reason>`.
+Status values: `TODO`, `IN PROGRESS`, `AWAITING OPERATOR: <reason>`, `DONE`,
+`BLOCKED: <reason>`, or `REJECTED: <reason>`.
 
 ## Active handoff
 
@@ -58,12 +66,34 @@ Plans 012 through 015 were implemented together on
 `codex/012-minimal-preferences` at the operator's explicit request. Automated
 bindings, lint, type, unit, integration, build, Playwright Chromium/WebKit,
 Axe, privacy, performance, immutable-workflow, Clippy, and Cargo gates pass.
-Plan 013 is complete. Plans 011, 012, and 014 retain only the physical native,
-assistive-technology, and signed-candidate evidence that local automation cannot
-substitute. Plan 015 has pinned review, quality, security, Pages, and protected
-draft-release workflows plus runbooks, but remains blocked until the operator
-provides signing/notarization secrets, a public updater endpoint and key, and
-release approval. No public deployment, tag, release, or installer claim exists.
+Plan 013 is complete. Plans 011 and 012 retain physical native and assistive-
+technology evidence that automation cannot substitute. The automated portion of
+the former Plan 014 exists and supports UI work, but its remaining acceptance is
+now sequenced after the complete compact feature matrix in Plan 017.
+
+Plan 016 completed on 2026-08-11 on branch
+`codex/016-compact-desktop-shelf` in its five required commits. First-run window
+geometry is 480x720 with a 400px minimum, restored user size remains
+authoritative, the shelf caps at 34rem, Notes remain one virtualized bounded
+vertical stack, and the solid composer stays anchored and body-only. The full
+EN/FR and Solarized/Light/Dark compact matrix, effective 360px review, Axe,
+performance, privacy, Cargo, native first-run/restoration check, and two
+consecutive release gates passed.
+
+Plan 017 is the next implementation task. It proves every workflow at effective
+360px and above, including 20 managed Attachments, long filenames,
+import/removal failures, Selection, copy, Delete, Preferences, Workspace
+recovery, EN/FR, and accessibility. The supplied reference's thumbnails and
+composer Attachments remain explicitly rejected because Charon neither previews
+arbitrary files nor owns an Attachment before a Note exists.
+
+After Plan 017, Plan 014 closes exact-candidate evidence without requiring paid
+platform certificates. Plan 015 first accepts a distribution ADR, then replaces
+the Apple-only release job with protected macOS/Linux/Windows GitHub Release
+artifacts. macOS remains ad-hoc and not notarized; Windows remains unsigned;
+Tauri signing protects updater metadata/packages only. The static site links to
+GitHub `/releases/latest` without a browser API request. No public deployment,
+tag, release, installer, or updater key currently exists.
 
 ## Dependency graph
 
@@ -79,12 +109,12 @@ flowchart LR
   P9 --> P13["013 static site"]
   P11 --> P13
   P12 --> P13
-  P9 --> P14["014 release quality"]
-  P10 --> P14
-  P11 --> P14
-  P12 --> P14
-  P13 --> P14
-  P14 --> P15["015 distribution"]
+  P11 --> P16["016 compact shelf foundation"]
+  P12 --> P16
+  P13 --> P16
+  P16 --> P17["017 compact feature alignment"]
+  P17 --> P14["014 exact-candidate quality"]
+  P14 --> P15["015 GitHub releases + Tauri updater"]
 ```
 
 ## Why this sequence changed
@@ -204,12 +234,13 @@ abstractions around them.
 All JavaScript/TypeScript dependencies are exact and all JavaScript commands use
 Bun. All Rust dependencies use exact `=` pins and Cargo. The manifests and
 lockfiles are authoritative for what is installed; this ledger is the reviewed
-baseline at commit `9beb3fe`.
+baseline at commit `7294773`.
 
 Plans 011 and 012 must remove obsolete manifest entries, lockfile nodes, and
 their ledger rows in the same change after proving no consumer remains. Plan 015
-may reintroduce updater/process dependencies only with signed, privacy-reviewed
-release behavior. Do not float a version or hand-edit either lockfile.
+may add the updater/process rows below only after its distribution ADR is
+accepted and its opt-in, privacy-reviewed flow is implemented. Do not float a
+version or hand-edit either lockfile.
 
 ### JavaScript and TypeScript baseline
 
@@ -225,6 +256,8 @@ release behavior. Do not float a version or hand-edit either lockfile.
 | `@tauri-apps/cli` | `2.11.4` | keep |
 | `@tauri-apps/api` | `2.11.1` | keep |
 | `@tauri-apps/plugin-dialog` | `2.7.2` | keep/review for folder and Attachment choosers |
+| `@tauri-apps/plugin-updater` | `2.10.1` | planned by Plan 015; verifies Tauri update artifacts, not OS publisher identity |
+| `@tauri-apps/plugin-process` | `2.3.1` | planned by Plan 015 for explicit post-update relaunch only |
 | `@base-ui/react` | `1.6.0` | keep |
 | `@tabler/icons-react` | `3.46.0` | keep |
 | `motion` | `12.43.0` | keep inside desktop |
@@ -269,6 +302,8 @@ explicitly rejected.
 | `ts-rs` | `12.0.1` | keep typed IPC generation |
 | `tauri-plugin-clipboard-manager` | `2.3.2` | keep explicit `Copy as Markdown` |
 | `tauri-plugin-dialog` | `2.7.2` | keep folder and Attachment choosers |
+| `tauri-plugin-updater` | `2.10.1` | planned by Plan 015; separate from Apple/Windows code signing |
+| `tauri-plugin-process` | `2.3.1` | planned by Plan 015 for explicit post-update relaunch only |
 | `tauri-plugin-global-shortcut` | `2.3.2` | keep portable shortcut |
 | `tauri-plugin-single-instance` | `2.4.3` | keep if lifecycle use remains |
 | `tauri-plugin-window-state` | `2.4.1` | keep if lifecycle use remains |
@@ -292,8 +327,8 @@ explicitly rejected.
   makes Markdown visible to users, backup tools, editors, and agents; the chooser
   covers people who want another location.
 - **Promise double Shift on Linux/Windows via low-level hooks**: rejected until
-  signed native evidence passes the existing gates. Standard shortcut and composer
-  are the pragmatic cross-platform contract.
+  exact physical candidate evidence passes the existing gates. Standard shortcut
+  and composer are the pragmatic cross-platform contract.
 - **Remove list virtualization to make editor animation easier**: rejected. A
   flat local Workspace still supports large collections; nested/shared motion
   must coexist with bounded DOM.
@@ -307,11 +342,34 @@ explicitly rejected.
 - **Render arbitrary Attachment previews or copy/upload their bytes to an agent**:
   rejected. Charon shows safe metadata and copies local paths only after the
   explicit `Copy as Markdown` action; the user controls any later agent upload.
+- **Copy the reference video's Attachment thumbnails or stage Attachments in the
+  bottom composer**: rejected. A Charon Attachment belongs to one persisted Note,
+  the composer remains body-only, and arbitrary formats are never previewed.
 - **Add Insights/TanStack Charts later in v1**: rejected, not deferred. The route,
   chart tokens, feature boundary, and ledger entries leave the product.
 - **Share logos through `@charon/theme`**: rejected by ADR 0004. Each app owns
   approved copies; only semantic tokens cross the boundary.
 - **Build fake Charon UI in Astro**: rejected. Site media must come from the real app.
+- **Clone Apple chrome or add permanent liquid glass**: rejected. Charon keeps
+  one cross-platform composition, native outer-window conventions, solid
+  permanent chrome, and translucency only for transient surfaces.
+- **Keep a 960px first-run desktop canvas**: rejected. The supplied reference is
+  a narrow utility shelf; Charon now targets a 480px first-run window, a 400px
+  minimum, and a 34rem content cap while retaining responsive expansion.
+- **Treat a Tauri updater signature as Apple Developer ID/notarization or Windows
+  Authenticode**: rejected. It verifies update artifacts only; platform trust,
+  installation warnings, checksums, and updater trust are documented separately.
+- **Replace Solarized with Light as the default**: rejected. The approved
+  primitives and Solarized-first identity remain; Plan 016 rebalances semantic
+  surface roles instead.
+- **Hide Note status until hover or selection**: rejected. A quiet leading ring
+  remains visible so state is scannable without pointer discovery.
+- **Add decorative list entrance, stagger, hover lift, or sliding-pill motion**:
+  rejected. Motion is reserved for immediate press feedback, transient-surface
+  origin, and editor spatial continuity.
+- **Introduce another UI kit, font, icon family, or generic card system**:
+  rejected. The refinement uses the existing Base UI, Tabler, Motion, system
+  typography, virtualizer, and semantic theme contract.
 
 ## Plan maintenance
 

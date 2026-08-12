@@ -27,11 +27,11 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
 import { NoteList } from '@/features/notes/note-list';
 import { filterNotes } from '@/features/notes/search';
 import { emptySelection, selectionReducer } from '@/features/notes/selection-model';
-import { useNativePreferences } from '@/features/preferences/preferences-context';
 import {
   asClipboardError,
   type ClipboardClient,
@@ -57,7 +57,6 @@ export function NoteScreen({
 }) {
   const m = useMessages();
   const composerFocus = useComposerFocus();
-  const nativePreferences = useNativePreferences();
   const { executeWorkspaceCommand, refreshWorkspace, setWorkspaceSwitchBlocked } = useWorkspace();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<NoteStatus>('open');
@@ -274,64 +273,78 @@ export function NoteScreen({
             </Button>
           ) : null}
         </div>
-        <fieldset className="status-segment">
-          <legend className="sr-only">{m.note_status_filter_label()}</legend>
-          <Button
-            aria-pressed={status === 'open'}
-            onClick={() => setStatus('open')}
-            size="sm"
-            variant={status === 'open' ? 'secondary' : 'ghost'}
+        <div className="note-toolbar-row">
+          <ToggleGroup
+            aria-label={m.note_status_filter_label()}
+            className="status-segment"
+            onValueChange={(values) => {
+              const next = values[0];
+              if (next === 'open' || next === 'done') setStatus(next);
+            }}
+            spacing={0}
+            value={[status]}
           >
-            {m.note_status_open()} <span aria-hidden>{openCount}</span>
-          </Button>
-          <Button
-            aria-pressed={status === 'done'}
-            onClick={() => setStatus('done')}
-            size="sm"
-            variant={status === 'done' ? 'secondary' : 'ghost'}
-          >
-            {m.note_status_done()} <span aria-hidden>{doneCount}</span>
-          </Button>
-        </fieldset>
-        {selectionMode ? (
-          <div className="selection-actions">
-            {selection.selectedIds.length ? (
-              <>
-                <Button
-                  onClick={() =>
-                    void executeWorkspaceCommand({
-                      type: 'setNoteStatus',
-                      noteIds: selection.selectedIds,
-                      status: status === 'open' ? 'done' : 'open',
-                    })
-                  }
-                  size="sm"
-                  variant="ghost"
-                >
-                  {status === 'open' ? m.note_mark_done() : m.note_mark_open()}
-                </Button>
-                <Button
-                  onClick={() => void copyNotes(selection.selectedIds)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  <IconCopy aria-hidden="true" /> {m.copy_as_markdown()}
-                </Button>
-                <Button onClick={() => setDeleteOpen(true)} size="sm" variant="destructive">
-                  <IconTrash aria-hidden="true" />{' '}
-                  {m.delete_selected({ count: selection.selectedIds.length })}
-                </Button>
-              </>
-            ) : null}
-            <Button onClick={leaveSelection} size="sm" variant="ghost">
-              {m.common_cancel()}
+            <ToggleGroupItem value="open">
+              {m.note_status_open()} <span aria-hidden>{openCount}</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="done">
+              {m.note_status_done()} <span aria-hidden>{doneCount}</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {selectionMode ? (
+            <div className="selection-actions">
+              {selection.selectedIds.length ? (
+                <>
+                  <Button
+                    onClick={() =>
+                      void executeWorkspaceCommand({
+                        type: 'setNoteStatus',
+                        noteIds: selection.selectedIds,
+                        status: status === 'open' ? 'done' : 'open',
+                      })
+                    }
+                    size="sm"
+                    variant="ghost"
+                  >
+                    {status === 'open' ? m.note_mark_done() : m.note_mark_open()}
+                  </Button>
+                  <Button
+                    aria-label={m.copy_as_markdown()}
+                    onClick={() => void copyNotes(selection.selectedIds)}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    <IconCopy aria-hidden="true" />
+                    <span className="selection-action-label">{m.copy_as_markdown()}</span>
+                  </Button>
+                  <Button
+                    aria-label={m.delete_selected({ count: selection.selectedIds.length })}
+                    onClick={() => setDeleteOpen(true)}
+                    size="sm"
+                    variant="destructive"
+                  >
+                    <IconTrash aria-hidden="true" />
+                    <span className="selection-action-label">
+                      {m.delete_selected({ count: selection.selectedIds.length })}
+                    </span>
+                  </Button>
+                </>
+              ) : null}
+              <Button onClick={leaveSelection} size="sm" variant="ghost">
+                {m.common_cancel()}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              className="selection-entry"
+              onClick={() => setSelectionMode(true)}
+              size="sm"
+              variant="ghost"
+            >
+              {m.selection_enter()}
             </Button>
-          </div>
-        ) : (
-          <Button onClick={() => setSelectionMode(true)} size="sm" variant="ghost">
-            {m.selection_enter()}
-          </Button>
-        )}
+          )}
+        </div>
       </div>
       <div className="note-context">
         {tag ? (
@@ -419,21 +432,7 @@ export function NoteScreen({
           </EmptyContent>
         </Empty>
       )}
-      <div className="composer-dock transient-material">
-        {nativePreferences.capabilities?.platform === 'macos' &&
-        !nativePreferences.preferences.captureHintDismissed ? (
-          <div className="capture-hint" role="status">
-            <span>{m.capture_hint()}</span>
-            <Button
-              aria-label={m.capture_hint_dismiss()}
-              onClick={() => void nativePreferences.dismissCaptureHint()}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <IconX aria-hidden="true" />
-            </Button>
-          </div>
-        ) : null}
+      <div className="composer-dock">
         <CaptureInput
           onCreate={async (body) => {
             await executeWorkspaceCommand({ type: 'createNote', body });
