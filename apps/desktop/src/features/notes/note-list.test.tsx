@@ -11,6 +11,7 @@ const callbacks = {
   onSelection: vi.fn(),
   onToggleStatus: vi.fn().mockResolvedValue(undefined),
   onExpand: vi.fn(),
+  onFocusAttachments: vi.fn().mockResolvedValue(undefined),
   onCloseEditor: vi.fn(),
   onTagFilter: vi.fn(),
   onCopy: vi.fn().mockResolvedValue(undefined),
@@ -24,6 +25,7 @@ const callbacks = {
 
 describe('virtual note list', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
   });
@@ -81,12 +83,16 @@ describe('virtual note list', () => {
     expect(screen.getByRole('button', { name: 'Research' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Local' })).toBeNull();
     expect(screen.getByText('+1')).toBeTruthy();
-    expect(screen.getByText(/Tags: Agent, Research, Local\. 1 attachments\./)).toBeTruthy();
+    expect(
+      screen.getByText(/Tags: Agent, Research, Local\. 1 attachments\. Files: brief\.pdf\./),
+    ).toBeTruthy();
     expect(screen.getByText('One restrained preview line')).toBeTruthy();
     expect(document.querySelector('.note-row-main')?.children).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Mark done' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
     expect(await screen.findByText('Copy as Markdown')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Edit Alpha' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Show 1 attachments in this note' }));
+    expect(callbacks.onFocusAttachments).toHaveBeenCalledWith('note-a');
   });
 });

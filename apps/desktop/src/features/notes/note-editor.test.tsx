@@ -63,6 +63,67 @@ describe('inline note editor', () => {
     await waitFor(() => expect(onRemoveAttachment).toHaveBeenCalledWith(current.attachments[0]));
   });
 
+  it('keeps a complete long Unicode filename accessible while showing metadata only', async () => {
+    const fileName = `${'résumé-研究-'.repeat(12)}final.pdf`;
+    editor({
+      note: note({
+        id: 'long-name',
+        body: 'Long filename',
+        attachments: [
+          {
+            id: 'long',
+            fileName,
+            relativePath: 'attachments/long-name/long.pdf',
+            createdAt: '2026-08-05T10:00:00.000Z',
+          },
+        ],
+      }),
+    });
+    expect(screen.getByText(fileName).textContent).toBe(fileName);
+    expect(screen.getByRole('button', { name: `Remove ${fileName}` })).toBeTruthy();
+    expect(document.querySelector('img, video, audio, iframe')).toBeNull();
+  });
+
+  it('disables duplicate import intent, then offers an in-section retry after failure', async () => {
+    const user = userEvent.setup();
+    let release: (() => void) | undefined;
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const onAddAttachments = vi
+      .fn()
+      .mockImplementationOnce(() => blocked.then(() => Promise.reject(new Error('failed'))))
+      .mockResolvedValue(undefined);
+    editor({ onAddAttachments });
+    const add = screen.getByRole('button', { name: 'Add attachment' });
+    await user.click(add);
+    expect((screen.getByRole('button', { name: 'Importing…' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    await user.click(screen.getByRole('tab', { name: 'Preview' }));
+    expect(screen.getByRole('tab', { name: 'Preview' }).getAttribute('aria-selected')).toBe('true');
+    expect(onAddAttachments).toHaveBeenCalledTimes(1);
+    release?.();
+    expect(await screen.findByText(/was not imported/i)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(onAddAttachments).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps all 20 Attachment rows operable and exposes the limit locally', () => {
+    const attachments = Array.from({ length: 20 }, (_, index) => ({
+      id: `attachment-${index}`,
+      fileName: `research-${index}-${'非常に長い名前'.repeat(4)}.pdf`,
+      relativePath: `attachments/limit/attachment-${index}.pdf`,
+      createdAt: `2026-08-05T10:${String(index).padStart(2, '0')}:00.000Z`,
+    }));
+    editor({ note: note({ id: 'limit', body: 'Limit', attachments }) });
+    expect(screen.getAllByRole('button', { name: /^Remove research-/ })).toHaveLength(20);
+    expect(screen.getByText('Attachment limit reached: 20 of 20.')).toBeTruthy();
+    expect(
+      (screen.getByRole('button', { name: 'Add attachment' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
   it('keeps cleanup-required removal blocked until Workspace refresh succeeds', async () => {
     const user = userEvent.setup();
     const onRetryCleanup = vi.fn().mockResolvedValue(undefined);

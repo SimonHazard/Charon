@@ -17,6 +17,7 @@ export function NoteList({
   onSelection,
   onToggleStatus,
   onExpand,
+  onFocusAttachments,
   onCloseEditor,
   onTagFilter,
   onCopy,
@@ -40,6 +41,7 @@ export function NoteList({
   ): void;
   onToggleStatus(note: NoteDto): Promise<void>;
   onExpand(noteId: string): void;
+  onFocusAttachments(noteId: string): Promise<void>;
   onCloseEditor(): void;
   onTagFilter(tag: string): void;
   onCopy(noteId: string): Promise<void>;
@@ -108,6 +110,7 @@ export function NoteList({
                 onCopy={onCopy}
                 onDirtyChange={onDirtyChange}
                 onExpand={onExpand}
+                onFocusAttachments={onFocusAttachments}
                 onRemoveAttachment={onRemoveAttachment}
                 onRetryCleanup={onRetryCleanup}
                 onSave={onSave}

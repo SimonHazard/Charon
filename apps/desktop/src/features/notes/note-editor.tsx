@@ -16,10 +16,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { closedDraft, draftReducer, hasUnsavedDraft } from '@/features/notes/draft-controller';
 import { NotePreview } from '@/features/notes/note-preview';
 import { motionProfiles } from '@/motion/system';
@@ -149,7 +150,7 @@ export function NoteEditor({
   };
 
   const addAttachments = async () => {
-    if (attachmentPending) return;
+    if (attachmentPending || note.attachments.length >= 20) return;
     setAttachmentPending(true);
     setAttachmentError(false);
     try {
@@ -170,31 +171,42 @@ export function NoteEditor({
     ? ((m as unknown as Record<string, () => string>)[draft.errorKey]?.() ??
       m.note_editor_save_error())
     : null;
+  const saveState =
+    draft.status === 'saving'
+      ? m.note_editor_saving()
+      : draft.status === 'dirty'
+        ? m.note_editor_dirty()
+        : m.note_editor_saved();
+  const attachmentAtLimit = note.attachments.length >= 20;
 
   return (
     <motion.section
+      aria-label={m.note_editor_title()}
       animate={{ opacity: 1, scale: 1, x: 0 }}
       className="note-editor-inline"
       data-note-editor={note.id}
       initial={{ opacity: 0, scale: 0.99, x: -4 }}
       transition={motionProfiles.surface}
     >
-      <div className="note-editor-heading">
-        <strong>{m.note_editor_title()}</strong>
-        <Button
-          aria-label={m.common_close()}
-          onClick={() => void close()}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <IconX aria-hidden="true" />
-        </Button>
-      </div>
       <Tabs defaultValue="write">
-        <TabsList variant="line">
-          <TabsTrigger value="write">{m.note_editor_write()}</TabsTrigger>
-          <TabsTrigger value="preview">{m.note_editor_preview()}</TabsTrigger>
-        </TabsList>
+        <div className="note-editor-heading">
+          <strong className="sr-only">{m.note_editor_title()}</strong>
+          <TabsList variant="line">
+            <TabsTrigger value="write">{m.note_editor_write()}</TabsTrigger>
+            <TabsTrigger value="preview">{m.note_editor_preview()}</TabsTrigger>
+          </TabsList>
+          <span aria-live="polite" className="note-save-state">
+            {saveState}
+          </span>
+          <Button
+            aria-label={m.common_close()}
+            onClick={() => void close()}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <IconX aria-hidden="true" />
+          </Button>
+        </div>
         <TabsContent value="write">
           <Field data-invalid={Boolean(bodyError)}>
             <FieldLabel className="sr-only" htmlFor={`note-markdown-${note.id}`}>
@@ -203,6 +215,8 @@ export function NoteEditor({
             <Textarea
               aria-invalid={Boolean(bodyError)}
               id={`note-markdown-${note.id}`}
+              name="noteMarkdown"
+              autoComplete="off"
               onBlur={() => void save()}
               onChange={(event) => dispatch({ type: 'change', value: event.target.value })}
               onKeyDown={(event) => {
@@ -215,13 +229,6 @@ export function NoteEditor({
               rows={12}
               value={draft.value}
             />
-            <FieldDescription aria-live="polite">
-              {draft.status === 'saving'
-                ? m.note_editor_saving()
-                : draft.status === 'dirty'
-                  ? m.note_editor_dirty()
-                  : m.note_editor_saved()}
-            </FieldDescription>
             {bodyError ? <FieldError>{bodyError}</FieldError> : null}
           </Field>
         </TabsContent>
@@ -249,6 +256,7 @@ export function NoteEditor({
             <Input
               autoComplete="off"
               id={`note-tags-${note.id}`}
+              name="noteTag"
               list={`note-tag-suggestions-${note.id}`}
               onChange={(event) => {
                 setTagInput(event.target.value);
@@ -276,9 +284,12 @@ export function NoteEditor({
 
         <section aria-label={m.attachments_label()} className="attachment-editor">
           <div className="attachment-heading">
-            <strong>{m.attachments_label()}</strong>
+            <h3 data-attachment-heading={note.id} tabIndex={-1}>
+              {m.attachments_label()}
+            </h3>
             <Button
-              disabled={attachmentPending}
+              aria-describedby={`attachment-status-${note.id}`}
+              disabled={attachmentPending || attachmentAtLimit}
               onClick={() => void addAttachments()}
               size="sm"
               variant="outline"
@@ -292,28 +303,40 @@ export function NoteEditor({
               {note.attachments.map((attachment) => (
                 <li key={attachment.id}>
                   <IconFile aria-hidden="true" />
-                  <span>{attachment.fileName}</span>
-                  <Button
-                    aria-label={m.attachment_remove({ file: attachment.fileName })}
-                    onClick={() => {
-                      setRemoveError(null);
-                      setRemoveTarget(attachment);
-                    }}
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <IconX aria-hidden="true" />
-                  </Button>
+                  <span className="attachment-name">{attachment.fileName}</span>
+                  <Tooltip>
+                    <TooltipTrigger
+                      aria-label={m.attachment_remove({ file: attachment.fileName })}
+                      onClick={() => {
+                        setRemoveError(null);
+                        setRemoveTarget(attachment);
+                      }}
+                      render={<Button size="icon-sm" variant="ghost" />}
+                    >
+                      <IconX aria-hidden="true" />
+                    </TooltipTrigger>
+                    <TooltipContent>{attachment.fileName}</TooltipContent>
+                  </Tooltip>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="attachment-empty">{m.attachment_empty()}</p>
           )}
+          <p aria-live="polite" className="attachment-status" id={`attachment-status-${note.id}`}>
+            {attachmentPending
+              ? m.attachment_importing()
+              : attachmentAtLimit
+                ? m.attachment_limit_reached()
+                : null}
+          </p>
           {attachmentError ? (
-            <p className="inline-error" role="alert">
-              {m.attachment_import_error()}
-            </p>
+            <div className="attachment-error" role="alert">
+              <p className="inline-error">{m.attachment_import_error()}</p>
+              <Button onClick={() => void addAttachments()} size="sm" variant="outline">
+                {m.common_retry()}
+              </Button>
+            </div>
           ) : null}
         </section>
       </div>

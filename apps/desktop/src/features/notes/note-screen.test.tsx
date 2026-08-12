@@ -151,6 +151,15 @@ describe('single note shelf', () => {
     expect(document.body.textContent).not.toContain('/external/brief.pdf');
   });
 
+  it('expands the same Note and focuses Attachments from its paperclip count', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.click(screen.getByRole('button', { name: 'Show 1 attachments in this note' }));
+    const heading = await screen.findByRole('heading', { name: 'Attachments' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(document.querySelector('[data-note-editor="file"]')).toBeTruthy();
+  });
+
   it('uses one irreversible batch confirmation and no Trash or Undo affordance', async () => {
     const user = userEvent.setup();
     const commands: WorkspaceCommand[] = [];

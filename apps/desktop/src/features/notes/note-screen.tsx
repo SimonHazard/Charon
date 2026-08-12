@@ -148,13 +148,28 @@ export function NoteScreen({
     [clipboardClient, snapshot.revision],
   );
 
+  const focusAttachments = useCallback(async (noteId: string) => {
+    setExpandedId(noteId);
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          document
+            .querySelector<HTMLElement>(`[data-attachment-heading="${noteId}"]`)
+            ?.focus({ preventScroll: true });
+          resolve();
+        });
+      });
+    });
+  }, []);
+
   const importAttachments = useCallback(
     async (noteId: string) => {
+      await focusAttachments(noteId);
       const sourcePaths = await pickAttachments();
       if (!sourcePaths.length) return;
       await executeWorkspaceCommand({ type: 'importNoteAttachments', noteId, sourcePaths });
     },
-    [executeWorkspaceCommand, pickAttachments],
+    [executeWorkspaceCommand, focusAttachments, pickAttachments],
   );
 
   const leaveSelection = useCallback(() => {
@@ -436,6 +451,7 @@ export function NoteScreen({
           onDirtyChange={setWorkspaceSwitchBlocked}
           onCopy={(noteId) => copyNotes([noteId])}
           onExpand={setExpandedId}
+          onFocusAttachments={focusAttachments}
           onRemoveAttachment={(noteId, attachment) =>
             executeWorkspaceCommand({
               type: 'deleteNoteAttachments',

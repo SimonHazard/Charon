@@ -490,9 +490,6 @@
   background: var(--selection-subtle);
   color: var(--text);
 }
-.note-row:hover {
-  background: var(--surface-hover);
-}
 .note-row:active {
   background: var(--surface-pressed);
 }
@@ -593,9 +590,21 @@
 }
 .attachment-count {
   display: inline-flex;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   align-items: center;
+  justify-content: center;
   gap: 0.15rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: inherit;
   font-size: 0.72rem;
+}
+.attachment-count:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
 }
 .attachment-count svg {
   width: 0.85rem;
@@ -626,8 +635,19 @@
 .attachment-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
+}
+.note-editor-heading [data-slot="tabs-list"] {
+  flex: none;
+}
+.note-save-state {
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .note-editor-inline textarea {
   min-height: 14rem;
@@ -660,8 +680,8 @@
 }
 .note-editor-metadata {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.8fr);
-  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
   margin-top: 0.85rem;
 }
 .tag-editor-row {
@@ -672,6 +692,7 @@
 }
 .tag-editor-row input {
   width: min(12rem, 100%);
+  min-width: min(10rem, 100%);
   height: 1.8rem;
   flex: 1;
 }
@@ -689,6 +710,21 @@
 }
 .attachment-editor {
   min-width: 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--separator);
+}
+.attachment-heading {
+  justify-content: space-between;
+}
+.attachment-heading h3 {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 620;
+}
+.attachment-heading h3:focus-visible {
+  border-radius: var(--radius-control);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .attachment-list {
   display: flex;
@@ -699,7 +735,9 @@
   list-style: none;
 }
 .attachment-list li {
-  display: flex;
+  display: grid;
+  min-height: 2.75rem;
+  grid-template-columns: auto minmax(0, 1fr) 2.75rem;
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
@@ -709,18 +747,39 @@
   flex: none;
   color: var(--text-muted);
 }
-.attachment-list li > span {
+.attachment-name {
+  display: block;
   min-width: 0;
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.8rem;
 }
+.attachment-name:focus-visible {
+  border-radius: var(--radius-control);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.attachment-list [data-slot="button"] {
+  width: 2.75rem;
+  height: 2.75rem;
+}
 .attachment-empty {
   margin-top: 0.4rem;
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+.attachment-status {
+  min-height: 1.15rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+.attachment-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
 }
 
 .note-empty {
@@ -750,12 +809,15 @@
   }
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .note-row:hover {
+    background: var(--surface-hover);
+  }
+}
+
 @media (max-width: 544px) {
   .note-editor-inline {
     margin-left: 0.4rem;
-  }
-  .note-editor-metadata {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
