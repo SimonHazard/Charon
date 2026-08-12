@@ -121,10 +121,14 @@ describe('single note shelf', () => {
       .mockResolvedValue({ noteCount: 1, tagCount: 1, attachmentCount: 0, byteCount: 24 });
     renderScreen({ clipboardClient: { composeAndWrite } });
     await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
+    expect(
+      await screen.findByText(/Managed local Attachment paths enter the clipboard/),
+    ).toBeTruthy();
     await user.click(await screen.findByText('Copy as Markdown'));
     await waitFor(() =>
       expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteIds: ['alpha'] }),
     );
+    expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Copied');
     expect(screen.queryByText(/\/Users\//)).toBeNull();
   });
 
@@ -172,7 +176,9 @@ describe('single note shelf', () => {
     await user.click(screen.getByRole('button', { name: /^Alpha/ }));
     await user.click(screen.getByRole('button', { name: 'Delete 1' }));
     const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Delete 1 note permanently?')).toBeTruthy();
     expect(within(dialog).getByText(/cannot be undone/i)).toBeTruthy();
+    expect(within(dialog).getByText(/external backups/i)).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() =>
       expect(commands.some((command) => command.type === 'deleteNotes')).toBe(true),

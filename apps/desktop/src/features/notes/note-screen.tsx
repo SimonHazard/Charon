@@ -68,7 +68,7 @@ export function NoteScreen({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<'cleanup' | 'other' | null>(null);
-  const [bulkCopyError, setBulkCopyError] = useState(false);
+  const [bulkCopyState, setBulkCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const searchRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<CaptureInputHandle>(null);
 
@@ -139,9 +139,9 @@ export function NoteScreen({
           expectedRevision: snapshot.revision,
           noteIds: [...noteIds],
         });
-        setBulkCopyError(false);
+        setBulkCopyState('copied');
       } catch (error) {
-        setBulkCopyError(true);
+        setBulkCopyState('error');
         throw asClipboardError(error);
       }
     },
@@ -296,6 +296,8 @@ export function NoteScreen({
           <IconSearch aria-hidden="true" />
           <Input
             aria-label={m.note_search_label()}
+            autoComplete="off"
+            name="noteSearch"
             onChange={(event) => setQuery(event.target.value)}
             placeholder={m.note_search_placeholder_flat()}
             ref={searchRef}
@@ -343,6 +345,7 @@ export function NoteScreen({
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger
+                    aria-description={m.copy_local_paths_disclosure()}
                     aria-label={m.copy_as_markdown()}
                     disabled={!selection.selectedIds.length}
                     onClick={() => void copyNotes(selection.selectedIds)}
@@ -351,7 +354,10 @@ export function NoteScreen({
                     <IconCopy aria-hidden="true" />
                     <span className="selection-action-label">{m.copy_as_markdown()}</span>
                   </TooltipTrigger>
-                  <TooltipContent>{m.copy_as_markdown()}</TooltipContent>
+                  <TooltipContent className="copy-tooltip">
+                    <strong>{m.copy_as_markdown()}</strong>
+                    <span>{m.copy_local_paths_disclosure()}</span>
+                  </TooltipContent>
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger
@@ -427,9 +433,14 @@ export function NoteScreen({
             </Button>
           </div>
         ) : null}
-        {bulkCopyError ? (
+        {bulkCopyState === 'error' ? (
           <p className="inline-error" role="alert">
             {m.clipboard_error_write_failed()}
+          </p>
+        ) : null}
+        {bulkCopyState === 'copied' ? (
+          <p className="inline-success" role="status">
+            {m.copy_inline_copied()}
           </p>
         ) : null}
       </div>
@@ -519,12 +530,15 @@ export function NoteScreen({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {m.delete_title({ count: selection.selectedIds.length })}
+              {selection.selectedIds.length === 1
+                ? m.delete_title_one()
+                : m.delete_title({ count: selection.selectedIds.length })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {m.delete_description({ count: selection.selectedIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <p className="delete-boundary">{m.delete_external_boundary()}</p>
           {deleteError ? (
             <p className="inline-error" role="alert">
               {deleteError === 'cleanup' ? m.delete_cleanup_required() : m.delete_error()}

@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -196,10 +197,16 @@ export const NoteRow = memo(function NoteRow({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => void copy()}>
+                  <DropdownMenuItem
+                    aria-description={m.copy_local_paths_disclosure()}
+                    onClick={() => void copy()}
+                  >
                     <IconCopy aria-hidden="true" />
                     {copyState === 'copied' ? m.copy_inline_copied() : m.copy_as_markdown()}
                   </DropdownMenuItem>
+                  <DropdownMenuLabel className="copy-disclosure">
+                    {m.copy_local_paths_disclosure()}
+                  </DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => void onAddAttachments(note.id)}>
                     <IconPlus aria-hidden="true" />
                     {m.attachment_add()}
