@@ -25,9 +25,16 @@ export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnaps
   if (state.status === 'loading') {
     return (
       <div aria-label={m.workspace_loading()} className="workspace-loading" role="status">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
+        <div className="workspace-loading-toolbar" aria-hidden="true">
+          <Skeleton className="h-10 w-full" />
+          <div className="workspace-loading-status">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
+        </div>
+        <Skeleton aria-hidden="true" className="workspace-loading-row" />
+        <Skeleton aria-hidden="true" className="workspace-loading-row" />
       </div>
     );
   }

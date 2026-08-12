@@ -1,4 +1,4 @@
-import { IconCopy, IconSearch, IconTrash, IconX } from '@tabler/icons-react';
+import { IconCheck, IconCircle, IconCopy, IconSearch, IconTrash, IconX } from '@tabler/icons-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
 import { NoteList } from '@/features/notes/note-list';
 import { filterNotes } from '@/features/notes/search';
@@ -95,6 +96,24 @@ export function NoteScreen({
   useEffect(() => {
     dispatchSelection({ type: 'reconcile', visibleIds });
   }, [visibleIds]);
+
+  useEffect(() => {
+    if (!selectionMode || !selection.activeId) return;
+    const focused = document.activeElement;
+    if (
+      focused instanceof HTMLInputElement ||
+      focused instanceof HTMLTextAreaElement ||
+      (focused instanceof HTMLElement && focused.isContentEditable)
+    ) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(`[data-note-focus="${selection.activeId}"]`)
+        ?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selection.activeId, selectionMode]);
 
   useEffect(() => {
     if (!composerFocus.request) return;
@@ -249,6 +268,11 @@ export function NoteScreen({
       : status === 'open'
         ? m.note_empty_open_description()
         : m.note_empty_done_description();
+  const selectedCount =
+    selection.selectedIds.length === 1
+      ? m.selection_count_one()
+      : m.selection_count_many({ count: selection.selectedIds.length });
+  const bulkStatusLabel = status === 'open' ? m.note_mark_done() : m.note_mark_open();
 
   return (
     <section className="note-screen">
@@ -274,28 +298,16 @@ export function NoteScreen({
           ) : null}
         </div>
         <div className="note-toolbar-row">
-          <ToggleGroup
-            aria-label={m.note_status_filter_label()}
-            className="status-segment"
-            onValueChange={(values) => {
-              const next = values[0];
-              if (next === 'open' || next === 'done') setStatus(next);
-            }}
-            spacing={0}
-            value={[status]}
-          >
-            <ToggleGroupItem value="open">
-              {m.note_status_open()} <span aria-hidden>{openCount}</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="done">
-              {m.note_status_done()} <span aria-hidden>{doneCount}</span>
-            </ToggleGroupItem>
-          </ToggleGroup>
           {selectionMode ? (
-            <div className="selection-actions">
-              {selection.selectedIds.length ? (
-                <>
-                  <Button
+            <div aria-label={selectedCount} className="selection-bar" role="toolbar">
+              <strong className="selection-count" aria-live="polite">
+                {selectedCount}
+              </strong>
+              <div className="selection-actions">
+                <Tooltip>
+                  <TooltipTrigger
+                    aria-label={bulkStatusLabel}
+                    disabled={!selection.selectedIds.length}
                     onClick={() =>
                       void executeWorkspaceCommand({
                         type: 'setNoteStatus',
@@ -303,46 +315,86 @@ export function NoteScreen({
                         status: status === 'open' ? 'done' : 'open',
                       })
                     }
-                    size="sm"
-                    variant="ghost"
+                    render={<Button size="sm" variant="ghost" />}
                   >
-                    {status === 'open' ? m.note_mark_done() : m.note_mark_open()}
-                  </Button>
-                  <Button
+                    {status === 'open' ? (
+                      <IconCheck aria-hidden="true" />
+                    ) : (
+                      <IconCircle aria-hidden="true" />
+                    )}
+                    <span className="selection-action-label">{bulkStatusLabel}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{bulkStatusLabel}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
                     aria-label={m.copy_as_markdown()}
+                    disabled={!selection.selectedIds.length}
                     onClick={() => void copyNotes(selection.selectedIds)}
-                    size="sm"
-                    variant="ghost"
+                    render={<Button size="sm" variant="ghost" />}
                   >
                     <IconCopy aria-hidden="true" />
                     <span className="selection-action-label">{m.copy_as_markdown()}</span>
-                  </Button>
-                  <Button
+                  </TooltipTrigger>
+                  <TooltipContent>{m.copy_as_markdown()}</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
                     aria-label={m.delete_selected({ count: selection.selectedIds.length })}
+                    disabled={!selection.selectedIds.length}
                     onClick={() => setDeleteOpen(true)}
-                    size="sm"
-                    variant="destructive"
+                    render={<Button size="sm" variant="destructive" />}
                   >
                     <IconTrash aria-hidden="true" />
                     <span className="selection-action-label">
                       {m.delete_selected({ count: selection.selectedIds.length })}
                     </span>
-                  </Button>
-                </>
-              ) : null}
-              <Button onClick={leaveSelection} size="sm" variant="ghost">
-                {m.common_cancel()}
-              </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {m.delete_selected({ count: selection.selectedIds.length })}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    aria-label={m.common_cancel()}
+                    onClick={leaveSelection}
+                    render={<Button size="sm" variant="ghost" />}
+                  >
+                    <IconX aria-hidden="true" />
+                    <span className="selection-action-label">{m.common_cancel()}</span>
+                  </TooltipTrigger>
+                  <TooltipContent>{m.common_cancel()}</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           ) : (
-            <Button
-              className="selection-entry"
-              onClick={() => setSelectionMode(true)}
-              size="sm"
-              variant="ghost"
-            >
-              {m.selection_enter()}
-            </Button>
+            <>
+              <ToggleGroup
+                aria-label={m.note_status_filter_label()}
+                className="status-segment"
+                onValueChange={(values) => {
+                  const next = values[0];
+                  if (next === 'open' || next === 'done') setStatus(next);
+                }}
+                spacing={0}
+                value={[status]}
+              >
+                <ToggleGroupItem value="open">
+                  {m.note_status_open()} <span aria-hidden>{openCount}</span>
+                </ToggleGroupItem>
+                <ToggleGroupItem value="done">
+                  {m.note_status_done()} <span aria-hidden>{doneCount}</span>
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <Button
+                className="selection-entry"
+                onClick={() => setSelectionMode(true)}
+                size="sm"
+                variant="ghost"
+              >
+                {m.selection_enter()}
+              </Button>
+            </>
           )}
         </div>
       </div>

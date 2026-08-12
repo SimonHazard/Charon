@@ -84,6 +84,36 @@ describe('single note shelf', () => {
     expect(document.querySelector('.capture-hint')).toBeNull();
   });
 
+  it('replaces status controls with a complete non-scrolling Selection bar', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.click(screen.getByRole('button', { name: 'Select' }));
+
+    const toolbar = screen.getByRole('toolbar', { name: '0 notes selected' });
+    expect(within(toolbar).getByText('0 notes selected')).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Mark done' })).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Copy as Markdown' })).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Delete 0' })).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Open/ })).toBeNull();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select Alpha' }));
+    expect(screen.getByRole('toolbar', { name: '1 note selected' })).toBeTruthy();
+  });
+
+  it('reconciles Selection while preserving native search editing focus', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.click(screen.getByRole('button', { name: 'Select' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Alpha/ })),
+    );
+    const search = screen.getByRole('textbox', { name: 'Search notes' });
+    await user.type(search, 'brief.pdf');
+    expect(document.activeElement).toBe(search);
+    expect(screen.getByRole('button', { name: /^Attachment note/ })).toBeTruthy();
+  });
+
   it('copies only note IDs through the canonical ClipboardComposer request', async () => {
     const user = userEvent.setup();
     const composeAndWrite = vi
