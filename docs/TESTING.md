@@ -69,3 +69,38 @@ opened at exactly 480×720. After resizing to 640×600, quitting normally, and
 relaunching the same profile, the window-state plugin restored 640×600 instead
 of applying the first-run dimensions again. The temporary profile was moved to
 the macOS Trash as `Charon-plan016-test-profile-20260811` after review.
+
+## 2026-08-12 compact feature alignment evidence
+
+Plan 017's deterministic browser matrix passed in Chromium and WebKit at
+400×480, 440×680, 480×720, 520×720, 720×480, and an effective 360px layout. It
+covered Solarized, Light, and Dark in English and French; fine and coarse
+pointers; keyboard focus and return; reduced motion; reduced transparency;
+increased contrast; Selection and irreversible Delete; the expanded editor;
+metadata-only Attachments; Preferences; and the anchored body-only composer.
+The full browser run passed 30 tests, and the focused Axe gate passed four
+major-state tests with zero serious or critical findings.
+
+The 2026-08-12 automated evidence was:
+
+- `bun run test:desktop -- note-screen note-list note-row note-editor capture-input preferences-panel workspace-state selection-model search motion`: 11 files and 41 tests passed.
+- `bun run check`: 22 desktop files and 76 tests passed; the site check built and verified nine static routes and five media budgets.
+- `bun run test:perf`: desktop JavaScript measured 205,702 gzip bytes and the 20,000-Note search median measured 17.21ms.
+- `bun run check:privacy`: the production desktop and site outputs passed the content, source-path, and secret scan.
+
+The existing public media was regenerated from the real Vite application with
+only the synthetic `?fixture=media` Workspace. The capture script frames the
+480px shelf without recreating product UI. The reviewed evidence paths are
+`apps/site/public/media/charon-shelf-solarized.webp`,
+`apps/site/public/media/charon-editor-dark.webp`, and
+`apps/site/public/media/charon-demo.webm`. The two stills and the 3.04-second
+video are 1440×960; the Solarized shelf, scrolled Dark Attachment section, and
+the video's Write-to-Preview sequence preserve the single-column shelf,
+metadata-only filenames, visible composer, and interruption-ready controls.
+
+Native Tauri and macOS VoiceOver review was not performed in this noninteractive
+executor session. Before Plan 017 can be marked DONE, a physical macOS pass must
+still cover titlebar, search, Open/Done, virtual Notes, Selection, editor, Tags,
+Attachments, Preferences, Delete, contextual errors, composer, normal speed,
+0.25× observation, and mid-flight reversal. This is an open P1 evidence item;
+no native or VoiceOver acceptance claim is recorded here.
