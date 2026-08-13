@@ -84,6 +84,36 @@ describe('single note shelf', () => {
     expect(document.querySelector('.capture-hint')).toBeNull();
   });
 
+  it('replaces status controls with a complete non-scrolling Selection bar', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.click(screen.getByRole('button', { name: 'Select' }));
+
+    const toolbar = screen.getByRole('toolbar', { name: '0 notes selected' });
+    expect(within(toolbar).getByText('0 notes selected')).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Mark done' })).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Copy as Markdown' })).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Delete 0' })).toBeTruthy();
+    expect(within(toolbar).getByRole('button', { name: 'Cancel' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Open/ })).toBeNull();
+
+    await user.click(screen.getByRole('checkbox', { name: 'Select Alpha' }));
+    expect(screen.getByRole('toolbar', { name: '1 note selected' })).toBeTruthy();
+  });
+
+  it('reconciles Selection while preserving native search editing focus', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.click(screen.getByRole('button', { name: 'Select' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Alpha/ })),
+    );
+    const search = screen.getByRole('textbox', { name: 'Search notes' });
+    await user.type(search, 'brief.pdf');
+    expect(document.activeElement).toBe(search);
+    expect(screen.getByRole('button', { name: /^Attachment note/ })).toBeTruthy();
+  });
+
   it('copies only note IDs through the canonical ClipboardComposer request', async () => {
     const user = userEvent.setup();
     const composeAndWrite = vi
@@ -91,10 +121,14 @@ describe('single note shelf', () => {
       .mockResolvedValue({ noteCount: 1, tagCount: 1, attachmentCount: 0, byteCount: 24 });
     renderScreen({ clipboardClient: { composeAndWrite } });
     await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
+    expect(
+      await screen.findByText(/Managed local Attachment paths enter the clipboard/),
+    ).toBeTruthy();
     await user.click(await screen.findByText('Copy as Markdown'));
     await waitFor(() =>
       expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteIds: ['alpha'] }),
     );
+    expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Copied');
     expect(screen.queryByText(/\/Users\//)).toBeNull();
   });
 
@@ -121,6 +155,15 @@ describe('single note shelf', () => {
     expect(document.body.textContent).not.toContain('/external/brief.pdf');
   });
 
+  it('expands the same Note and focuses Attachments from its paperclip count', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    await user.click(screen.getByRole('button', { name: 'Show 1 attachments in this note' }));
+    const heading = await screen.findByRole('heading', { name: 'Attachments' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(document.querySelector('[data-note-editor="file"]')).toBeTruthy();
+  });
+
   it('uses one irreversible batch confirmation and no Trash or Undo affordance', async () => {
     const user = userEvent.setup();
     const commands: WorkspaceCommand[] = [];
@@ -133,7 +176,9 @@ describe('single note shelf', () => {
     await user.click(screen.getByRole('button', { name: /^Alpha/ }));
     await user.click(screen.getByRole('button', { name: 'Delete 1' }));
     const dialog = screen.getByRole('alertdialog');
+    expect(within(dialog).getByText('Delete 1 note permanently?')).toBeTruthy();
     expect(within(dialog).getByText(/cannot be undone/i)).toBeTruthy();
+    expect(within(dialog).getByText(/external backups/i)).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() =>
       expect(commands.some((command) => command.type === 'deleteNotes')).toBe(true),

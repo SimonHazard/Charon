@@ -73,6 +73,7 @@ describe('compact Preferences', () => {
     for (const heading of ['Appearance', 'Language', 'Notes folder', 'Capture']) {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
     }
+    expect(document.querySelector('.preferences-section-icon')).toBeNull();
     await screen.findByText('Charon Notes');
     expect(document.body.textContent).not.toContain('/Users/');
     expect(screen.getByText('CmdOrCtrl+Shift+Space')).toBeTruthy();
@@ -116,6 +117,28 @@ describe('compact Preferences', () => {
     expect(screen.queryByText(disclosure)).toBeNull();
     await user.hover(screen.getByRole('button', { name: 'About Input Monitoring' }));
     expect(await screen.findByText(disclosure)).toBeTruthy();
+    await user.unhover(screen.getByRole('button', { name: 'About Input Monitoring' }));
+    await user.hover(screen.getByRole('button', { name: 'About the portable shortcut' }));
+    expect(await screen.findByText(/always reveals Charon/)).toBeTruthy();
+  });
+
+  it('keeps a local capability error actionable inside the Popover', async () => {
+    const native = clients();
+    native.captureClient.capabilities = vi.fn().mockRejectedValue(new Error('unavailable'));
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <Titlebar />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(await screen.findByText(/could not be refreshed/i)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(native.captureClient.capabilities).toHaveBeenCalledTimes(2));
   });
 
   it('blocks folder switching while an editor draft is dirty', async () => {

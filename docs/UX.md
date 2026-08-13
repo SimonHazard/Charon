@@ -101,6 +101,63 @@ containing the active Notes folder, an explicit validated chooser, theme and
 language choices, and capture permission state; it is not a product
 destination.
 
+## Compact feature map
+
+The compact shelf remains the complete product. Every accepted job has one
+home, and no workflow moves to another route, window, or inspector to escape
+layout pressure.
+
+| Job | Compact home | Required compact behavior |
+| --- | --- | --- |
+| Search body, Tags, and Attachment names | Full-width top search row | The clear action remains reachable and a no-result state keeps the composer visible. |
+| Open and Done | Second toolbar row | One Base UI ToggleGroup includes counts and has no sliding decoration. |
+| Enter and exit Selection | Second toolbar row | Select becomes a contextual Selection bar without horizontal scrolling. |
+| Bulk status, copy, and Delete | Context bar above the list | The selected count and status, `Copy as Markdown`, irreversible Delete, and Cancel actions remain reachable. |
+| Scan a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, and Actions remain present. |
+| Edit Markdown | Expanded live Note row | Write/Preview, autosave state, close, and contextual errors stay in the same row. |
+| Edit Tags | Expanded Note, stacked section | Chips wrap, the add input stays usable, and limits and errors remain local. |
+| Manage Attachments | Expanded Note, stacked section | Generic file metadata, pending and error states, add, and remove remain available without previews. |
+| Copy as Markdown | Row Actions and Selection bar | It is the primary row-menu item; completion, failure, and local-path disclosure remain contextual and reachable. |
+| Permanently delete Notes | Selection bar and count-specific AlertDialog | The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
+| Preferences | Gear-anchored Popover | Appearance, language, Notes folder, and capture state scroll within a 400 by 480 shelf. |
+| Capture help and permissions | Help Popover and Preferences Capture section | Permission state and action remain visible while long disclosures use keyboard-accessible progressive disclosure. |
+| Workspace loading, empty, error, and recovery | Main shelf region | Layout-shaped progress and local recovery preserve composer or chooser priority. |
+| Manual capture | Anchored body-only composer | Input survives failure, shortcut focus is immediate, and there is no Attachment queue. |
+
+Compact layout thresholds are explicit:
+
+- From 400 through 439px, essential row content, the Attachment count, and icon
+  actions with localized Tooltips remain visible. Tag chips may collapse to an
+  accessible count.
+- From 440 through 519px, the normal target shows up to two quiet Tag chips and
+  the Attachment count.
+- At 520px and above, the same single column gains breathing room but never a
+  second product column.
+- At an effective 360px during the 200% review, controls may stack and metadata
+  may collapse, but no action, error, disclosure, or composer is clipped.
+
+### Compact Attachment interpretation
+
+- A collapsed Note displays only a paperclip and count. Complete safe filenames
+  may be present in its accessible summary, but no thumbnail is rendered.
+- Activating the Attachment count expands the same Note and focuses its
+  Attachment section. It never opens a preview, file browser, or another panel.
+- Attachment import starts only from an existing Note editor or its Actions
+  menu and uses the explicit native picker owned by Rust and application
+  commands. The body-only composer never stages an Attachment.
+- A pending import shows bounded indeterminate local progress and the validated
+  display filename when the existing command makes one available. It never
+  invents a percentage or adds an IPC progress stream, and only duplicate import
+  intent is disabled.
+- The list fits 20 Attachments and long Unicode basenames without horizontal
+  product scrolling. Visual truncation preserves the complete safe name in the
+  accessible label and keyboard Tooltip.
+- Removal keeps the existing filename-specific irreversible confirmation and
+  cleanup-retry contract.
+- React never reads Attachment bytes or source paths and never offers a
+  thumbnail, arbitrary MIME preview, upload, drag and drop, external execution,
+  cross-Note sharing, or pre-Note Attachment state.
+
 ## Note row and Actions
 
 A collapsed Note row exposes body excerpt, quiet Tag chips, paperclip icon plus

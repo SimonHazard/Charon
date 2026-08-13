@@ -56,7 +56,9 @@ export const CaptureInput = forwardRef<
           <InputGroupInput
             aria-invalid={failed}
             aria-label={m.capture_input_label_flat()}
+            autoComplete="off"
             disabled={pending}
+            name="captureBody"
             onChange={(event) => {
               setValue(event.target.value);
               setFailed(false);

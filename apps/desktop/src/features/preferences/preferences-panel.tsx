@@ -1,12 +1,4 @@
-import {
-  IconCheck,
-  IconFolder,
-  IconInfoCircle,
-  IconKeyboard,
-  IconLanguage,
-  IconPalette,
-  IconSettings,
-} from '@tabler/icons-react';
+import { IconCheck, IconInfoCircle, IconSettings } from '@tabler/icons-react';
 import { m as motion } from 'motion/react';
 
 import { useMessages, usePreferences } from '@/app/providers';
@@ -126,10 +118,7 @@ export function PreferencesPanel() {
         </PopoverHeader>
 
         <section className="preferences-group">
-          <h2>
-            <IconPalette aria-hidden="true" className="preferences-section-icon" />
-            {m.preferences_appearance()}
-          </h2>
+          <h2>{m.preferences_appearance()}</h2>
           <ToggleGroup
             aria-label={m.theme_menu_label()}
             className="preferences-toggle"
@@ -153,10 +142,7 @@ export function PreferencesPanel() {
         </section>
 
         <section className="preferences-group">
-          <h2>
-            <IconLanguage aria-hidden="true" className="preferences-section-icon" />
-            {m.preferences_language()}
-          </h2>
+          <h2>{m.preferences_language()}</h2>
           <ToggleGroup
             aria-label={m.locale_menu_label()}
             className="preferences-toggle"
@@ -178,13 +164,10 @@ export function PreferencesPanel() {
         </section>
 
         <section className="preferences-group">
-          <h2>
-            <IconFolder aria-hidden="true" className="preferences-section-icon" />
-            {m.preferences_workspace()}
-          </h2>
+          <h2>{m.preferences_workspace()}</h2>
           <div className="preferences-workspace-row">
-            <div>
-              <strong>
+            <div className="preferences-workspace-copy">
+              <strong className="preferences-workspace-name">
                 {native.preferences.workspaceName ?? m.preferences_workspace_default()}
               </strong>
               <p>{m.preferences_workspace_local()}</p>
@@ -212,18 +195,31 @@ export function PreferencesPanel() {
         </section>
 
         <section className="preferences-group">
-          <h2>
-            <IconKeyboard aria-hidden="true" className="preferences-section-icon" />
-            {m.preferences_capture()}
-          </h2>
-          {native.loading ? <p>{m.preferences_loading()}</p> : null}
+          <h2>{m.preferences_capture()}</h2>
+          {native.loading ? (
+            <p aria-live="polite" role="status">
+              {m.preferences_loading()}
+            </p>
+          ) : null}
           {native.capabilities ? (
             <>
               <div className="preferences-shortcut-row">
-                <span>{m.preferences_portable_shortcut()}</span>
+                <span className="preferences-row-title">
+                  {m.preferences_portable_shortcut()}
+                  <Tooltip>
+                    <TooltipTrigger
+                      aria-label={m.preferences_portable_details()}
+                      render={<Button size="icon-xs" variant="ghost" />}
+                    >
+                      <IconInfoCircle aria-hidden="true" />
+                    </TooltipTrigger>
+                    <TooltipContent align="start" side="left" sideOffset={8}>
+                      <p>{m.preferences_portable_description()}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
                 <kbd>{native.capabilities.activeShortcut}</kbd>
               </div>
-              <p>{m.preferences_portable_description()}</p>
               {native.capabilities.platform === 'macos' ? (
                 <div className="preferences-permissions">
                   {permissionRow(
@@ -247,7 +243,12 @@ export function PreferencesPanel() {
             </>
           ) : null}
           {native.errorKey ? (
-            <p className="preferences-inline-warning">{m.preferences_error()}</p>
+            <div className="preferences-error" role="alert">
+              <p className="preferences-inline-warning">{m.preferences_error()}</p>
+              <Button onClick={() => void native.refresh()} size="sm" variant="outline">
+                {m.common_retry()}
+              </Button>
+            </div>
           ) : null}
         </section>
       </PopoverContent>

@@ -74,13 +74,26 @@ test('search, exact Tag filter, Open and Done stay coherent', async ({ page }) =
 });
 
 test('selection copy and irreversible Delete keep confirmation explicit', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 480 });
   await page.goto(desktop);
   await page.getByRole('button', { name: 'Select' }).click();
   await page.getByRole('checkbox', { name: 'Select Agent handoff' }).click();
+  const selectionBar = page.getByRole('toolbar', { name: '1 note selected' });
+  await expect(selectionBar).toBeVisible();
+  expect(await selectionBar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+    true,
+  );
   await page.getByRole('button', { name: 'Copy as Markdown' }).click();
-  await page.getByRole('button', { name: 'Delete 1' }).click();
-  await expect(page.getByRole('alertdialog')).toContainText('cannot be undone');
+  await expect(page.getByRole('status')).toContainText('Copied');
+  const deleteButton = page.getByRole('button', { name: 'Delete 1' });
+  await deleteButton.click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('Delete 1 note permanently?');
+  await expect(dialog).toContainText('cannot be undone');
+  await expect(dialog).toContainText('external backups');
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(deleteButton).toBeFocused();
   await expect(page.getByText('Agent handoff')).toBeVisible();
 });
 
@@ -94,11 +107,31 @@ test('row editor supports Write, Preview, Tags and managed Attachment metadata',
   await expect(page.locator('.note-preview')).toContainText(
     'Verify the empty state before adding another control.',
   );
-  await expect(page.getByText('release-brief.pdf')).toBeVisible();
+  await expect(
+    page.locator('.attachment-name').filter({ hasText: 'release-brief.pdf' }),
+  ).toBeVisible();
   await page.getByRole('tab', { name: 'Write' }).click();
   await page.getByPlaceholder('Add a tag').fill('Review');
   await page.getByPlaceholder('Add a tag').press('Enter');
   await expect(page.locator('[data-slot="badge"]').filter({ hasText: /^Review$/ })).toBeVisible();
+});
+
+test('Attachment count opens the same Note and focuses metadata without preview', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 400, height: 480 });
+  await page.goto(desktop);
+  await page.getByRole('button', { name: 'Show 1 attachments in this note' }).click();
+  await expect(page.getByRole('heading', { name: 'Attachments' })).toBeFocused();
+  await expect(
+    page.locator('.attachment-name').filter({ hasText: 'release-brief.pdf' }),
+  ).toBeVisible();
+  await expect(page.locator('.note-editor-inline img, .note-editor-inline video')).toHaveCount(0);
+  expect(
+    await page
+      .locator('[data-note-editor="capture-note"]')
+      .evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
 });
 
 test('portable focus reveals the existing bottom composer without a draft Note', async ({
@@ -122,6 +155,12 @@ test('compact Preferences applies themes and locale without leaving the shelf', 
   await page.getByRole('button', { name: 'French' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
   await expect(page.getByRole('heading', { name: 'Préférences' })).toBeVisible();
+  const preferences = page.locator('.preferences-popover');
+  expect(await preferences.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+    true,
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Réglages' })).toBeFocused();
 });
 
 test('compact shelf geometry holds at minimum, default, capped, and restored sizes', async ({
@@ -129,7 +168,9 @@ test('compact shelf geometry holds at minimum, default, capped, and restored siz
 }) => {
   for (const { width, height } of [
     { width: 400, height: 480 },
+    { width: 440, height: 680 },
     { width: 480, height: 720 },
+    { width: 520, height: 720 },
     { width: 544, height: 720 },
     { width: 720, height: 480 },
   ]) {
@@ -181,12 +222,13 @@ test('desktop remains usable at effective 360 pixels and reduced preferences', a
   browserName,
   page,
 }) => {
-  await page.setViewportSize({ width: 720, height: 720 });
+  await page.setViewportSize({ width: 360, height: 360 });
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
   await page.goto(desktop);
-  await page.evaluate(() => {
-    document.documentElement.style.zoom = '2';
-  });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'French' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.preferences-popover')).toBeHidden();
   await expect(page.locator('.note-capture-input input')).toBeVisible();
   expect(
     await page.evaluate(
@@ -293,6 +335,26 @@ test('desktop major shelf and Preferences states are axe-clean', async ({ page }
   // Base UI's focus guards are deliberately tabbable sentinels hidden from the
   // accessibility tree. Axe reports that library implementation detail even
   // though it is what keeps keyboard focus crossing the portalled popover.
+  results = await new AxeBuilder({ page }).exclude('[data-base-ui-focus-guard]').analyze();
+  expect(
+    results.violations.filter((violation) =>
+      ['serious', 'critical'].includes(violation.impact ?? ''),
+    ),
+  ).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.preferences-popover')).toBeHidden();
+  await page.locator('[data-note-focus="capture-note"]').click();
+  results = await new AxeBuilder({ page }).analyze();
+  expect(
+    results.violations.filter((violation) =>
+      ['serious', 'critical'].includes(violation.impact ?? ''),
+    ),
+  ).toEqual([]);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Select' }).click();
+  await page.getByRole('checkbox', { name: 'Select Agent handoff' }).click();
+  await page.getByRole('button', { name: 'Delete 1' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCSS('opacity', '1');
   results = await new AxeBuilder({ page }).exclude('[data-base-ui-focus-guard]').analyze();
   expect(
     results.violations.filter((violation) =>
