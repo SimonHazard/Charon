@@ -148,7 +148,7 @@ Downloading and installing requires clear user action and verified signed
 artifacts, and restart must defer while a draft is dirty.
 
 With update checks disabled, the desktop performs no network requests. Charon
-does not require connectivity for capture, manual creation, search, Open/Done,
+does not require connectivity for capture, manual creation, search, status,
 editing, Tags, Attachments, copy, themes, localization, deletion, migration, or
 recovery.
 

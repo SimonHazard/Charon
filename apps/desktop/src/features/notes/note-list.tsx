@@ -19,7 +19,7 @@ export function NoteList({
   onFocusAttachments,
   onCloseEditor,
   onTagFilter,
-  onCopy,
+  onDelete,
   onSave,
   onSetTags,
   onAddAttachments,
@@ -42,7 +42,7 @@ export function NoteList({
   onFocusAttachments(noteId: string): Promise<void>;
   onCloseEditor(noteId: string): void;
   onTagFilter(tag: string): void;
-  onCopy(noteId: string): Promise<void>;
+  onDelete(noteId: string): void;
   onSave(noteId: string, body: string): Promise<void>;
   onSetTags(noteId: string, tags: string[]): Promise<void>;
   onAddAttachments(noteId: string): Promise<void>;
@@ -112,7 +112,7 @@ export function NoteList({
                 onActivate={activateNote}
                 onAddAttachments={onAddAttachments}
                 onCloseEditor={onCloseEditor}
-                onCopy={onCopy}
+                onDelete={onDelete}
                 onDirtyChange={onDirtyChange}
                 onExpand={onExpand}
                 onFocusAttachments={onFocusAttachments}

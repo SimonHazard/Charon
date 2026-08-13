@@ -1,6 +1,7 @@
 # Charon architecture contract
 
-This contract implements [ADR 0011](adr/0011-rapid-capture-product.md).
+This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
+amended by [ADR 0012](adr/0012-unified-note-shelf.md).
 
 ## Authority and boundaries
 
@@ -205,8 +206,8 @@ are implementation details rather than a frontend API. Breaking DTO changes
 require an explicit version strategy and coordinated Rust and TypeScript tests.
 
 React receives a complete Workspace snapshot at open, followed by ordered
-domain events or replacement snapshots. It owns only ephemeral search, Open or
-Done filter, Selection, focus, expanded-editor presentation, draft, and
+domain events or replacement snapshots. It owns only ephemeral search, Tag
+filter, Selection, focus, expanded-editor presentation, draft, and
 Preferences-surface state. Durable state becomes real only after a successful
 Rust command response. Contextual failures preserve user input and expose typed,
 content-free recovery without a generic error destination.
@@ -234,8 +235,10 @@ apps/site    -> packages/theme
 Neither application imports the other. `packages/theme` is framework-neutral
 and exports semantic CSS variables, theme names, and motion and radius contracts
 only. Brand assets, localization, components, native types, and Motion helpers
-remain app-owned. Astro stays static, uses real application media, and gains no
-server adapter, account, form, analytics, CMS, or runtime API.
+remain app-owned. Astro stays static and currently serves a media-free holding
+page. If product media returns, it must come from the real app rather than fake
+styled UI. Astro gains no server adapter, account, form, analytics, CMS, or
+runtime API.
 
 The public build is deployed as ordinary Cloudflare Workers Static Assets. The
 checked-in deployment configuration has no Worker entry point, binding, runtime
@@ -244,8 +247,9 @@ variable, secret, or server route. Production uses the custom domain
 
 ## Change control
 
-ADR 0011 governs the flat schema v2 direction, irreversible deletion, shortcut
-reduction, single shelf, and rejected chart surface. Create another ADR before
-changing persistence, local-only privacy, shortcut support, cross-app sharing,
-the static-site boundary, or the dependency rule. New adapters must correspond
-to a real platform boundary or distinct test seam.
+ADR 0011, as amended by ADR 0012, governs the flat schema v2 direction,
+irreversible deletion, shortcut reduction, unified shelf, Light default, and
+rejected chart surface. Create another ADR before changing persistence, local-
+only privacy, shortcut support, cross-app sharing, the static-site boundary, or
+the dependency rule. New adapters must correspond to a real platform boundary
+or distinct test seam.

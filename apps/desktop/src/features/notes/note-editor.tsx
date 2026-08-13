@@ -23,7 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { closedDraft, draftReducer, hasUnsavedDraft } from '@/features/notes/draft-controller';
 import { NotePreview } from '@/features/notes/note-preview';
-import { motionProfiles } from '@/motion/system';
+import { surfaceCollapsedScale, surfaceTransition } from '@/motion/system';
 
 const AUTOSAVE_DELAY_MS = 650;
 
@@ -53,7 +53,16 @@ export function NoteEditor({
   onClose(): void;
 }) {
   const m = useMessages();
-  const [draft, dispatch] = useReducer(draftReducer, closedDraft);
+  const [draft, dispatch] = useReducer(
+    draftReducer,
+    { noteId: note.id, body: note.body },
+    (initial) =>
+      draftReducer(closedDraft, {
+        type: 'open',
+        noteId: initial.noteId,
+        body: initial.body,
+      }),
+  );
   const [tagInput, setTagInput] = useState('');
   const [tagError, setTagError] = useState<string | null>(null);
   const [attachmentPending, setAttachmentPending] = useState(false);
@@ -182,11 +191,12 @@ export function NoteEditor({
   return (
     <motion.section
       aria-label={m.note_editor_title()}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: 1, scaleY: 1 }}
       className="note-editor-inline"
       data-note-editor={note.id}
-      initial={{ opacity: 0, scale: 0.995 }}
-      transition={motionProfiles.surface}
+      exit={{ opacity: 0, scaleY: surfaceCollapsedScale }}
+      initial={{ opacity: 0, scaleY: surfaceCollapsedScale }}
+      transition={surfaceTransition}
     >
       <Tabs defaultValue="write">
         <div className="note-editor-heading">
@@ -243,7 +253,7 @@ export function NoteEditor({
           {note.tags.length ? (
             <div className="tag-editor-chips">
               {note.tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
+                <Badge key={tag}>
                   {tag}
                   <button
                     aria-label={m.tag_remove({ tag })}

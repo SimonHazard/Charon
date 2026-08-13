@@ -22,25 +22,23 @@ const notes = [
 ];
 
 describe('flat note search', () => {
-  it('searches body, tags, and attachment names in the current status', () => {
-    expect(
-      filterNotes(notes, { query: 'alpha', status: 'open', tag: null }).map((item) => item.id),
-    ).toEqual(['body']);
-    expect(
-      filterNotes(notes, { query: 'research', status: 'open', tag: null }).map((item) => item.id),
-    ).toEqual(['tag']);
-    expect(
-      filterNotes(notes, { query: 'brief.pdf', status: 'open', tag: null }).map((item) => item.id),
-    ).toEqual(['file']);
-    expect(
-      filterNotes(notes, { query: 'alpha', status: 'done', tag: null }).map((item) => item.id),
-    ).toEqual(['done']);
+  it('searches body, tags, and attachment names across every status', () => {
+    expect(filterNotes(notes, { query: 'alpha', tag: null }).map((item) => item.id)).toEqual([
+      'body',
+      'done',
+    ]);
+    expect(filterNotes(notes, { query: 'research', tag: null }).map((item) => item.id)).toEqual([
+      'tag',
+    ]);
+    expect(filterNotes(notes, { query: 'brief.pdf', tag: null }).map((item) => item.id)).toEqual([
+      'file',
+    ]);
   });
 
   it('applies a case-insensitive exact tag filter', () => {
-    expect(
-      filterNotes(notes, { query: '', status: 'open', tag: 'agent' }).map((item) => item.id),
-    ).toEqual(['body']);
-    expect(filterNotes(notes, { query: '', status: 'open', tag: 'age' })).toEqual([]);
+    expect(filterNotes(notes, { query: '', tag: 'agent' }).map((item) => item.id)).toEqual([
+      'body',
+    ]);
+    expect(filterNotes(notes, { query: '', tag: 'age' })).toEqual([]);
   });
 });

@@ -42,6 +42,14 @@ function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}
 }
 
 describe('inline note editor', () => {
+  it('renders the current body on the first paint', () => {
+    editor();
+    expect(screen.getByRole('textbox', { name: 'Markdown body' })).toHaveProperty(
+      'value',
+      'Original',
+    );
+  });
+
   it('normalizes one optional leading hash and adds tags on Enter', async () => {
     expect(normalizeTagInput('  #Research  ')).toBe('Research');
     const user = userEvent.setup();

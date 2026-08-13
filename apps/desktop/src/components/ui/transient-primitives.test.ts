@@ -25,13 +25,11 @@ describe('compact transient primitive contract', () => {
 
   it('keeps compact controls immediate and semantic', () => {
     const button = readComponent('button');
-    const toggle = readComponent('toggle');
-    const inputGroup = readComponent('input-group');
+    const toggleGroup = readComponent('toggle-group');
 
     expect(button).toContain('var(--motion-press-scale)');
     expect(button).toContain('var(--surface-pressed)');
-    expect(toggle).toContain('var(--selection-subtle)');
-    expect(toggle).not.toContain('transition-colors');
-    expect(inputGroup).not.toContain('transition-colors');
+    expect(toggleGroup).toContain('var(--selection-subtle)');
+    expect(toggleGroup).not.toContain('transition-colors');
   });
 });

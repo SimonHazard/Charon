@@ -3,8 +3,8 @@
   "short_name": "Charon",
   "start_url": "/",
   "display": "browser",
-  "background_color": "#fdf6e3",
-  "theme_color": "#fdf6e3",
+  "background_color": "#ebeae8",
+  "theme_color": "#ebeae8",
   "icons": [
     {
       "src": "/brand/charon-icon-lavender-180.png",

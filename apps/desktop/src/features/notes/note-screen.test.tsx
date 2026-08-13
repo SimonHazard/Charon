@@ -50,11 +50,14 @@ describe('single note shelf', () => {
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
   });
 
-  it('defaults to Open and searches body, tags, and attachment names', async () => {
+  it('shows Open and Done together and searches body, tags, and attachment names', async () => {
     const user = userEvent.setup();
     renderScreen();
-    expect(screen.getByRole('button', { name: /Open/ }).getAttribute('aria-pressed')).toBe('true');
-    expect(screen.queryByText('Completed note')).toBeNull();
+    expect(screen.getByText('Completed note')).toBeTruthy();
+    expect(document.querySelector('[data-note-id="done"]')?.getAttribute('data-status')).toBe(
+      'done',
+    );
+    expect(document.querySelector('.status-segment')).toBeNull();
     const search = screen.getByRole('textbox', { name: 'Search notes' });
     await user.type(search, 'brief.pdf');
     expect(await screen.findByText('Attachment note')).toBeTruthy();
@@ -65,7 +68,7 @@ describe('single note shelf', () => {
     expect(screen.queryByText('Attachment note')).toBeNull();
   });
 
-  it('keeps search first, status second, then the list and solid composer', () => {
+  it('keeps search first, then the unified list and solid composer', () => {
     renderScreen();
     const list = screen.getByRole('list', { name: 'Notes' });
     const shelf = list.parentElement?.parentElement;
@@ -79,8 +82,15 @@ describe('single note shelf', () => {
     ]);
     const workbar = shelf?.firstElementChild;
     expect(workbar?.firstElementChild?.className).toBe('note-search');
-    expect(workbar?.lastElementChild?.className).toBe('note-toolbar-row');
-    expect(screen.getByRole('button', { name: /Open/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(workbar?.children).toHaveLength(1);
+    const search = workbar?.firstElementChild;
+    expect(search?.querySelector('.shelf-actions')).not.toBeNull();
+    expect(
+      within(search as HTMLElement).getByRole('button', { name: 'Keyboard shortcuts' }),
+    ).toBeTruthy();
+    expect(within(search as HTMLElement).getByRole('button', { name: 'Settings' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
     expect(document.querySelector('.capture-hint')).toBeNull();
   });
 
@@ -96,8 +106,6 @@ describe('single note shelf', () => {
     expect(within(actions).getByRole('button', { name: 'Selection actions' })).toBeTruthy();
     expect(within(actions).getByRole('button', { name: 'Delete 1' })).toBeTruthy();
     expect(within(actions).getByRole('button', { name: 'Clear selection' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Open/ })).toBeTruthy();
-
     await user.click(within(actions).getByRole('button', { name: 'Selection actions' }));
     expect(await screen.findByText('Mark done')).toBeTruthy();
     expect(await screen.findByText('Copy as Markdown')).toBeTruthy();
@@ -123,10 +131,8 @@ describe('single note shelf', () => {
       .fn()
       .mockResolvedValue({ noteCount: 1, tagCount: 1, attachmentCount: 0, byteCount: 24 });
     renderScreen({ clipboardClient: { composeAndWrite } });
-    await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
-    expect(
-      await screen.findByText(/Managed local Attachment paths enter the clipboard/),
-    ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
+    await user.click(screen.getByRole('button', { name: 'Selection actions' }));
     await user.click(await screen.findByText('Copy as Markdown'));
     await waitFor(() =>
       expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteIds: ['alpha'] }),
@@ -159,8 +165,8 @@ describe('single note shelf', () => {
       },
       pickAttachments: async () => ['/external/brief.pdf'],
     });
-    await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
-    await user.click(await screen.findByText('Add attachment'));
+    await user.click(screen.getByRole('button', { name: 'Edit Alpha' }));
+    await user.click(await screen.findByRole('button', { name: 'Add attachment' }));
     await waitFor(() =>
       expect(commands.some((command) => command.type === 'importNoteAttachments')).toBe(true),
     );
@@ -182,7 +188,7 @@ describe('single note shelf', () => {
     expect(document.querySelector('[data-note-editor="file"]')).toBeTruthy();
   });
 
-  it('uses one irreversible batch confirmation and no Trash or Undo affordance', async () => {
+  it('uses one irreversible confirmation from the direct row trash action', async () => {
     const user = userEvent.setup();
     const commands: WorkspaceCommand[] = [];
     renderScreen({
@@ -190,8 +196,7 @@ describe('single note shelf', () => {
         commands.push(command);
       },
     });
-    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
-    await user.click(screen.getByRole('button', { name: 'Delete 1' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Alpha' }));
     const dialog = screen.getByRole('alertdialog');
     expect(within(dialog).getByText('Delete 1 note permanently?')).toBeTruthy();
     expect(within(dialog).getByText(/cannot be undone/i)).toBeTruthy();
@@ -216,8 +221,7 @@ describe('single note shelf', () => {
         }
       },
     });
-    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
-    await user.click(screen.getByRole('button', { name: 'Delete 1' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Alpha' }));
     await user.click(screen.getByRole('button', { name: 'Delete permanently' }));
     expect(await screen.findByText(/cleanup could not be verified/i)).toBeTruthy();
     expect(screen.getByRole('alertdialog')).toBeTruthy();

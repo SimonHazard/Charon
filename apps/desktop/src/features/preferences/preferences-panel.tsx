@@ -129,13 +129,13 @@ export function PreferencesPanel() {
             className="preferences-toggle"
             onValueChange={(values) => {
               const value = values[0];
-              if (value === 'solarized' || value === 'light' || value === 'dark') {
+              if (value === 'light' || value === 'dark') {
                 appearance.setTheme(value);
               }
             }}
             value={[appearance.theme]}
           >
-            {(['solarized', 'light', 'dark'] as const).map((theme) => (
+            {(['light', 'dark'] as const).map((theme) => (
               <ToggleGroupItem aria-label={m[`theme_${theme}`]()} key={theme} value={theme}>
                 {appearance.theme === theme ? (
                   <IconCheck aria-hidden="true" className="preferences-choice-icon" />

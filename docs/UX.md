@@ -1,7 +1,8 @@
 # Charon desktop UX contract
 
-This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) under the
-interaction and motion invariants of ADR 0005.
+This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
+amended by [ADR 0012](adr/0012-unified-note-shelf.md), under the interaction and
+motion invariants of ADR 0005.
 
 ## Product posture
 
@@ -14,7 +15,7 @@ deletion.
 
 ## Visual language
 
-Solarized is the first-run default. Light and Dark remain user choices. The
+Light is the first-run default and Graphite is the dark user choice. The
 approved Charon Prune, Lavender, and Cream primitives map through semantic theme
 roles; product components never use raw palette values or theme conditionals.
 Lavender is the interaction accent for focus, selection, and active controls.
@@ -29,7 +30,7 @@ with consistent stroke. Do not use Inter, gradients, glow, emoji iconography,
 permanent glass, oversized marketing type, generic rounded cards, or a bento
 grid.
 
-Surface radius is 14px, field radius is 10px, and compact-control radius is
+Surface radius is 16px, field radius is 12px, and compact-control radius is
 8px. Pills are reserved for quiet Tag chips or compact segmented semantics.
 Borders, alignment, spacing, and restrained surface contrast establish
 hierarchy; shadows appear only when a layer genuinely floats.
@@ -45,35 +46,34 @@ uses a 720px-wide native window so the effective content width remains at least
 360px. User-restored window sizes remain authoritative.
 
 The shelf column is at most `34rem`/544px and stays centered in wider restored
-windows rather than stretching Notes across spare canvas. A compact titlebar
-sits above a two-line toolbar: search owns the first full-width row, while
-Open/Done and compact contextual Selection actions share the second without
-horizontal scrolling. One
+windows rather than stretching Notes across spare canvas. A minimal native drag
+region sits above search; Help and Preferences trail the search input inside the
+same surface. Contextual Selection actions appear immediately
+below search only while needed and never create permanent toolbar chrome. One
 virtualized stack of bounded vertical Note surfaces fills the available middle
 region. The solid composer remains anchored and visible at the bottom.
 
 ```text
 +----------------------------------------------+
-| CHARON                              [?] [gear]|
+|                                              |
 +----------------------------------------------+
-| [ Search Notes and Tags...              ][x]|
-| [ Open 5 ] [ Done 1 ]                      |
+| [ Search Notes and Tags...       ][?][gear] |
 |                                              |
 | +------------------------------------------+ |
-| | o  Agent handoff                     ...| |
+| | o  Agent handoff                  edit x| |
 | |    Verify the empty state... Agent  · 1| |
 | +------------------------------------------+ |
-| | o  Local Markdown                    ...| |
+| | ✓  Local Markdown                 edit x| |
 | |    Visible files, explicit copy...      | |
 | +------------------------------------------+ |
 | |             ... virtualized stack ...   | |
 |                                              |
-| [ Capture a thought...                   ^ ]|
+| [ Add a note...                          ^ ]|
 +----------------------------------------------+
 
 Expanded from the live Note row:
 +------------------------------------------+
-| o  Agent handoff                      ...|
+| o  Agent handoff                   edit x|
 | | [ Write | Preview ]    Saved      [x] | |
 | |                                      | |
 | | Markdown editor or safe preview       | |
@@ -87,16 +87,16 @@ Expanded from the live Note row:
 Control labels in the diagram are structural placeholders; implementation uses
 Tabler outline icons and localized accessible names, never emoji glyphs.
 
-The permanent titlebar and composer are solid surfaces separated by the
-semantic separator. The wordmark stays small, native outer-window controls and
-macOS traffic-light space remain platform-owned. Lavender-backed surfaces and
+The minimal drag region and composer use the solid canvas. The search surface
+owns Help and Preferences without a separate wordmark row; native outer-window
+controls and macOS traffic-light space remain platform-owned. Lavender-backed surfaces and
 borders are reserved for focus, Selection, or a successful new-Note
 acknowledgement. Note rows use one semantic fill, a restrained one-pixel border,
 6-8px vertical rhythm, and no lift or shadow. They remain a list, never a card
 grid.
 
 The top chrome remains compact at large text sizes. At narrow desktop widths,
-secondary Tag metadata collapses before title, preview, status, Actions, search,
+secondary Tag metadata collapses before title, preview, status, row actions, search,
 errors, or the composer become unusable. French strings wrap or compact without
 clipping or horizontal scrolling. Preferences is a focused transient surface
 containing the active Notes folder, an explicit validated chooser, theme and
@@ -112,17 +112,17 @@ layout pressure.
 | Job | Compact home | Required compact behavior |
 | --- | --- | --- |
 | Search body, Tags, and Attachment names | Full-width top search row | The clear action remains reachable and a no-result state keeps the composer visible. |
-| Open and Done | Second toolbar row | One Base UI ToggleGroup includes counts and has no sliding decoration. |
+| Open and Done | Unified Note stack | Done stays in place with a checked control, muted surface, and struck-through primary text. |
 | Enter and exit Selection | Note rows | A plain click selects one Note, `Cmd`/`Ctrl`-click toggles one Note, `Shift`-click extends the contiguous range, and Escape clears it. There is no separate mode button. |
-| Bulk status, copy, and Delete | Compact controls beside Open/Done | The selected count, secondary status/copy menu, direct irreversible Delete, and clear action remain reachable without a boxed selection panel. |
-| Scan a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, and Actions remain present. |
+| Bulk status, copy, and Delete | Contextual controls below search | The selected count, secondary status/copy menu, direct irreversible Delete, and clear action appear only for a non-empty Selection. |
+| Scan a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, Edit, and Delete remain present. |
 | Edit Markdown | Expanded live Note row | Write/Preview, autosave state, close, and contextual errors stay in the same row. |
 | Edit Tags | Expanded Note, stacked section | Chips wrap, the add input stays usable, and limits and errors remain local. |
 | Manage Attachments | Expanded Note, stacked section | Generic file metadata, pending and error states, add, and remove remain available without previews. |
-| Copy as Markdown | Row Actions and contextual Selection menu | It is the primary row-menu item; completion, failure, and local-path disclosure remain contextual and reachable. |
-| Permanently delete Notes | Direct contextual trash action and count-specific AlertDialog | The action appears only for a non-empty Selection. The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
-| Preferences | Gear-anchored Popover | Appearance, language, Notes folder, and capture state scroll within a 400 by 480 shelf. |
-| Capture help and permissions | Help Popover and Preferences Capture section | Permission state and action remain visible while long disclosures use keyboard-accessible progressive disclosure. |
+| Copy as Markdown | Contextual Selection menu | One or more selected Notes preserve order; completion, failure, and local-path disclosure remain contextual and reachable. |
+| Permanently delete Notes | Direct row or Selection trash action and count-specific AlertDialog | The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
+| Preferences | Search-trailing gear Popover | Appearance, language, Notes folder, and capture state scroll within a 400 by 480 shelf. |
+| Capture help and permissions | Search-trailing Help Popover and Preferences Capture section | Permission state and action remain visible while long disclosures use keyboard-accessible progressive disclosure. |
 | Workspace loading, empty, error, and recovery | Main shelf region | Layout-shaped progress and local recovery preserve composer or chooser priority. |
 | Manual capture | Anchored body-only composer | Input survives failure, shortcut focus is immediate, and there is no Attachment queue. |
 
@@ -144,8 +144,8 @@ Compact layout thresholds are explicit:
   may be present in its accessible summary, but no thumbnail is rendered.
 - Activating the Attachment count expands the same Note and focuses its
   Attachment section. It never opens a preview, file browser, or another panel.
-- Attachment import starts only from an existing Note editor or its Actions
-  menu and uses the explicit native picker owned by Rust and application
+- Attachment import starts only from an existing Note editor and uses the
+  explicit native picker followed by the Rust-owned application
   commands. The body-only composer never stages an Attachment.
 - A pending import shows bounded indeterminate local progress and the validated
   display filename when the existing command makes one available. It never
@@ -160,18 +160,17 @@ Compact layout thresholds are explicit:
   thumbnail, arbitrary MIME preview, upload, drag and drop, external execution,
   cross-Note sharing, or pre-Note Attachment state.
 
-## Note row and Actions
+## Note row and direct actions
 
 A collapsed Note row exposes body excerpt, quiet Tag chips, paperclip icon plus
-Attachment count, status, selection, a hover/focus pencil, and one compact
-Actions button. Information stays readable without hover; hover only reveals
-the pencil and strengthens available-action feedback. Keyboard focus reveals
-the same controls and never relies on pointer location.
+Attachment count, status, selection, and direct Edit and Delete controls.
+Information stays readable without hover; fine-pointer hover reveals the two
+actions, while focus and coarse pointers expose the same controls without
+relying on pointer location.
 
-The Actions button opens from its trigger and places `Copy as Markdown` first.
-Secondary contextual items may change Open/Done or manage the same Note, but do
-not recreate navigation. The copy action states that optional managed local
-paths enter the clipboard and never implies Attachment bytes are copied or
+Delete opens the count-specific irreversible confirmation for that Note. Copy
+remains an explicit Selection action and states that optional managed local
+paths enter the clipboard; it never implies Attachment bytes are copied or
 uploaded.
 
 Tag chips are quiet metadata, not colored categories or navigation. The
@@ -303,7 +302,7 @@ transition. The editor expansion begins from the live row, carries its current p
 value, uses the same path to expand and collapse, remains reversible at every
 point, and returns to the current row target if the list changes.
 
-Reject list entrance and search-result motion, a sliding Open/Done pill, row
+Reject list entrance and search-result motion, status-filter chrome, row
 lift, hover shadow, parallax, bounce, gradients, grain, composer-focus
 animation, fixed gesture timelines, and animation input locks. The virtual
 `<li>` remains the sole owner of Y translation; any row/editor motion belongs
@@ -312,8 +311,8 @@ the expanded surface owns focus.
 
 Only transform and opacity animate. Translucency is limited to transient
 Popovers, menus, Tooltips, dialogs, and toasts where it communicates hierarchy,
-is never stacked, and has solid semantic fallbacks. The titlebar, shelf,
-toolbar, Notes, and composer stay solid. With `prefers-reduced-motion`, shared
+is never stacked, and has solid semantic fallbacks. The drag region, shelf,
+search, Notes, and composer stay solid. With `prefers-reduced-motion`, shared
 travel, scale, springs, parallax, and momentum become a short opacity crossfade
 or static swap. With reduced transparency, transient materials become solid.
 Increased contrast adds clear boundaries without changing information
@@ -322,7 +321,7 @@ architecture.
 ## Accessibility and acceptance review
 
 Review keyboard-only use, screen-reader names and announcements, larger text,
-EN/FR strings, Solarized/Light/Dark, reduced motion, reduced transparency,
+EN/FR strings, Light/Graphite, reduced motion, reduced transparency,
 increased contrast, loading, empty, failure, destructive, focus, selected,
 disabled, and permission-denied states. Note counts, status, Tags, Attachment
 counts, import progress, copy success, and deletion result are announced without

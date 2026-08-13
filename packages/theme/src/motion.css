@@ -9,11 +9,6 @@
 
   --motion-duration-surface: 360ms;
   --motion-easing-surface: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --motion-surface-distance: 16px;
-  --motion-surface-scale: 0.985;
-
-  --motion-gesture-release-response: 400ms;
-  --motion-gesture-release-damping: 0.8;
 
   --material-blur: 18px;
 }
@@ -25,16 +20,11 @@
     --motion-duration-transient: 120ms;
     --motion-transient-scale: 1;
     --motion-duration-surface: 120ms;
-    --motion-surface-distance: 0px;
-    --motion-surface-scale: 1;
-    --motion-gesture-release-response: 0ms;
-    --motion-gesture-release-damping: 1;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
-    --material-titlebar: var(--material-titlebar-solid);
     --material-transient: var(--material-transient-solid);
     --material-blur: 0px;
   }

@@ -1,176 +1,135 @@
 # Charon agent guide
 
-These rules apply to the entire repository. A narrower `AGENTS.md` may add rules
-for a subtree but may not weaken product, privacy, persistence, deletion, or
-platform contracts without an accepted ADR.
+These rules apply to the whole repository. A narrower `AGENTS.md` may add
+constraints but may not weaken accepted product, privacy, persistence,
+deletion, or platform contracts without an accepted ADR.
 
-## Required reading
+## Read before changing
 
-Before changing anything, read in this order:
+Read, in order:
 
 1. `README.md`
 2. `docs/PRODUCT.md`
 3. `docs/ARCHITECTURE.md`
 4. `docs/PRIVACY.md`
 5. `docs/UX.md` for desktop work or `docs/SITE.md` for site work
-6. every ADR relevant to the change, especially ADR 0011 for product work
+6. relevant ADRs, especially ADR 0011 and its ADR 0012 amendment
 7. `plans/README.md`, then the complete current plan
 
-Use the accepted vocabulary exactly. `Workspace` is the durable filesystem,
-transaction, migration, conflict, and recovery boundary. `CaptureCoordinator`
-owns shortcuts, native permissions, selected-text acquisition, ADR 0010's
-bounded capture-specific Copy transaction, and composer-focus fallback.
-`ClipboardComposer` owns the deterministic `Copy as Markdown` format and
-explicit clipboard writes. `Selection` is ordered, ephemeral, reconciled to the
-current Open or Done result, and never persisted. `Tag` is flat Note metadata.
-`Attachment` is one managed bounded regular-file copy owned by one Note.
+Run the plan drift check and stop on its STOP conditions. Confirm that the
+worktree contains no overlapping user changes before editing.
 
-## Toolchain and dependency rules
+Use the vocabulary exactly:
 
-- Use Bun only for JavaScript and TypeScript commands. Do not use npm, pnpm,
-  yarn, or another JavaScript package manager.
-- Use root Bun scripts when they exist. Application packages own their runtime
-  dependencies and configs.
-- Use Cargo for Rust commands, formatting, linting, and tests.
-- Pin every dependency exactly. Do not use caret, tilde, `latest`, floating Git
-  revisions, or unreviewed transitive overrides. Reconcile changes with the
-  fixed version ledger in `plans/README.md`.
-- Commit generated files only when the owning tool and plan require them. Never
-  hand-edit `bun.lock`, `Cargo.lock`, Paraglide output, `ts-rs` bindings,
-  generated routes, build artifacts, or coverage output. Regenerate them with
-  the pinned tool and include source changes in the same commit.
-- Use Base UI's `render` composition API. Do not introduce Radix `asChild`.
-- Style exclusively with semantic theme tokens. Do not place raw palette values,
-  component-specific magic motion values, or cross-theme conditionals in
-  product components.
-- All user-facing desktop strings go through Paraglide. Do not hardcode English
-  or French copy in React or Rust UI responses.
+- `Workspace` is the durable filesystem, transaction, migration, conflict, and
+  recovery boundary.
+- `CaptureCoordinator` owns shortcuts, native permissions, selected-text
+  acquisition, ADR 0010's bounded Copy transaction, and composer-focus fallback.
+- `ClipboardComposer` owns deterministic `Copy as Markdown` composition and the
+  explicit clipboard write.
+- `Selection` is ordered, ephemeral, reconciled to the unified result, and never
+  persisted.
+- `Tag` is flat Note metadata.
+- `Attachment` is one bounded managed regular-file copy owned by one Note.
 
-## Architecture rules
+## Product and privacy invariants
 
-- React never reads or writes Workspace files or Attachment bytes directly. It
-  dispatches versioned commands and consumes `ts-rs` DTO snapshots and domain
-  events from Rust.
-- Keep the dependency direction UI to application commands to domain modules to
-  adapters, never the reverse.
+- Keep Charon local-only: no account, sync, analytics, telemetry, crash upload,
+  content upload, or undisclosed network access.
+- Copy only after an explicit action. `Copy as Markdown` emits Note bodies,
+  optional Tags, and optional safe names plus canonical paths to managed
+  Attachment copies. It never reads Attachment bytes, uploads, pastes, or
+  changes Note state. Disclose that local paths enter the clipboard.
+- Never add automatic Paste or arbitrary keystroke injection. ADR 0010 permits
+  exactly one synthetic platform Copy after an explicit selected-text capture
+  gesture, inside its bounded snapshot, change-count, timeout, disclosure, and
+  restoration contract.
+- Delete is confirmed, irreversible, and count-specific. After commit, active
+  files and normal completed Charon backups retain neither deleted Markdown nor
+  managed Attachment bytes. Disclose the external backup and OS-snapshot limit.
+- Preserve schema v1 active bodies byte-exactly. Keep already-trashed v1 bodies
+  visible under `legacy-trash-v1/`; never silently restore, merge, hide, or
+  destroy them.
+- Treat unmodified `Shift`, `Shift` as a native modifier sequence. Keep
+  `CmdOrCtrl+Shift+Space` as the reveal-and-focus-composer fallback. Do not claim
+  a platform capability until its physical or signed-build gate passes.
+
+## Architecture
+
+- React dispatches versioned commands and consumes typed snapshots/events. It
+  never reads or writes Workspace files or Attachment bytes directly.
+- Keep dependency direction: UI -> application commands -> domain modules ->
+  adapters.
 - Prefer the three deep modules: `Workspace`, `CaptureCoordinator`, and
-  `ClipboardComposer`. Do not add entity-per-repository, wrapper-per-command, or
-  generic service layers.
-- Use real-filesystem and in-memory Workspace adapters as the two persistence
-  seams. New seams need a distinct platform or testing reason.
-- The active model is one flat Note collection. Do not restore hierarchy,
-  manual ordering, multiple product destinations, or compatibility wrappers for
-  removed entities without a new accepted ADR.
-- A Note has at most 16 Tags. After trimming, each Tag contains 1-48 Unicode
-  scalar values and no control or line-break character. Preserve first-entered
-  spelling and order with case-insensitive uniqueness. Do not add Tag IDs,
-  nesting, colors, a global registry, management surface, or navigation.
-- Adding an Attachment is an explicit file-picker command owned by Rust. A Note
-  has at most 20 Attachments of at most 100 MiB each. Accept only a regular non-
-  symlink file outside the Workspace, copy it into
-  `attachments/<note-id>/<attachment-id>[.<safe-extension>]`, persist only its
-  UUID, validated display basename, generated managed relative path, and
-  creation timestamp, and never persist the external source path, execute,
-  preview arbitrary formats, adopt unexpected files, upload, or share files
-  across Notes.
-- Desktop and site never import each other. Only `@charon/theme` is shared. Do
-  not create shared React components, translations, assets, native types, or
-  Motion helpers.
-- `@charon/theme` exports semantic CSS variables, theme names, and motion and
-  radius contracts only. It has no framework, localization, chart, asset, or
-  native dependency.
-- Astro stays static and uses real application screenshots and video. Do not
-  build fake UI from styled rectangles or add accounts, forms, analytics, a
-  CMS, server adapter, or runtime API.
+  `ClipboardComposer`. Do not add generic services, entity repositories,
+  wrapper-per-command layers, or compatibility abstractions for removed
+  features.
+- The active model is one flat Note collection. Do not restore Sections,
+  hierarchy, manual order, Move, Merge, Trash, multiple destinations, or
+  persisted Selection without an accepted ADR.
+- A Note has at most 16 Tags. Each trimmed Tag has 1-48 Unicode scalar values,
+  no control/line-break character, first-entered spelling and order, and case-
+  insensitive uniqueness. No Tag IDs, colors, nesting, registry, or management
+  surface.
+- A Note has at most 20 Attachments of at most 100 MiB. The explicit picker may
+  return transient source paths to the command boundary; Rust accepts only a
+  regular non-symlink file outside the Workspace, copies it under
+  `attachments/<note-id>/`, and persists no external source path. Never execute,
+  preview arbitrary formats, adopt unknown files, upload, or share them across
+  Notes.
+- Desktop and site import only `@charon/theme`, never each other. The theme
+  package contains semantic CSS variables, theme names, motion, and radius
+  contracts only.
+- Astro remains static. The current public site is a media-free holding page
+  with no client runtime. If product media returns, it must come from the real
+  app, never styled fake UI.
 
-## Product, privacy, deletion, and platform rules
+## UI and motion
 
-- Preserve local-only behavior: no account, sync, analytics, telemetry, crash
-  upload, content upload, or undisclosed network access.
-- Copying is explicit. `Copy as Markdown` deterministically emits Note bodies,
-  optional Tags, and optional safe names plus canonical absolute paths to
-  managed Attachment copies. It never reads or copies Attachment bytes, uploads,
-  pastes, or changes Note state. Disclose that local paths enter the clipboard.
-- Never add automatic Paste or arbitrary keystroke injection into a third-party
-  application. ADR 0010 permits exactly one synthetic platform Copy after an
-  explicit selected-text capture gesture, inside its bounded snapshot, change-
-  count, timeout, disclosure, and restoration contract; no other input
-  injection is permitted.
-- Delete is an explicitly confirmed irreversible batch command and its concise
-  confirmation names the Note count. After successful commit, neither active
-  files nor normal completed Charon transaction backups retain deleted Markdown
-  or managed Attachment bytes. A bounded incomplete crash record exists only
-  until deterministic startup finish or rollback and cleanup. Disclose that OS
-  snapshots, external backups, and synced histories are outside the guarantee.
-- Preserve schema v1 active Note bodies byte-exactly. Stage a bounded recovery
-  record, move already-trashed v1 bodies to visible user-owned plain Markdown
-  under `legacy-trash-v1/`, retain explanatory and original-manifest metadata,
-  then remove the recovery record after convergence. Never silently restore,
-  hide, destroy, or merge archived content with an existing path.
-- Treat unmodified `Shift`, `Shift` as a native modifier-event sequence, not a
-  normal Tauri accelerator. Keep `CmdOrCtrl+Shift+Space` as the portable reveal-
-  and-focus-bottom-composer fallback and keep the composer always visible.
-- Do not synthesize input or claim modifier-only capture on Linux or Windows
-  until the required native and signed-build smoke test passes.
-- Do not promote any platform capability until its required native or signed-
-  build smoke test passes.
-
-## UI and motion rules
-
-- Use Tabler outline icons and semantic tokens only. Do not use emoji for UI
-  iconography, Inter, gradients, glow, permanent glass, or generic rounded card
-  grids.
-- Solarized is the first-run default; Light and Dark remain choices. Map the
-  approved Charon Prune, Lavender, and Cream primitives through semantic roles.
-- The desktop is one single-column shelf with wordmark and Preferences, search,
-  Open/Done, one virtualized Note stack, and an always-visible bottom composer.
-  Do not add a persistent navigation rail or product route.
-- Use the `apple-design` skill for desktop gestures, motion, or irreversible-
-  action interaction changes.
-- Feedback begins on pointer or key down. Motion must remain interruptible,
-  reversible, and retarget from the current presentation value without locking
-  input.
-- Expanded Note shared layout starts from the live row, uses only transform and
-  opacity, and becomes a crossfade or static swap under reduced motion.
-- Reject `transition: all`, gesture state implemented with timers, animation
-  input locks, raw scroll listeners, and fixed keyframe timelines for
-  interruptible behavior.
-- Provide reduced-motion, reduced-transparency, and increased-contrast behavior
-  with every pattern. Keep Motion's React runtime inside `apps/desktop`; shared
-  theme exports only CSS custom properties and preference defaults.
+- Light is the first-run default; Graphite is the dark choice. Use semantic
+  roles mapped from Charon Prune, Lavender, and Cream. Product components never
+  contain raw palette values or theme conditionals.
+- Keep one single-column shelf: minimal drag region; search with trailing Help
+  and Preferences; contextual Selection actions; one virtualized unified Note
+  stack; always-visible bottom composer. No navigation rail or product routes.
+- Use Tabler outline icons and the platform system font. No emoji UI, Inter,
+  gradients, glow, permanent glass, decorative rails, card grids, or decorative
+  list entrances.
+- All desktop copy goes through Paraglide. Keep wording plain and put displayed
+  key combinations in semantic `kbd` markup.
+- Use `apple-design` for desktop gestures, motion, or irreversible interactions.
+  Feedback begins on pointer/key down. Motion is interruptible, reversible, and
+  never locks input.
+- The expanded Note starts from the live row and animates transform and opacity
+  only. Reduced motion uses a crossfade or static swap. Transient surfaces also
+  provide reduced-transparency and increased-contrast fallbacks.
+- Reject `transition: all`, timer-modeled gestures, fixed keyframes for rapidly
+  triggered UI, raw scroll listeners, and animation input locks.
 - Every flow covers loading, empty, error, destructive, focus, selected,
-  disabled, and permission-denied states. Failures remain contextual, content-
-  free, input-preserving, and actionable even though there is no generic Error
-  destination.
+  disabled, and permission-denied states. Failures stay contextual, content-
+  free, input-preserving, and actionable.
 
-## ADR gate
+## Toolchain and hygiene
 
-ADR 0011 governs the rapid-capture shelf, flat schema v2, managed Attachments,
-irreversible deletion, shortcut reduction, Solarized default, and rejected chart
-surface. Create and accept another ADR before changing persistence, local-only
-privacy, deletion guarantees, shortcut or platform support, static-site
-boundary, or cross-app sharing. Update all affected contracts and plans in the
-same change.
+- Use Bun only for JavaScript/TypeScript and Cargo for Rust. Prefer root scripts.
+- Pin dependencies exactly. Manifests and generated lockfiles are authoritative.
+- Never hand-edit `bun.lock`, `Cargo.lock`, Paraglide output, `ts-rs` bindings,
+  generated routes, build artifacts, or coverage output.
+- Use Base UI's `render` API; do not introduce Radix `asChild`.
+- Prove that a file, export, asset, script, message, or dependency has no live
+  consumer before deleting it. Delete obsolete paths instead of leaving future-
+  facing scaffolding.
+- Completed plans and accepted ADRs remain historical evidence. Keep one active
+  queue in `plans/README.md`; do not create a parallel advisory-plan tree.
 
-## Plan preflight and completion
+## Completion
 
-Before implementation:
-
-- Read the complete current plan and its dependencies.
-- Run its drift check and compare the result with the planned baseline.
-- Stop on every stated STOP condition rather than improvising.
-- Confirm the worktree does not contain overlapping user changes.
-
-Before completion:
-
-- Add or update tests and documentation required by the plan.
-- Run every plan-specific verification in order.
-- Run `bun run check` and `cargo test` when the scaffold exists or the current
-  plan explicitly provides those commands. A documentation-only plan that says
-  not to invent runtime commands takes precedence.
+- Add or update proportionate tests and documentation.
+- Run the current plan's verification in order, then `bun run check` and
+  `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked` when
+  applicable.
 - Review the complete diff for scope, generated files, secrets, vocabulary,
-  privacy, and architectural direction.
-- Update the current plan status in `plans/README.md` only after its done
-  criteria pass.
-- Use the exact branch and commit message specified by the plan. Do not push or
-  open a pull request unless instructed.
+  privacy, architecture, and unrelated user changes.
+- Update plan status only after its done criteria pass.
+- Use the plan's exact branch and commit message. Push, publish, deploy, tag, or
+  open a pull request only when the operator explicitly authorizes it.

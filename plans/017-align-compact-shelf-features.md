@@ -19,6 +19,9 @@
 
 ## Status
 
+- **State**: REJECTED — the operator's 2026-08-13 review superseded its
+  Solarized, Open/Done, and per-Note Actions-menu presentation in ADR 0012 and
+  Plan 019. Its implemented compact workflow evidence remains historical input.
 - **Priority**: P1
 - **Effort**: XL
 - **Risk**: HIGH

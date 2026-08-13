@@ -462,13 +462,12 @@ Run, in order:
 5. Rust checks/tests;
 6. `bun run check`;
 7. `bun run verify:release` twice;
-8. exact-candidate and update physical evidence using
-   `advisor-plans/012-final-automation-and-manual-acceptance.md` when the advisor
-   hardening queue is active, or its complete equivalent;
+8. the exact-candidate and update physical matrix defined by this plan;
 9. complete diff/secrets/generated-file review.
 
-Once the protected draft exists, stop at `AWAITING OPERATOR` and hand its exact
-hashes to Advisor Plan 012 rather than publishing merely to test the latest URL.
+Once the protected draft exists, stop at `AWAITING OPERATOR` and hand over its
+exact hashes and the physical matrix rather than publishing merely to test the
+latest URL.
 Only after that matrix passes may the operator promote the human-approved draft,
 verify GitHub latest routes, and set Plan 015 to `DONE`. Publication remains an
 explicit operator action; an executor without that authority must never fake

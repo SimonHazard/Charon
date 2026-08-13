@@ -1,7 +1,7 @@
 import type { ClipboardClient } from '@/lib/ipc/clipboard-client';
 import { note, snapshot, workspaceClient } from '@/test/workspace-fixture';
 
-export const mediaWorkspaceClient = workspaceClient(
+export const demoWorkspaceClient = workspaceClient(
   snapshot([
     note({
       id: 'capture-note',
@@ -30,7 +30,7 @@ export const mediaWorkspaceClient = workspaceClient(
   ]),
 );
 
-export const mediaClipboardClient: ClipboardClient = {
+export const demoClipboardClient: ClipboardClient = {
   composeAndWrite: async () => ({
     noteCount: 1,
     tagCount: 2,

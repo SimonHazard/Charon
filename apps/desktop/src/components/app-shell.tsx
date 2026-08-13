@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from 'react';
-import { Titlebar } from '@/components/titlebar';
+import { WindowDragRegion } from '@/components/shelf-chrome';
 
 export function AppShell({ children }: PropsWithChildren) {
   return (
     <div className="desktop-shell">
-      <Titlebar />
+      <WindowDragRegion />
       <main className="work-area" id="main-content" tabIndex={-1}>
         {children}
       </main>

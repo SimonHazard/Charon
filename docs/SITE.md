@@ -41,8 +41,8 @@ paths; it is not a promoted content destination.
 
 The site is read as a restrained editorial holding page for developers and
 agent users. Design variance is 4/10, motion is 1/10, and density is 2/10. It
-keeps the Solarized canvas and semantic Charon theme roles, uses the system UI
-font, and spends the only visual emphasis on the approved Lavender icon.
+keeps the Light canvas and semantic Charon theme roles, uses the system UI font,
+and spends the only visual emphasis on the approved Lavender icon.
 
 Structure comes from type, space, and two hairline rules. The page has no
 gradient, glow, permanent glass, shadowed card, fake interface, decorative

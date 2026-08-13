@@ -14,7 +14,7 @@ const callbacks = {
   onFocusAttachments: vi.fn().mockResolvedValue(undefined),
   onCloseEditor: vi.fn(),
   onTagFilter: vi.fn(),
-  onCopy: vi.fn().mockResolvedValue(undefined),
+  onDelete: vi.fn(),
   onSave: vi.fn().mockResolvedValue(undefined),
   onSetTags: vi.fn().mockResolvedValue(undefined),
   onAddAttachments: vi.fn().mockResolvedValue(undefined),
@@ -51,7 +51,7 @@ describe('virtual note list', () => {
     expect(document.querySelectorAll('[data-note-id]').length).toBeLessThan(150);
   });
 
-  it('exposes tags, attachments, status, actions, and edit to keyboard users', async () => {
+  it('exposes tags, attachments, status, edit, and delete to keyboard users', async () => {
     const user = userEvent.setup();
     const item = note({
       id: 'note-a',
@@ -87,9 +87,9 @@ describe('virtual note list', () => {
     expect(screen.getByText('One restrained preview line')).toBeTruthy();
     expect(document.querySelector('.note-row-main')?.children).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Mark done' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Actions for Alpha' }));
-    expect(await screen.findByText('Copy as Markdown')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Edit Alpha' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Delete Alpha' }));
+    expect(callbacks.onDelete).toHaveBeenCalledWith('note-a');
     await user.click(screen.getByRole('button', { name: 'Show 1 attachments in this note' }));
     expect(callbacks.onFocusAttachments).toHaveBeenCalledWith('note-a');
   });

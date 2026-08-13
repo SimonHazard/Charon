@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyLocale } from '@/app/locale';
 import { AppProviders } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
-import { Titlebar } from '@/components/titlebar';
+import { ShelfActions } from '@/components/shelf-chrome';
 import type { CaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
 import { snapshot, workspaceClient } from '@/test/workspace-fixture';
@@ -66,10 +66,11 @@ describe('compact Preferences', () => {
         preferencesClient={native.preferencesClient}
         workspaceClient={workspaceClient(snapshot())}
       >
-        <Titlebar />
+        <ShelfActions />
       </AppProviders>,
     );
     await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.queryByRole('button', { name: 'Solarized' })).toBeNull();
     for (const heading of ['Appearance', 'Language', 'Notes folder', 'Capture']) {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
     }
@@ -87,7 +88,7 @@ describe('compact Preferences', () => {
         preferencesClient={native.preferencesClient}
         workspaceClient={workspaceClient(snapshot())}
       >
-        <Titlebar />
+        <ShelfActions />
       </AppProviders>,
     );
     const user = userEvent.setup();
@@ -108,7 +109,7 @@ describe('compact Preferences', () => {
         preferencesClient={native.preferencesClient}
         workspaceClient={workspaceClient(snapshot())}
       >
-        <Titlebar />
+        <ShelfActions />
       </AppProviders>,
     );
     const user = userEvent.setup();
@@ -137,7 +138,7 @@ describe('compact Preferences', () => {
         preferencesClient={native.preferencesClient}
         workspaceClient={workspaceClient(snapshot())}
       >
-        <Titlebar />
+        <ShelfActions />
       </AppProviders>,
     );
     const user = userEvent.setup();
@@ -164,7 +165,7 @@ describe('compact Preferences', () => {
         preferencesClient={native.preferencesClient}
         workspaceClient={workspaceClient(snapshot())}
       >
-        <Titlebar />
+        <ShelfActions />
       </AppProviders>,
     );
     const user = userEvent.setup();
@@ -188,7 +189,7 @@ describe('compact Preferences', () => {
         workspaceClient={client}
       >
         <DirtyDraftControl />
-        <Titlebar />
+        <ShelfActions />
       </AppProviders>,
     );
     const user = userEvent.setup();

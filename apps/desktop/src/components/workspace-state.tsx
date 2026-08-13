@@ -43,7 +43,7 @@ export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnaps
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyMedia variant="icon">
+          <EmptyMedia>
             <IconFolderPlus />
           </EmptyMedia>
           <EmptyTitle>{m.workspace_empty_title()}</EmptyTitle>
@@ -75,7 +75,7 @@ export function WorkspaceState({ children }: { children(snapshot: WorkspaceSnaps
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyMedia variant="icon">
+          <EmptyMedia>
             <IconAlertTriangle />
           </EmptyMedia>
           <EmptyTitle>{m.workspace_error_title()}</EmptyTitle>

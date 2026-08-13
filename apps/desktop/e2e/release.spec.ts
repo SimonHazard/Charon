@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 
-const desktop = '/?fixture=media';
+const desktop = '/?fixture=demo';
 const site = 'http://127.0.0.1:4321/';
 
 async function expectCompactShelf(page: Page, width: number, height: number) {
@@ -11,14 +11,12 @@ async function expectCompactShelf(page: Page, width: number, height: number) {
   const geometry = await page.evaluate(() => {
     const shelf = document.querySelector<HTMLElement>('.note-screen');
     const search = document.querySelector<HTMLElement>('.note-search');
-    const status = document.querySelector<HTMLElement>('.status-segment');
     const list = document.querySelector<HTMLElement>('.note-list');
     const composer = document.querySelector<HTMLElement>('.composer-dock');
     const row = document.querySelector<HTMLElement>('.note-row');
-    if (!shelf || !search || !status || !list || !composer || !row) return null;
+    if (!shelf || !search || !list || !composer || !row) return null;
     const shelfRect = shelf.getBoundingClientRect();
     const searchRect = search.getBoundingClientRect();
-    const statusRect = status.getBoundingClientRect();
     const listRect = list.getBoundingClientRect();
     const composerRect = composer.getBoundingClientRect();
     const rowStyle = getComputedStyle(row);
@@ -27,7 +25,7 @@ async function expectCompactShelf(page: Page, width: number, height: number) {
       bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
       shelfWidth: shelfRect.width,
       shelfLeft: shelfRect.left,
-      searchBeforeStatus: searchRect.bottom <= statusRect.top,
+      searchBeforeList: searchRect.bottom <= listRect.top,
       listBeforeComposer: listRect.bottom <= composerRect.top + 1,
       composerBottom: composerRect.bottom,
       rowBorder: rowStyle.borderTopStyle,
@@ -41,7 +39,7 @@ async function expectCompactShelf(page: Page, width: number, height: number) {
   expect(geometry?.bodyOverflow).toBeLessThanOrEqual(0);
   expect(geometry?.shelfWidth).toBeLessThanOrEqual(544);
   expect(geometry?.shelfLeft).toBeGreaterThanOrEqual(0);
-  expect(geometry?.searchBeforeStatus).toBe(true);
+  expect(geometry?.searchBeforeList).toBe(true);
   expect(geometry?.listBeforeComposer).toBe(true);
   expect(geometry?.composerBottom).toBeLessThanOrEqual(height + 1);
   expect(geometry?.rowBorder).toBe('solid');
@@ -52,14 +50,14 @@ async function expectCompactShelf(page: Page, width: number, height: number) {
 
 test('first launch and manual composer create exactly one Open Note', async ({ page }) => {
   await page.goto(desktop);
-  const composer = page.getByPlaceholder('Capture a thought…');
+  const composer = page.getByPlaceholder('Add a note…');
   await composer.fill('One new synthetic note');
   await composer.press('Enter');
   await expect(page.getByText('One new synthetic note')).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Open' })).toBeVisible();
+  await expect(page.locator('.status-segment')).toHaveCount(0);
 });
 
-test('search, exact Tag filter, Open and Done stay coherent', async ({ page }) => {
+test('search, exact Tag filter, and visible status stay coherent', async ({ page }) => {
   await page.goto(desktop);
   const search = page.getByRole('textbox', { name: 'Search notes' });
   await search.fill('release-brief.pdf');
@@ -69,8 +67,12 @@ test('search, exact Tag filter, Open and Done stay coherent', async ({ page }) =
   await page.getByRole('button', { name: 'Privacy' }).click();
   await expect(page.getByText('Local Markdown')).toBeVisible();
   await page.getByRole('button', { name: 'Clear tag filter Privacy' }).click();
-  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText('Capture contract')).toBeVisible();
+  await expect(page.locator('[data-note-id="done-note"]')).toHaveAttribute('data-status', 'done');
+  await expect(page.locator('[data-note-id="done-note"] .note-row-title')).toHaveCSS(
+    'text-decoration-line',
+    'line-through',
+  );
 });
 
 test('selection copy and irreversible Delete keep confirmation explicit', async ({ page }) => {
@@ -105,7 +107,7 @@ test('row editor supports Write, Preview, Tags and managed Attachment metadata',
   page,
 }) => {
   await page.goto(desktop);
-  await page.locator('[data-note-focus="capture-note"]').dblclick();
+  await page.getByRole('button', { name: 'Edit Agent handoff' }).click();
   await expect(page.getByRole('textbox', { name: 'Markdown body' })).toBeFocused();
   await page.getByRole('tab', { name: 'Preview' }).click();
   await expect(page.locator('.note-preview')).toContainText(
@@ -144,7 +146,7 @@ test('portable focus reveals the existing bottom composer without a draft Note',
   await page.goto(desktop);
   const before = await page.locator('[data-note-id]').count();
   await page.evaluate(() => window.dispatchEvent(new Event('charon:fixture-composer-focus')));
-  await expect(page.getByPlaceholder('Capture a thought…')).toBeFocused();
+  await expect(page.getByPlaceholder('Add a note…')).toBeFocused();
   expect(await page.locator('[data-note-id]').count()).toBe(before);
 });
 
@@ -184,11 +186,13 @@ test('compact shelf geometry holds at minimum, default, capped, and restored siz
   }
 });
 
-test('compact shelf keeps EN and FR across every theme at 400 and 480 pixels', async ({ page }) => {
+test('compact shelf keeps EN and FR across Light and Dark at 400 and 480 pixels', async ({
+  page,
+}) => {
   test.slow();
   for (const width of [400, 480]) {
     for (const locale of ['en', 'fr']) {
-      for (const theme of ['solarized', 'light', 'dark']) {
+      for (const theme of ['light', 'dark']) {
         const matrixPage = await page.context().newPage();
         await matrixPage.setViewportSize({ width, height: 720 });
         await matrixPage.goto(desktop);
@@ -196,7 +200,6 @@ test('compact shelf keeps EN and FR across every theme at 400 and 480 pixels', a
         await matrixPage
           .getByRole('button', {
             name: {
-              solarized: /Solarized/,
               light: /Light|Clair/,
               dark: /Graphite/,
             }[theme],
@@ -273,10 +276,11 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
   await expect(page.getByText('Capture text')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(help).toBeFocused();
-  const done = page.getByRole('button', { name: 'Done', exact: true });
-  await done.focus();
-  await done.press('Space');
-  await expect(done).toHaveAttribute('aria-pressed', 'true');
+  const done = page.locator('[data-note-id="done-note"]');
+  await expect(done).toBeVisible();
+  const reopen = done.getByRole('button', { name: 'Mark open' });
+  await reopen.focus();
+  await expect(reopen).toBeFocused();
 
   const context = await browser.newContext({
     hasTouch: true,
@@ -286,19 +290,20 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
   await touchPage.goto(desktop);
   expect(await touchPage.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
   await expect(touchPage.locator('.note-edit-button').first()).toHaveCSS('opacity', '1');
+  await expect(touchPage.locator('.note-delete-button').first()).toHaveCSS('opacity', '1');
   await context.close();
 });
 
-test('site routes, media, privacy and release state are truthful', async ({ page }) => {
+test('site keeps only the truthful localized holding pages', async ({ page }) => {
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Keep what matters.');
-  const shelfMedia = await page.request.get(`${site}media/charon-shelf-solarized.webp`);
-  expect(shelfMedia.ok()).toBe(true);
+  await expect(page.locator('video, picture, [data-theme-control]')).toHaveCount(0);
+  await page.goto(`${site}fr/`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Gardez l’essentiel.');
   await page.goto(`${site}privacy/`);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy is a local contract');
-  await expect(page.getByText(/one bounded source Copy/)).toBeVisible();
-  await page.goto('http://127.0.0.1:4321/download/');
-  await expect(page.getByText(/no signed installer is claimed/i)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
+  await page.goto(`${site}download/`);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
 });
 
 test('site is keyboard accessible, axe-clean and makes no third-party request', async ({
@@ -348,7 +353,7 @@ test('desktop major shelf and Preferences states are axe-clean', async ({ page }
   ).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.locator('.preferences-popover')).toBeHidden();
-  await page.locator('[data-note-focus="capture-note"]').dblclick();
+  await page.getByRole('button', { name: 'Edit Agent handoff' }).click();
   results = await new AxeBuilder({ page }).analyze();
   expect(
     results.violations.filter((violation) =>
@@ -356,8 +361,7 @@ test('desktop major shelf and Preferences states are axe-clean', async ({ page }
     ),
   ).toEqual([]);
   await page.getByRole('button', { name: 'Close' }).click();
-  await page.locator('[data-note-focus="capture-note"]').click();
-  await page.getByRole('button', { name: 'Delete 1' }).click();
+  await page.getByRole('button', { name: 'Delete Agent handoff' }).click();
   await expect(page.getByRole('alertdialog')).toHaveCSS('opacity', '1');
   results = await new AxeBuilder({ page }).exclude('[data-base-ui-focus-guard]').analyze();
   expect(
@@ -378,7 +382,8 @@ test('site content and capture relationship remain complete without JavaScript',
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.getByText('Charon is taking shape. More soon.', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'View releases' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Ko-fi' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'simonhazard.com' })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,

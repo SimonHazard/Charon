@@ -1,6 +1,7 @@
 # Charon product contract
 
-This contract implements [ADR 0011](adr/0011-rapid-capture-product.md).
+This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) as
+amended by [ADR 0012](adr/0012-unified-note-shelf.md).
 
 ## Product promise and users
 
@@ -21,8 +22,8 @@ durable Note visible to users, editors, backup tools, and local agents.
   on a proved macOS adapter.
 - Create a Note manually from an always-visible bottom composer on every
   platform.
-- Search Markdown bodies and Tags, switch between Open and Done, and select
-  visible Notes for a small set of bulk actions.
+- Search Markdown bodies and Tags across one unified result where completed
+  Notes remain visible, and select visible Notes for a small set of bulk actions.
 - Expand one Note to write or preview Markdown, edit lightweight Tags, and add
   or remove locally managed Attachments.
 - Copy one deterministic agent-ready Markdown document containing Note bodies,
@@ -32,8 +33,8 @@ durable Note visible to users, editors, backup tools, and local agents.
   with an honest account of what Charon can and cannot erase.
 - Keep content in readable local files and recover safely from invalid data,
   interrupted transactions, migration, external edits, or lost permissions.
-- Choose English or French, Solarized by default, or the optional Light and Dark
-  themes without changing command meaning.
+- Choose English or French, or the Light and Graphite appearances without
+  changing command meaning.
 - Inspect the current Notes folder and choose another validated local Workspace.
 
 ## Domain model
@@ -81,8 +82,8 @@ permanent deletion.
 ### Selection
 
 A `Selection` is an ephemeral ordered sequence of Note IDs reconciled to the
-current Open or Done result. It is never persisted and exists only for bulk
-status changes, `Copy as Markdown`, and permanent deletion.
+current unified search and Tag result. It is never persisted and exists only
+for bulk status changes, `Copy as Markdown`, and permanent deletion.
 
 ### Copy as Markdown
 
@@ -137,20 +138,21 @@ Note on Enter, and ignores empty input. On every platform, invoking
 open a second window or empty editor. The platform support ledger separately
 gates whether the operating system can deliver that accelerator globally.
 
-### Search and Open/Done
+### Search and visible status
 
 The user invokes search with `CmdOrCtrl+F`. Results match Markdown bodies and
 Tags, update without losing keyboard focus, use deterministic ordering, and
-make an empty result explicit. Open and Done filters occupy the top chrome and
-never create separate product destinations.
+make an empty result explicit. Open and Done Notes stay in the same result.
+Done Notes use a checked control, muted surface, and struck-through primary text
+so completion is visible without depending on color alone.
 
 ### Selection and status
 
 Arrow keys move the active Note without changing Selection. Space toggles the
 active Note, Shift plus navigation extends a contiguous range, and
 `CmdOrCtrl+A` selects the current visible result. Bulk status changes are one
-transaction and move Notes predictably between Open and Done. Selection is
-reconciled when the visible result changes.
+transaction and update Notes in place. Selection is reconciled when the visible
+result changes.
 
 ### Editing and enrichment
 
@@ -175,8 +177,8 @@ bytes and completed normal transaction backup in the same transaction.
 
 ### Agent-ready copy
 
-The user chooses `Copy as Markdown` from the compact Actions button on one Note
-or on an ordered Selection. Charon writes the exact deterministic body, optional
+The user selects one or more Notes and chooses `Copy as Markdown` from the
+contextual Selection controls. Charon writes the exact deterministic body, optional
 Tags, and optional managed Attachment names and canonical absolute paths. It
 confirms completion, does not read file bytes, and never uploads, pastes, or
 changes a Note.
@@ -205,10 +207,12 @@ removes the bounded recovery record before normal mutation resumes.
 
 ### Theme, language, and folder choice
 
-Solarized is the first-run theme and maps the approved Charon Prune, Lavender,
-and Cream identity through semantic roles. Light and Dark remain choices. Theme
-and English/French language changes update the current surface without restart
-or focus loss. Preferences shows the active Workspace and remembers a new
+Light is the first-run theme and maps the approved Charon Prune, Lavender, and
+Cream identity through quiet neutral semantic roles. Graphite remains the dark
+choice, and a persisted legacy Solarized value resolves to Light. Theme and
+English/French language changes update the current surface without restart or
+focus loss.
+Preferences shows the active Workspace and remembers a new
 folder only after Rust validates it successfully; no Note content is stored in
 preferences.
 

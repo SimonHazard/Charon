@@ -14,6 +14,7 @@ import { useComposerFocus } from '@/app/composer-focus-context';
 import { useMessages } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
 import type { NoteDto, NoteStatus, WorkspaceSnapshot } from '@/bindings/workspace';
+import { ShelfActions } from '@/components/shelf-chrome';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +44,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
 import { NoteList } from '@/features/notes/note-list';
@@ -84,11 +84,10 @@ export function NoteScreen({
   const composerFocus = useComposerFocus();
   const { executeWorkspaceCommand, refreshWorkspace, setWorkspaceSwitchBlocked } = useWorkspace();
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<NoteStatus>('open');
   const [tag, setTag] = useState<string | null>(null);
   const [selection, dispatchSelection] = useReducer(selectionReducer, emptySelection);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([]);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<'cleanup' | 'other' | null>(null);
   const [bulkCopyState, setBulkCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
@@ -99,8 +98,8 @@ export function NoteScreen({
   selectionRef.current = selection;
 
   const notes = useMemo(
-    () => filterNotes(snapshot.notes, { query, status, tag }),
-    [query, snapshot.notes, status, tag],
+    () => filterNotes(snapshot.notes, { query, tag }),
+    [query, snapshot.notes, tag],
   );
   const visibleIds = useMemo(() => notes.map((note) => note.id), [notes]);
   const allTags = useMemo(() => {
@@ -113,11 +112,12 @@ export function NoteScreen({
     }
     return [...values.values()];
   }, [snapshot.notes]);
-  const openCount = useMemo(
-    () => snapshot.notes.filter((note) => note.status === 'open').length,
-    [snapshot.notes],
-  );
-  const doneCount = snapshot.notes.length - openCount;
+  const selectedNotes = useMemo(() => {
+    const selected = new Set(selection.selectedIds);
+    return snapshot.notes.filter((note) => selected.has(note.id));
+  }, [selection.selectedIds, snapshot.notes]);
+  const bulkTargetStatus: NoteStatus =
+    selectedNotes.length && selectedNotes.every((note) => note.status === 'done') ? 'open' : 'done';
 
   useEffect(() => {
     dispatchSelection({ type: 'reconcile', visibleIds });
@@ -191,12 +191,11 @@ export function NoteScreen({
 
   const importAttachments = useCallback(
     async (noteId: string) => {
-      await focusAttachments(noteId);
       const sourcePaths = await pickAttachments();
       if (!sourcePaths.length) return;
       await executeWorkspaceCommand({ type: 'importNoteAttachments', noteId, sourcePaths });
     },
-    [executeWorkspaceCommand, focusAttachments, pickAttachments],
+    [executeWorkspaceCommand, pickAttachments],
   );
 
   const leaveSelection = useCallback(() => {
@@ -204,13 +203,19 @@ export function NoteScreen({
     setDeleteError(null);
   }, []);
 
-  const deleteSelected = useCallback(async () => {
-    if (!selection.selectedIds.length || deletePending) return;
+  const requestDelete = useCallback((noteIds: readonly string[]) => {
+    if (!noteIds.length) return;
+    setDeleteError(null);
+    setDeleteTargetIds([...noteIds]);
+  }, []);
+
+  const deleteNotes = useCallback(async () => {
+    if (!deleteTargetIds.length || deletePending) return;
     setDeletePending(true);
     setDeleteError(null);
     try {
-      await executeWorkspaceCommand({ type: 'deleteNotes', noteIds: selection.selectedIds });
-      setDeleteOpen(false);
+      await executeWorkspaceCommand({ type: 'deleteNotes', noteIds: deleteTargetIds });
+      setDeleteTargetIds([]);
       leaveSelection();
       window.requestAnimationFrame(() => {
         const next = document.querySelector<HTMLElement>('[data-note-focus]');
@@ -223,14 +228,14 @@ export function NoteScreen({
     } finally {
       setDeletePending(false);
     }
-  }, [deletePending, executeWorkspaceCommand, leaveSelection, selection.selectedIds]);
+  }, [deletePending, deleteTargetIds, executeWorkspaceCommand, leaveSelection]);
 
   const retryDeletionCleanup = useCallback(async () => {
     if (deletePending) return;
     setDeletePending(true);
     try {
       await refreshWorkspace();
-      setDeleteOpen(false);
+      setDeleteTargetIds([]);
       leaveSelection();
     } catch {
       setDeleteError('cleanup');
@@ -291,10 +296,10 @@ export function NoteScreen({
         currentSelection.selectedIds.length
       ) {
         event.preventDefault();
-        setDeleteOpen(true);
+        requestDelete(currentSelection.selectedIds);
       }
     },
-    [expandNote, leaveSelection, visibleIds],
+    [expandNote, leaveSelection, requestDelete, visibleIds],
   );
 
   const closeEditor = useCallback((noteId: string) => {
@@ -303,7 +308,6 @@ export function NoteScreen({
       document.querySelector<HTMLElement>(`[data-note-focus="${noteId}"]`)?.focus();
     });
   }, []);
-  const copyNote = useCallback((noteId: string) => copyNotes([noteId]), [copyNotes]);
   const removeAttachment = useCallback(
     (noteId: string, attachment: NoteDto['attachments'][number]) =>
       executeWorkspaceCommand({
@@ -344,23 +348,14 @@ export function NoteScreen({
     searchRef.current?.focus();
   };
 
-  const emptyTitle =
-    query || tag
-      ? m.note_empty_search_title()
-      : status === 'open'
-        ? m.note_empty_open_title()
-        : m.note_empty_done_title();
+  const emptyTitle = query || tag ? m.note_empty_search_title() : m.note_empty_all_title();
   const emptyDescription =
-    query || tag
-      ? m.note_empty_search_description_flat()
-      : status === 'open'
-        ? m.note_empty_open_description()
-        : m.note_empty_done_description();
+    query || tag ? m.note_empty_search_description_flat() : m.note_empty_all_description();
   const selectedCount =
     selection.selectedIds.length === 1
       ? m.selection_count_one()
       : m.selection_count_many({ count: selection.selectedIds.length });
-  const bulkStatusLabel = status === 'open' ? m.note_mark_done() : m.note_mark_open();
+  const bulkStatusLabel = bulkTargetStatus === 'done' ? m.note_mark_done() : m.note_mark_open();
 
   return (
     <section className="note-screen">
@@ -386,101 +381,83 @@ export function NoteScreen({
               <IconX aria-hidden="true" />
             </Button>
           ) : null}
+          <ShelfActions />
         </div>
-        <div className="note-toolbar-row">
-          <ToggleGroup
-            aria-label={m.note_status_filter_label()}
-            className="status-segment"
-            onValueChange={(values) => {
-              const next = values[0];
-              if (next === 'open' || next === 'done') setStatus(next);
-            }}
-            spacing={0}
-            value={[status]}
-          >
-            <ToggleGroupItem value="open">
-              {m.note_status_open()} <span aria-hidden>{openCount}</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="done">
-              {m.note_status_done()} <span aria-hidden>{doneCount}</span>
-            </ToggleGroupItem>
-          </ToggleGroup>
-          {selection.selectedIds.length ? (
-            <fieldset aria-label={selectedCount} className="selection-context">
-              <strong aria-live="polite" className="selection-count">
-                <span className="selection-count-long">{selectedCount}</span>
-                <span aria-hidden="true" className="selection-count-short">
-                  {selection.selectedIds.length}
-                </span>
-              </strong>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  aria-label={m.selection_actions()}
-                  render={<Button size="icon-sm" variant="ghost" />}
-                >
-                  <IconDots aria-hidden="true" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        void executeWorkspaceCommand({
-                          type: 'setNoteStatus',
-                          noteIds: selection.selectedIds,
-                          status: status === 'open' ? 'done' : 'open',
-                        })
-                      }
-                    >
-                      {status === 'open' ? (
-                        <IconCheck aria-hidden="true" />
-                      ) : (
-                        <IconCircle aria-hidden="true" />
-                      )}
-                      {bulkStatusLabel}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      aria-description={m.copy_local_paths_disclosure()}
-                      onClick={() => void copyNotes(selection.selectedIds).catch(() => undefined)}
-                    >
-                      <IconCopy aria-hidden="true" />
-                      {m.copy_as_markdown()}
-                    </DropdownMenuItem>
-                    <DropdownMenuLabel className="copy-disclosure">
-                      {m.copy_local_paths_disclosure()}
-                    </DropdownMenuLabel>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger
-                  aria-label={m.delete_selected({ count: selection.selectedIds.length })}
-                  onClick={() => setDeleteOpen(true)}
-                  render={<Button size="icon-sm" variant="destructive" />}
-                >
-                  <IconTrash aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {m.delete_selected({ count: selection.selectedIds.length })}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  aria-label={m.selection_clear()}
-                  onClick={leaveSelection}
-                  render={<Button size="icon-sm" variant="ghost" />}
-                >
-                  <IconX aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>{m.selection_clear()}</TooltipContent>
-              </Tooltip>
-            </fieldset>
-          ) : null}
-        </div>
+        {selection.selectedIds.length ? (
+          <fieldset aria-label={selectedCount} className="selection-context">
+            <strong aria-live="polite" className="selection-count">
+              <span className="selection-count-long">{selectedCount}</span>
+              <span aria-hidden="true" className="selection-count-short">
+                {selection.selectedIds.length}
+              </span>
+            </strong>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label={m.selection_actions()}
+                render={<Button size="icon-sm" variant="ghost" />}
+              >
+                <IconDots aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      void executeWorkspaceCommand({
+                        type: 'setNoteStatus',
+                        noteIds: selection.selectedIds,
+                        status: bulkTargetStatus,
+                      })
+                    }
+                  >
+                    {bulkTargetStatus === 'done' ? (
+                      <IconCheck aria-hidden="true" />
+                    ) : (
+                      <IconCircle aria-hidden="true" />
+                    )}
+                    {bulkStatusLabel}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    aria-description={m.copy_local_paths_disclosure()}
+                    onClick={() => void copyNotes(selection.selectedIds).catch(() => undefined)}
+                  >
+                    <IconCopy aria-hidden="true" />
+                    {m.copy_as_markdown()}
+                  </DropdownMenuItem>
+                  <DropdownMenuLabel className="copy-disclosure">
+                    {m.copy_local_paths_disclosure()}
+                  </DropdownMenuLabel>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger
+                aria-label={m.delete_selected({ count: selection.selectedIds.length })}
+                onClick={() => requestDelete(selection.selectedIds)}
+                render={<Button size="icon-sm" variant="destructive" />}
+              >
+                <IconTrash aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>
+                {m.delete_selected({ count: selection.selectedIds.length })}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger
+                aria-label={m.selection_clear()}
+                onClick={leaveSelection}
+                render={<Button size="icon-sm" variant="ghost" />}
+              >
+                <IconX aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>{m.selection_clear()}</TooltipContent>
+            </Tooltip>
+          </fieldset>
+        ) : null}
       </div>
       <div className="note-context">
         {tag ? (
           <div className="active-tag-filter">
-            <Badge variant="secondary">{tag}</Badge>
+            <Badge>{tag}</Badge>
             <Button
               aria-label={m.tag_filter_clear({ tag })}
               onClick={() => setTag(null)}
@@ -509,8 +486,8 @@ export function NoteScreen({
           notes={notes}
           onAddAttachments={importAttachments}
           onCloseEditor={closeEditor}
+          onDelete={(noteId) => requestDelete([noteId])}
           onDirtyChange={setWorkspaceSwitchBlocked}
-          onCopy={copyNote}
           onExpand={expandNote}
           onFocusAttachments={focusAttachments}
           onRemoveAttachment={removeAttachment}
@@ -525,16 +502,16 @@ export function NoteScreen({
       ) : (
         <Empty className="note-empty">
           <EmptyHeader>
-            <EmptyMedia variant="icon">
+            <EmptyMedia>
               <IconSearch aria-hidden="true" />
             </EmptyMedia>
             <EmptyTitle>{emptyTitle}</EmptyTitle>
             <EmptyDescription>{emptyDescription}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            {status === 'done' && !query && !tag ? (
-              <Button onClick={() => setStatus('open')} variant="outline">
-                {m.note_show_open()}
+            {query || tag ? (
+              <Button onClick={clearSearch} variant="outline">
+                {m.note_search_clear()}
               </Button>
             ) : (
               <Button onClick={() => captureRef.current?.focus()} variant="outline">
@@ -549,26 +526,25 @@ export function NoteScreen({
           onCreate={async (body) => {
             await executeWorkspaceCommand({ type: 'createNote', body });
           }}
-          onCreated={() => setStatus('open')}
           ref={captureRef}
         />
       </div>
 
       <AlertDialog
-        open={deleteOpen}
+        open={Boolean(deleteTargetIds.length)}
         onOpenChange={(open) => {
-          if (!deletePending) setDeleteOpen(open);
+          if (!open && !deletePending) setDeleteTargetIds([]);
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {selection.selectedIds.length === 1
+              {deleteTargetIds.length === 1
                 ? m.delete_title_one()
-                : m.delete_title({ count: selection.selectedIds.length })}
+                : m.delete_title({ count: deleteTargetIds.length })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {m.delete_description({ count: selection.selectedIds.length })}
+              {m.delete_description({ count: deleteTargetIds.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <p className="delete-boundary">{m.delete_external_boundary()}</p>
@@ -582,7 +558,7 @@ export function NoteScreen({
             <AlertDialogAction
               disabled={deletePending}
               onClick={() =>
-                void (deleteError === 'cleanup' ? retryDeletionCleanup() : deleteSelected())
+                void (deleteError === 'cleanup' ? retryDeletionCleanup() : deleteNotes())
               }
               variant="destructive"
             >

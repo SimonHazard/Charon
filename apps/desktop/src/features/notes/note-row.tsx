@@ -1,27 +1,14 @@
-import {
-  IconCheck,
-  IconCopy,
-  IconDots,
-  IconEdit,
-  IconPaperclip,
-  IconPlus,
-} from '@tabler/icons-react';
-import { memo, useState } from 'react';
+import { IconCheck, IconEdit, IconPaperclip, IconTrash } from '@tabler/icons-react';
+import { AnimatePresence, m as motion } from 'motion/react';
+import { memo } from 'react';
 
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NoteEditor } from '@/features/notes/note-editor';
+import { surfaceTransition } from '@/motion/system';
 
 export function noteFirstLine(body: string): string {
   return (
@@ -46,7 +33,7 @@ export const NoteRow = memo(function NoteRow({
   onFocusAttachments,
   onCloseEditor,
   onTagFilter,
-  onCopy,
+  onDelete,
   onSave,
   onSetTags,
   onAddAttachments,
@@ -66,7 +53,7 @@ export const NoteRow = memo(function NoteRow({
   onFocusAttachments(noteId: string): Promise<void>;
   onCloseEditor(noteId: string): void;
   onTagFilter(tag: string): void;
-  onCopy(noteId: string): Promise<void>;
+  onDelete(noteId: string): void;
   onSave(noteId: string, body: string): Promise<void>;
   onSetTags(noteId: string, tags: string[]): Promise<void>;
   onAddAttachments(noteId: string): Promise<void>;
@@ -75,7 +62,6 @@ export const NoteRow = memo(function NoteRow({
   onDirtyChange(dirty: boolean): void;
 }) {
   const m = useMessages();
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
   const title = noteFirstLine(note.body) || m.note_untitled();
   const remainingLines = note.body
     .split(/\r?\n/u)
@@ -91,23 +77,16 @@ export const NoteRow = memo(function NoteRow({
     : attachmentSummary;
   const tagSummary = note.tags.length ? note.tags.join(', ') : m.note_metadata_no_tags();
 
-  const copy = async () => {
-    try {
-      await onCopy(note.id);
-      setCopyState('copied');
-      window.setTimeout(() => setCopyState('idle'), 1600);
-    } catch {
-      setCopyState('error');
-    }
-  };
-
   return (
-    <article
+    <motion.article
       className="note-row"
       data-active={active}
       data-expanded={expanded}
       data-note-id={note.id}
       data-selected={selected}
+      data-status={note.status}
+      layout="size"
+      transition={{ layout: surfaceTransition }}
     >
       <div className="note-row-main">
         <div className="note-row-leading">
@@ -129,7 +108,6 @@ export const NoteRow = memo(function NoteRow({
             data-note-focus={note.id}
             aria-pressed={selected}
             onClick={(event) => onActivate(note.id, event)}
-            onDoubleClick={() => onExpand(note.id)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
@@ -161,9 +139,7 @@ export const NoteRow = memo(function NoteRow({
               </button>
             ))}
             {note.tags.length > 2 ? (
-              <Badge className="tag-overflow" variant="secondary">
-                +{note.tags.length - 2}
-              </Badge>
+              <Badge className="tag-overflow">+{note.tags.length - 2}</Badge>
             ) : null}
             {note.attachments.length ? (
               <Tooltip>
@@ -182,35 +158,6 @@ export const NoteRow = memo(function NoteRow({
           </div>
         </div>
         <div className="note-row-actions">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label={m.note_actions({ title })}
-              render={<Button size="icon-sm" variant="ghost" />}
-            >
-              <IconDots aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuGroup>
-                <DropdownMenuItem
-                  aria-description={m.copy_local_paths_disclosure()}
-                  onClick={() => void copy()}
-                >
-                  <IconCopy aria-hidden="true" />
-                  {copyState === 'copied' ? m.copy_inline_copied() : m.copy_as_markdown()}
-                </DropdownMenuItem>
-                <DropdownMenuLabel className="copy-disclosure">
-                  {m.copy_local_paths_disclosure()}
-                </DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => void onAddAttachments(note.id)}>
-                  <IconPlus aria-hidden="true" />
-                  {m.attachment_add()}
-                </DropdownMenuItem>
-                {copyState === 'error' ? (
-                  <DropdownMenuItem onClick={() => void copy()}>{m.copy_retry()}</DropdownMenuItem>
-                ) : null}
-              </DropdownMenuGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
           <Button
             aria-label={m.note_edit({ title })}
             className="note-edit-button"
@@ -220,21 +167,33 @@ export const NoteRow = memo(function NoteRow({
           >
             <IconEdit aria-hidden="true" />
           </Button>
+          <Button
+            aria-label={m.note_delete({ title })}
+            className="note-delete-button"
+            onClick={() => onDelete(note.id)}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <IconTrash aria-hidden="true" />
+          </Button>
         </div>
       </div>
-      {expanded ? (
-        <NoteEditor
-          allTags={allTags}
-          note={note}
-          onAddAttachments={() => onAddAttachments(note.id)}
-          onClose={() => onCloseEditor(note.id)}
-          onDirtyChange={onDirtyChange}
-          onRemoveAttachment={(attachment) => onRemoveAttachment(note.id, attachment)}
-          onRetryCleanup={onRetryCleanup}
-          onSave={(body) => onSave(note.id, body)}
-          onSetTags={(tags) => onSetTags(note.id, tags)}
-        />
-      ) : null}
-    </article>
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <NoteEditor
+            allTags={allTags}
+            key={note.id}
+            note={note}
+            onAddAttachments={() => onAddAttachments(note.id)}
+            onClose={() => onCloseEditor(note.id)}
+            onDirtyChange={onDirtyChange}
+            onRemoveAttachment={(attachment) => onRemoveAttachment(note.id, attachment)}
+            onRetryCleanup={onRetryCleanup}
+            onSave={(body) => onSave(note.id, body)}
+            onSetTags={(tags) => onSetTags(note.id, tags)}
+          />
+        ) : null}
+      </AnimatePresence>
+    </motion.article>
   );
 });

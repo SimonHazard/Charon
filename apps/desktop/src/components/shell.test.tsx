@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
 import { AppShell } from '@/components/app-shell';
+import { ShelfActions } from '@/components/shelf-chrome';
 
 describe('single shelf shell', () => {
   it('renders one main landmark without navigation, rail, inspector, or footer', () => {
@@ -19,7 +20,6 @@ describe('single shelf shell', () => {
     expect(document.querySelector('.section-rail')).toBeNull();
     expect(document.querySelector('.context-inspector')).toBeNull();
     expect(document.querySelector('footer')).toBeNull();
-    expect(screen.getByAltText('Charon')).toBeTruthy();
   });
 
   it('keeps native drag chrome compact and opens ordinary Help as an anchored Popover', async () => {
@@ -27,13 +27,14 @@ describe('single shelf shell', () => {
     render(
       <AppProviders>
         <AppShell>
-          <p>content</p>
+          <ShelfActions />
         </AppShell>
       </AppProviders>,
     );
 
-    const titlebar = document.querySelector('.titlebar');
-    expect(titlebar?.getAttribute('data-tauri-drag-region')).not.toBeNull();
+    const dragRegion = document.querySelector('.window-drag-region');
+    expect(dragRegion?.getAttribute('data-tauri-drag-region')).not.toBeNull();
+    expect(dragRegion?.children).toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Keyboard shortcuts' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
 

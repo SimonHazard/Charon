@@ -9,10 +9,10 @@
       (() => {
         try {
           const value = localStorage.getItem('charon:theme:v1');
-          const theme = ['light', 'solarized', 'dark'].includes(value) ? value : 'solarized';
+          const theme = ['light', 'dark'].includes(value) ? value : 'light';
           document.documentElement.dataset.theme = theme;
         } catch {
-          document.documentElement.dataset.theme = 'solarized';
+          document.documentElement.dataset.theme = 'light';
         }
       })();
     </script>

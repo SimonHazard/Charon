@@ -1,8 +1,7 @@
-import type { NoteDto, NoteStatus } from '@/bindings/workspace';
+import type { NoteDto } from '@/bindings/workspace';
 
 export type NoteFilter = {
   query: string;
-  status: NoteStatus;
   tag: string | null;
 };
 
@@ -16,7 +15,6 @@ export function filterNotes(notes: readonly NoteDto[], filter: NoteFilter): Note
   const tokens = normalizeSearchText(filter.query).split(' ').filter(Boolean);
   const exactTag = filter.tag?.toLocaleLowerCase() ?? null;
   return notes.filter((note) => {
-    if (note.status !== filter.status) return false;
     if (exactTag && !note.tags.some((tag) => tag.toLocaleLowerCase() === exactTag)) return false;
     if (!tokens.length) return true;
     const haystack = normalizeSearchText(

@@ -12,16 +12,16 @@ import { m } from '@/paraglide/messages.js';
 
 import './styles/app.css';
 
-const mediaPreview =
-  import.meta.env.DEV && new URLSearchParams(window.location.search).get('fixture') === 'media';
-const mediaFixture = mediaPreview ? await import('@/test/media-workspace') : null;
-const mediaWorkspaceClient = mediaFixture?.mediaWorkspaceClient;
-const mediaClipboardClient = mediaFixture?.mediaClipboardClient;
+const demoMode =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).get('fixture') === 'demo';
+const demoFixture = demoMode ? await import('@/test/demo-workspace') : null;
+const demoWorkspaceClient = demoFixture?.demoWorkspaceClient;
+const demoClipboardClient = demoFixture?.demoClipboardClient;
 
-function MediaComposerBridge() {
+function DemoComposerBridge() {
   const composer = useComposerFocus();
   useEffect(() => {
-    if (!mediaPreview) return;
+    if (!demoMode) return;
     let requestId = 0;
     const focus = () => composer.receive({ requestId: ++requestId });
     window.addEventListener('charon:fixture-composer-focus', focus);
@@ -63,12 +63,12 @@ if (rootElement && !rootElement.innerHTML) {
       <AppErrorBoundary>
         <Toaster>
           <TooltipProvider>
-            <AppProviders workspaceClient={mediaWorkspaceClient}>
-              <MediaComposerBridge />
+            <AppProviders workspaceClient={demoWorkspaceClient}>
+              <DemoComposerBridge />
               <AppShell>
                 <WorkspaceState>
                   {(snapshot) => (
-                    <NoteScreen clipboardClient={mediaClipboardClient} snapshot={snapshot} />
+                    <NoteScreen clipboardClient={demoClipboardClient} snapshot={snapshot} />
                   )}
                 </WorkspaceState>
               </AppShell>

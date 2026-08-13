@@ -4,8 +4,8 @@ import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 
 import { cn } from '@/lib/utils';
 
-function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Props) {
-  return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
+function TooltipProvider(props: TooltipPrimitive.Provider.Props) {
+  return <TooltipPrimitive.Provider data-slot="tooltip-provider" {...props} />;
 }
 
 function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
@@ -38,7 +38,7 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            'inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-[var(--shadow-transient)] transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] [transition-timing-function:var(--motion-easing-transient)] has-data-[slot=kbd]:pr-1.5 data-closed:invisible data-starting-style:scale-[var(--motion-transient-scale)] data-starting-style:opacity-0 data-ending-style:scale-[var(--motion-transient-scale)] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:rounded-sm',
+            'inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-[var(--shadow-transient)] transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] [transition-timing-function:var(--motion-easing-transient)] has-data-[slot=kbd]:pr-1.5 data-closed:invisible data-instant:transition-none data-starting-style:scale-[var(--motion-transient-scale)] data-starting-style:opacity-0 data-ending-style:scale-[var(--motion-transient-scale)] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:rounded-sm',
             className,
           )}
           {...props}
