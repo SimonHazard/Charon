@@ -123,6 +123,24 @@ choice. Astro output is static only. There are no accounts, forms, cookies,
 analytics, CMS, newsletter, or runtime API. Site behavior works without a
 client framework except for narrowly justified progressive enhancement.
 
+## Hosting contract
+
+The checked static output is hosted on Cloudflare Workers Static Assets at
+`https://charon.simonhazard.com`. The Worker configuration has no runtime entry
+point, binding, secret, server route, redirect service, analytics client, or
+application request log. Persistent Worker observability and Cloudflare Web
+Analytics remain disabled, as do Wrangler usage metrics and dependency
+instrumentation.
+
+The custom domain is the only public deployment surface. The `workers.dev`
+route and every Preview URL are disabled, and production receives no Cloudflare
+Access cookie. A path-filtered GitHub Actions workflow deploys after a push to
+`main` only when the site, shared theme, root manifest, or lockfile changed. It
+runs the checked static build before deployment and has read-only GitHub
+permissions. Cloudflare necessarily processes ordinary HTTP connection metadata
+to deliver and protect the site; the localized privacy page discloses that
+hosting boundary.
+
 ## Search and social metadata
 
 Every localized page has a verified canonical URL and reciprocal `hreflang`

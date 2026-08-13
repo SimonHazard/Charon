@@ -88,7 +88,7 @@ export const copy = {
       ],
       [
         'This site',
-        'This static site has no account, form, analytics, tracker, advertising script, runtime API, or third-party embed.',
+        'This static site is served as ordinary files by Cloudflare Workers Static Assets. Cloudflare processes ordinary connection metadata to deliver it. Charon enables no Web Analytics or persistent Worker observability and adds no account, form, tracker, advertising script, runtime API, third-party embed, preview URL, or Access cookie.',
       ],
     ],
     downloadTitle: 'Releases, with evidence',
@@ -186,7 +186,7 @@ export const copy = {
       ],
       [
         'Ce site',
-        'Ce site statique ne contient ni compte, ni formulaire, ni analytics, ni tracker, ni publicité, ni API d’exécution, ni intégration tierce.',
+        'Ce site statique est servi comme fichiers ordinaires par Cloudflare Workers Static Assets. Cloudflare traite les métadonnées de connexion ordinaires nécessaires à sa livraison. Charon n’active ni Web Analytics ni observabilité Worker persistante et n’ajoute ni compte, ni formulaire, ni tracker, ni publicité, ni API d’exécution, ni intégration tierce, ni URL de prévisualisation, ni cookie Access.',
       ],
     ],
     downloadTitle: 'Des versions appuyées par des preuves',
