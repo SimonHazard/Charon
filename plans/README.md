@@ -14,7 +14,10 @@ and rejected paid Apple and Windows certificates. Plan 016 was retargeted to a
 workflow, and Plans 014-015 were reconciled around exact GitHub artifacts and a
 separate Tauri updater signature.
 
-Execute one remaining plan at a time in the order below. Every executor must
+Execute one remaining plan at a time in the order below. On 2026-08-12, the
+operator explicitly inserted Plan 018 before Plan 017 and authorized its
+Cloudflare production publication. On 2026-08-13, the operator rejected preview
+deployments and required path-filtered production deployment from `main`. Every executor must
 read `README.md`, product/architecture/privacy/UX or SITE contracts, relevant
 ADRs, this index, and its complete plan. Run the plan drift check before changes,
 honor every STOP condition, use Bun only for JavaScript/TypeScript and Cargo for
@@ -40,6 +43,7 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 012 | [Add minimal preferences and pragmatic platform fallbacks](./012-add-minimal-preferences-and-platform-fallbacks.md) | P1 | L | 010, 011 | BLOCKED: physical macOS, Linux, and Windows smoke incomplete |
 | 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | DONE |
 | 016 | [Retarget the premium desktop to a compact vertical capture shelf](./016-refine-premium-desktop-shelf.md) | P1 | L | 009-013; existing 014 automated harness | DONE |
+| 018 | [Host the static site on Cloudflare Workers](./018-host-static-site-on-cloudflare.md) | P1 | M | 013; operator reprioritization | AWAITING OPERATOR: GitHub secrets, main merge, first CI run, NEL off |
 | 017 | [Align every Charon workflow inside the compact shelf](./017-align-compact-shelf-features.md) | P1 | XL | 016 | TODO |
 | 014 | [Close release quality against exact GitHub candidate artifacts](./014-close-rapid-capture-quality-gaps.md) | P1 | L + physical matrix | 017 | TODO |
 | 015 | [Publish GitHub Releases with Tauri-signed updates and no paid platform certificates](./015-automate-builds-and-releases.md) | P1 | XL | 014 | TODO |
@@ -80,6 +84,13 @@ EN/FR and Solarized/Light/Dark compact matrix, effective 360px review, Axe,
 performance, privacy, Cargo, native first-run/restoration check, and two
 consecutive release gates passed.
 
+Plan 018 is the current operator-prioritized task. It publishes the already
+static Plan 013 site as Cloudflare Workers Static Assets at
+`charon.simonhazard.com`, keeps runtime code and analytics absent, disables the
+`workers.dev` route and Preview URLs, and deploys from a path-filtered GitHub
+Actions workflow after matching pushes to `main`. It does not change desktop
+release availability or weaken the remaining Plan 017, 014, and 015 gates.
+
 Plan 017 is the next implementation task. It proves every workflow at effective
 360px and above, including 20 managed Attachments, long filenames,
 import/removal failures, Selection, copy, Delete, Preferences, Workspace
@@ -91,9 +102,9 @@ After Plan 017, Plan 014 closes exact-candidate evidence without requiring paid
 platform certificates. Plan 015 first accepts a distribution ADR, then replaces
 the Apple-only release job with protected macOS/Linux/Windows GitHub Release
 artifacts. macOS remains ad-hoc and not notarized; Windows remains unsigned;
-Tauri signing protects updater metadata/packages only. The static site links to
-GitHub `/releases/latest` without a browser API request. No public deployment,
-tag, release, installer, or updater key currently exists.
+Tauri signing protects updater metadata/packages only. The public static site
+links to GitHub `/releases/latest` without a browser API request. No desktop tag,
+release, installer, or updater key currently exists.
 
 ## Dependency graph
 
@@ -282,6 +293,7 @@ version or hand-edit either lockfile.
 | `@astrojs/check` | `0.9.10` | keep until TypeScript 7 support is proved |
 | `@astrojs/sitemap` | `3.7.3` | keep |
 | `sharp` | `0.35.3` | keep for real media |
+| `wrangler` | `4.122.0` | Plan 018 exact site-owned deployment CLI |
 
 TanStack Charts, React Charts, D3 array/scale, and their type packages are
 removed from the planned ledger. They were never installed and Insights is now
