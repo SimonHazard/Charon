@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { access, readFile, stat } from 'node:fs/promises';
 
 const root = new URL('../dist/', import.meta.url);
@@ -37,24 +38,67 @@ for (const route of routes) {
 const homes = await Promise.all(
   ['index.html', 'fr/index.html'].map((route) => readFile(new URL(route, root), 'utf8')),
 );
-for (const banned of ['CopyPreset', 'Insights', 'customer logo', 'testimonial']) {
+for (const banned of [
+  'CopyPreset',
+  'Insights',
+  'customer logo',
+  'testimonial',
+  'charon-shelf-solarized',
+  'charon-demo.webm',
+  '<video',
+  'theme-control',
+  'locale-link',
+  'View source',
+  'Voir le code source',
+]) {
   if (homes.some((html) => html.includes(banned))) failures.push(`banned home claim: ${banned}`);
 }
-for (const required of ['charon-shelf-solarized.webp', 'charon-demo.webm', '<video']) {
+for (const required of [
+  '<title>Charon</title>',
+  'charon-icon-lavender-32.png',
+  'charon-icon-lavender-1024.png',
+  'twitter:card" content="summary',
+]) {
   if (homes.some((html) => !html.includes(required)))
     failures.push(`localized home misses ${required}`);
 }
+if (!homes[0]?.includes('Keep what matters.')) failures.push('English home copy changed');
+if (!homes[1]?.includes('Gardez l’essentiel.')) failures.push('French home copy changed');
 
-const media = [
-  ['media/charon-shelf-solarized.webp', 300_000],
-  ['media/charon-shelf-solarized.avif', 250_000],
-  ['media/charon-editor-dark.webp', 300_000],
-  ['media/charon-editor-dark.avif', 250_000],
-  ['media/charon-demo.webm', 2_000_000],
+const icons = [
+  [
+    'brand/charon-icon-lavender-16.png',
+    1_000,
+    '47a9245018175b872566dd8e397b9c640bcf024bb59b9ac95b8e956124abdf4d',
+  ],
+  [
+    'brand/charon-icon-lavender-32.png',
+    2_000,
+    '50ed773e5919d90610a16b8283defc6edbe27eaedc4dfa90b3a7eb66f707854c',
+  ],
+  [
+    'brand/charon-icon-lavender-180.png',
+    8_000,
+    '6249410ed98c238dabfe5d2068a294e64be46222f6a96228a92a67b70efdf01b',
+  ],
+  [
+    'brand/charon-icon-lavender-512.png',
+    24_000,
+    '185beef3c031c03439b29983030d6aa26fa3cda87b589661cb2b92cb8fea7956',
+  ],
+  [
+    'brand/charon-icon-lavender-1024.png',
+    48_000,
+    '509ec806fcad6c1ab8805fac6f3b5f085fc7bf8b30f374ff8da20ad5b4cdeb04',
+  ],
 ] as const;
-for (const [path, budget] of media) {
+for (const [path, budget, expectedHash] of icons) {
   const info = await stat(new URL(path, root));
   if (info.size > budget) failures.push(`${path} exceeds ${budget} bytes`);
+  const hash = createHash('sha256')
+    .update(await readFile(new URL(path, root)))
+    .digest('hex');
+  if (hash !== expectedHash) failures.push(`${path} differs from the approved brand kit`);
 }
 
 const output = (
@@ -77,6 +121,11 @@ const manifest = JSON.parse(await readFile(new URL('site.webmanifest', root), 'u
 if (manifest.start_url !== '/') failures.push('web manifest does not start at root');
 if (manifest.icons?.some(({ src }) => src?.startsWith('/Charon/'))) {
   failures.push('web manifest contains obsolete GitHub Pages paths');
+}
+for (const icon of ['/brand/charon-icon-lavender-180.png', '/brand/charon-icon-lavender-512.png']) {
+  if (!manifest.icons?.some(({ src }) => src === icon)) {
+    failures.push(`web manifest misses ${icon}`);
+  }
 }
 
 const sitemap = await readFile(new URL('sitemap-index.xml', root), 'utf8');
@@ -146,5 +195,5 @@ for (const forbidden of [
 
 if (failures.length) throw new Error(failures.join('\n'));
 console.log(
-  `verified ${routes.length} static routes, ${media.length} media budgets, and Cloudflare static hosting`,
+  `verified ${routes.length} static routes, ${icons.length} Charon PNG icons, and Cloudflare static hosting`,
 );

@@ -89,7 +89,10 @@ static Plan 013 site as Cloudflare Workers Static Assets at
 `charon.simonhazard.com`, keeps runtime code and analytics absent, disables the
 `workers.dev` route and Preview URLs, and deploys from a path-filtered GitHub
 Actions workflow after matching pushes to `main`. It does not change desktop
-release availability or weaken the remaining Plan 017, 014, and 015 gates.
+release availability or weaken the remaining Plan 017, 014, and 015 gates. On
+2026-08-13, the operator replaced the detailed public homepage with a minimal,
+media-free Charon holding page while preserving the truthful supporting routes
+and the hosting contract.
 
 Plan 017 is the next implementation task. It proves every workflow at effective
 360px and above, including 20 managed Attachments, long filenames,

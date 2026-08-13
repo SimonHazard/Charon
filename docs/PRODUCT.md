@@ -222,11 +222,12 @@ not remove these states.
 
 ### Public site
 
-A visitor can understand the one-gesture-to-one-Note workflow, local-only
-privacy, Tags, managed Attachments, agent-ready copy, honest platform tiers, and
-visible local files. The static site uses the approved brand direction and real
-application media, performs no tracking, and links only to verified signed
-downloads or real GitHub Releases.
+Until the public product story is ready, a visitor sees a deliberately concise
+Charon holding page with the approved PNG icon, one vague statement, and one
+route to the verified release state. Detailed workflow, platform, and privacy
+claims remain on their truthful supporting routes and in the product contracts.
+The static site performs no tracking and links only to verified signed downloads
+or real GitHub Releases.
 
 ## Non-goals
 

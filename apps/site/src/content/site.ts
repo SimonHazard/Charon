@@ -13,56 +13,13 @@ export const routes: Record<Locale, Record<PageKind, string>> = {
 
 export const copy = {
   en: {
-    localeName: 'English',
-    switchName: 'Français',
     skip: 'Skip to content',
-    product: 'Product',
     privacy: 'Privacy',
     releases: 'Releases',
     changelog: 'Changelog',
-    theme: 'Appearance',
-    solarized: 'Solarized',
-    light: 'Light',
-    dark: 'Dark',
     viewReleases: 'View releases',
-    source: 'View source',
-    eyebrow: 'A rapid local capture shelf',
-    title: 'Select it. Shift twice. Keep it.',
-    intro:
-      'On a proved macOS build, Charon turns selected text into one ordinary local Note without taking focus. Everywhere else, one portable shortcut focuses the composer.',
-    ownership: 'No account. No sync. Your Markdown stays in a folder you control.',
-    captureTitle: 'One gesture, one Note',
-    captureBody:
-      'Double Shift observes only the modifier sequence on supported macOS builds. Charon reads the accessible selection first, then may use one bounded Copy fallback when the source app exposes no text.',
-    selected: 'Verify the empty state before adding another control.',
-    note: 'One ordinary local Note',
-    enrichTitle: 'Shape the useful part, quietly',
-    enrichBody:
-      'Open the live row to write or preview Markdown. Add lightweight Tags and one managed Attachment copy when the context matters.',
-    copyTitle: 'Agent-ready means explicit',
-    copyBody:
-      'Copy as Markdown writes the Note body, optional Tags, and safe managed file paths. It never copies Attachment bytes or pastes for you. You choose where to paste and attach files.',
-    specimen:
-      '# Agent handoff\n\nVerify the empty state before adding another control.\n\nTags: Research, Agent\nAttachments:\n- release-brief.pdf: /Documents/Charon/attachments/…/release-brief.pdf',
-    localTitle: 'Local files are the product boundary.',
-    localBody:
-      'Notes, Tags, and managed Attachment copies live inside one visible Workspace. Charon has no content upload, analytics, telemetry, or crash upload.',
-    platformTitle: 'Honest platform support',
-    platformMac: 'macOS',
-    platformMacValue: 'Double Shift after explicit permissions, plus portable composer focus',
-    platformLinux: 'Linux',
-    platformLinuxValue: 'Portable composer focus and manual capture',
-    platformWindows: 'Windows',
-    platformWindowsValue: 'Portable composer focus and manual capture',
-    releaseTitle: 'Built in public, released when signed',
-    releaseBody:
-      'No installer is presented as ready until the exact artifact is signed, verified, and linked from a GitHub Release.',
-    mediaAlt:
-      'The real Charon desktop shelf in Solarized, showing local Notes with Tags and one managed Attachment.',
-    demoCaption: 'A real synthetic-data walkthrough of the Charon shelf.',
-    transcript: 'Demo transcript',
-    transcriptBody:
-      'Charon opens on a synthetic local Workspace. A Note is opened from the shelf, showing Write and Preview, Tags, and a managed Attachment name. No private data appears.',
+    title: 'Keep what matters.',
+    intro: 'Charon is taking shape. More soon.',
     privacyTitle: 'Privacy is a local contract',
     privacyIntro: 'Charon works without an account, sync service, analytics, or content upload.',
     privacySections: [
@@ -105,61 +62,15 @@ export const copy = {
       'Explicit Copy as Markdown with local path disclosure',
       'Solarized-first appearance with Light and Dark choices',
     ],
-    footer: 'Local Markdown, deliberately.',
   },
   fr: {
-    localeName: 'Français',
-    switchName: 'English',
     skip: 'Aller au contenu',
-    product: 'Produit',
     privacy: 'Confidentialité',
     releases: 'Versions',
     changelog: 'Nouveautés',
-    theme: 'Apparence',
-    solarized: 'Solarized',
-    light: 'Clair',
-    dark: 'Sombre',
     viewReleases: 'Voir les versions',
-    source: 'Voir le code source',
-    eyebrow: 'Une étagère de capture locale et rapide',
-    title: 'Sélectionnez. Deux fois Maj. Gardez.',
-    intro:
-      'Sur un build macOS éprouvé, Charon transforme le texte sélectionné en une Note locale ordinaire sans voler le focus. Ailleurs, un raccourci portable active le compositeur.',
-    ownership:
-      'Sans compte ni synchronisation. Votre Markdown reste dans le dossier que vous contrôlez.',
-    captureTitle: 'Un geste, une Note',
-    captureBody:
-      'Double Maj observe uniquement la séquence de modificateur sur les builds macOS pris en charge. Charon lit d’abord la sélection accessible, puis peut utiliser un unique Copier borné si l’app source n’expose aucun texte.',
-    selected: 'Vérifier l’état vide avant d’ajouter un autre contrôle.',
-    note: 'Une Note locale ordinaire',
-    enrichTitle: 'Façonnez l’essentiel, sans bruit',
-    enrichBody:
-      'Ouvrez la ligne active pour écrire ou prévisualiser le Markdown. Ajoutez des Tags légers et une copie de pièce jointe gérée lorsque le contexte compte.',
-    copyTitle: 'Prêt pour un agent veut dire explicite',
-    copyBody:
-      'Copier en Markdown écrit le corps, les Tags facultatifs et les chemins sûrs des fichiers gérés. Charon ne copie jamais les octets des pièces jointes et ne colle pas à votre place.',
-    specimen:
-      '# Passage à l’agent\n\nVérifier l’état vide avant d’ajouter un autre contrôle.\n\nTags : Recherche, Agent\nPièces jointes :\n- release-brief.pdf : /Documents/Charon/attachments/…/release-brief.pdf',
-    localTitle: 'Les fichiers locaux sont la frontière du produit.',
-    localBody:
-      'Notes, Tags et copies de pièces jointes gérées vivent dans un Workspace visible. Charon ne téléverse aucun contenu et ne contient ni analytics, ni télémétrie, ni envoi de crash.',
-    platformTitle: 'Un support plateforme honnête',
-    platformMac: 'macOS',
-    platformMacValue:
-      'Double Maj après autorisations explicites, plus activation portable du compositeur',
-    platformLinux: 'Linux',
-    platformLinuxValue: 'Activation portable du compositeur et capture manuelle',
-    platformWindows: 'Windows',
-    platformWindowsValue: 'Activation portable du compositeur et capture manuelle',
-    releaseTitle: 'Construit publiquement, publié une fois signé',
-    releaseBody:
-      'Aucun installateur n’est présenté comme prêt avant que l’artefact exact soit signé, vérifié et lié depuis une GitHub Release.',
-    mediaAlt:
-      'La véritable étagère desktop Charon en Solarized, avec des Notes locales, des Tags et une pièce jointe gérée.',
-    demoCaption: 'Une démonstration réelle de Charon avec des données synthétiques.',
-    transcript: 'Transcription de la démonstration',
-    transcriptBody:
-      'Charon s’ouvre sur un Workspace local synthétique. Une Note est ouverte depuis l’étagère et montre Écrire, Aperçu, les Tags et le nom d’une pièce jointe gérée. Aucune donnée privée ne paraît.',
+    title: 'Gardez l’essentiel.',
+    intro: 'Charon prend forme. La suite arrive bientôt.',
     privacyTitle: 'La confidentialité est un contrat local',
     privacyIntro:
       'Charon fonctionne sans compte, synchronisation, analytics ni téléversement de contenu.',
@@ -203,6 +114,5 @@ export const copy = {
       'Copier en Markdown explicite avec divulgation des chemins locaux',
       'Apparence Solarized par défaut avec choix Clair et Sombre',
     ],
-    footer: 'Du Markdown local, délibérément.',
   },
 } as const;

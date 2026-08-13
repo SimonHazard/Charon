@@ -5,7 +5,9 @@
 > 2026-08-13, the operator rejected preview deployments and required automatic
 > production deployment only after a matching push to `main`. Preserve ADR
 > 0004's static-only boundary, the public-site privacy contract, and every
-> verified-claim gate from Plan 013. Use Bun only, pin Wrangler exactly, keep its
+> verified-claim gate that remains on the supporting routes. The operator
+> replaced Plan 013's detailed homepage on 2026-08-13 with a deliberately vague,
+> media-free holding page. Use Bun only, pin Wrangler exactly, keep its
 > configuration as source of truth, and never print, copy, or commit Cloudflare
 > credentials. Stop on every STOP condition.
 >
@@ -46,6 +48,9 @@ Worker logs, Network Error Logging, or content collection.
 
 ## Current state
 
+- The public home is deliberately reduced to the official PNG icon, the name
+  Charon, one vague statement, one release action, and no content below it.
+  Localized privacy, release, changelog, and 404 routes remain unchanged.
 - `apps/site/astro.config.mjs` now emits static output for
   `https://charon.simonhazard.com` at the root path.
 - `charon-site` was created from the locally validated static artifact on

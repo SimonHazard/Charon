@@ -6,7 +6,15 @@
   "background_color": "#fdf6e3",
   "theme_color": "#fdf6e3",
   "icons": [
-    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "/brand/charon-app-icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "/brand/charon-icon-lavender-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/charon-icon-lavender-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }
