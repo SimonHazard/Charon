@@ -25,6 +25,51 @@ for (const file of files) {
   }
 }
 
+const siteWorkflowName = 'site-deploy.yml';
+if (!files.includes(siteWorkflowName)) {
+  failures.push(`${siteWorkflowName}: production deployment workflow is missing`);
+} else {
+  const siteWorkflow = await Bun.file(`${directory}/${siteWorkflowName}`).text();
+  const requiredFragments = [
+    'on:\n  push:\n    branches: [main]\n    paths:',
+    "      - '.github/workflows/site-deploy.yml'",
+    "      - 'apps/site/**'",
+    "      - 'packages/theme/**'",
+    "      - 'package.json'",
+    "      - 'bun.lock'",
+    'permissions:\n  contents: read',
+    'group: site-production',
+    'environment: site-production',
+    'bun install --frozen-lockfile',
+    'bun run test:site',
+    'bun run check:site:cloudflare',
+    'CLOUDFLARE_ACCOUNT_ID: $' + '{{ secrets.CLOUDFLARE_ACCOUNT_ID }}',
+    'CLOUDFLARE_API_TOKEN: $' + '{{ secrets.CLOUDFLARE_API_TOKEN }}',
+  ];
+  for (const fragment of requiredFragments) {
+    if (!siteWorkflow.includes(fragment)) {
+      failures.push(`${siteWorkflowName}: missing production contract ${fragment}`);
+    }
+  }
+  for (const forbidden of [
+    'pull_request:',
+    'workflow_dispatch:',
+    'wrangler versions upload',
+    'preview',
+  ]) {
+    if (siteWorkflow.includes(forbidden)) {
+      failures.push(`${siteWorkflowName}: forbidden non-production behavior ${forbidden}`);
+    }
+  }
+  const verifyIndex = siteWorkflow.indexOf('bun run check:site:cloudflare');
+  const deployIndex = siteWorkflow.indexOf('name: Deploy the verified static site');
+  if (verifyIndex === -1 || deployIndex === -1 || deployIndex < verifyIndex) {
+    failures.push(`${siteWorkflowName}: deployment must follow all verification`);
+  } else if (siteWorkflow.slice(0, deployIndex).includes('CLOUDFLARE_')) {
+    failures.push(`${siteWorkflowName}: Cloudflare secrets are exposed before deployment`);
+  }
+}
+
 if (failures.length) throw new Error(failures.join('\n'));
 console.log(
   `verified ${files.length} workflow files with immutable actions and scoped permissions`,

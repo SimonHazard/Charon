@@ -15,6 +15,16 @@ The public site is static and uses no analytics, trackers, fingerprinting,
 cookies, forms, or behavioral pixels. Downloads link only to verified signed
 assets or a real GitHub Release.
 
+The public site is hosted as ordinary static files on Cloudflare Workers Static
+Assets. Cloudflare necessarily processes ordinary connection metadata such as
+IP address, request headers, requested path, and timing to deliver and protect
+the site. Charon enables neither Cloudflare Web Analytics nor persistent Worker
+observability and adds no application request logging. Production uses no
+Cloudflare Access cookie, and both the `workers.dev` route and Preview URLs are
+disabled. The checked deployment configuration also disables Wrangler usage
+metrics and dependency instrumentation. Cloudflare's infrastructure records
+remain outside Charon's local desktop-data boundary.
+
 ## Local data
 
 The Workspace contains a manifest, Markdown Note files, managed Attachment

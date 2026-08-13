@@ -237,6 +237,11 @@ only. Brand assets, localization, components, native types, and Motion helpers
 remain app-owned. Astro stays static, uses real application media, and gains no
 server adapter, account, form, analytics, CMS, or runtime API.
 
+The public build is deployed as ordinary Cloudflare Workers Static Assets. The
+checked-in deployment configuration has no Worker entry point, binding, runtime
+variable, secret, or server route. Production uses the custom domain
+`charon.simonhazard.com`; the `workers.dev` route and Preview URLs are disabled.
+
 ## Change control
 
 ADR 0011 governs the flat schema v2 direction, irreversible deletion, shortcut

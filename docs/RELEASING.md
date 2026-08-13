@@ -17,16 +17,18 @@ GitHub Releases is the desktop distribution destination. An annotated `vX.Y.Z`
 tag runs the protected Tauri workflow, which creates a draft GitHub Release and
 uploads the signed macOS app and DMG for human verification. Unsigned macOS,
 Linux, and Windows review bundles are available only through the manual review
-workflow. The static site has no deployment workflow; Cloudflare hosting will
-be configured separately.
+workflow. The static site is deployed separately through the checked Cloudflare
+Workers Static Assets configuration from Plan 018. A push to `main` deploys it
+only when site-affecting paths changed.
 
 The quality workflow runs the Rust test suite on macOS and Linux. Windows still
 formats and runs Clippy across all targets, including test targets; runtime
 filesystem tests remain blocked by unresolved Windows path, directory-sync, and
 watcher semantics. This compile-only gate is not Windows release evidence.
-Frontend and browser jobs validate the desktop app only. Site typechecking,
-tests, builds, and deployment belong to the separate future Cloudflare workflow;
-the full local release gate continues to cover both desktop and site.
+Frontend and browser jobs validate the desktop app only. The separate site
+workflow typechecks, tests, builds, validates Wrangler, and deploys production
+from `main`; the full local release gate continues to cover both desktop and
+site. It never runs on pull requests and creates no preview deployment.
 The timing-sensitive performance budget remains in `bun run verify:release`
 rather than PR CI, where shared-runner contention makes the 20k-search benchmark
 non-deterministic.
@@ -81,8 +83,12 @@ not a feature.
 
 ## Rollback and incidents
 
-- Site publication and rollback will be documented with the separate Cloudflare
-  hosting configuration. Do not add a runtime redirect service.
+- Site publication uses `apps/site/wrangler.jsonc` as source of truth. GitHub's
+  `site-production` environment stores only `CLOUDFLARE_ACCOUNT_ID` and a scoped
+  `CLOUDFLARE_API_TOKEN`; neither value enters source or logs. Each matching
+  push to `main` validates and deploys the exact static build. Use Wrangler
+  deployment rollback when needed. Do not add a runtime redirect service or a
+  preview deployment.
 - To yank a release, mark it prerelease or draft, remove it from checked-in site
   metadata, and state the reason. Never replace an asset under the same tag.
 - For a signing or updater key compromise, stop release jobs, remove the public
