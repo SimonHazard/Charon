@@ -91,8 +91,11 @@ static Plan 013 site as Cloudflare Workers Static Assets at
 Actions workflow after matching pushes to `main`. It does not change desktop
 release availability or weaken the remaining Plan 017, 014, and 015 gates. On
 2026-08-13, the operator replaced the detailed public homepage with a minimal,
-media-free Charon holding page while preserving the truthful supporting routes
-and the hosting contract.
+media-free Charon holding page. Later the same day, the operator removed the
+privacy, release/download, and changelog routes for now, removed the release
+action and footer wordmark, and retained only the localized front pages with
+explicit Ko-fi and `simonhazard.com` footer links. The static hosting contract
+and technical 404 remain unchanged.
 
 Plan 017 is the next implementation task. It proves every workflow at effective
 360px and above, including 20 managed Attachments, long filenames,
@@ -106,8 +109,10 @@ platform certificates. Plan 015 first accepts a distribution ADR, then replaces
 the Apple-only release job with protected macOS/Linux/Windows GitHub Release
 artifacts. macOS remains ad-hoc and not notarized; Windows remains unsigned;
 Tauri signing protects updater metadata/packages only. The public static site
-links to GitHub `/releases/latest` without a browser API request. No desktop tag,
-release, installer, or updater key currently exists.
+does not currently expose a release route. Plan 015 may propose a direct GitHub
+`/releases/latest` link in a separately reviewed site change after the release
+gate passes, without a browser API request. No desktop tag, release, installer,
+or updater key currently exists.
 
 ## Dependency graph
 

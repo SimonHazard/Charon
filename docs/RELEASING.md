@@ -78,8 +78,9 @@ not a feature.
 5. A human downloads checksums and signed artifacts, verifies macOS signature
    and notarization, installs each supported artifact, repeats native capture,
    clipboard, focus, Workspace, edit, copy, and Delete smoke, then records IDs.
-6. Promote the draft and latest metadata only after those checks. Refresh the
-   checked-in static release state in a reviewed change.
+6. Promote the draft and latest metadata only after those checks. The current
+   site remains front-page only; exposing a release link requires a separately
+   reviewed site change.
 
 ## Rollback and incidents
 
@@ -89,8 +90,9 @@ not a feature.
   push to `main` validates and deploys the exact static build. Use Wrangler
   deployment rollback when needed. Do not add a runtime redirect service or a
   preview deployment.
-- To yank a release, mark it prerelease or draft, remove it from checked-in site
-  metadata, and state the reason. Never replace an asset under the same tag.
+- To yank a release, mark it prerelease or draft, remove any public site link if
+  one was later introduced, and state the reason. Never replace an asset under
+  the same tag.
 - For a signing or updater key compromise, stop release jobs, remove the public
   latest metadata, revoke affected certificates/keys, rotate protected secrets,
   publish a security notice, and require a new version and trust root. Do not

@@ -201,83 +201,9 @@ h2 {
   font-size: clamp(2.75rem, 8vw, 5rem);
 }
 
-.text-page p,
-.release-status p {
+.text-page p {
   color: var(--text-muted);
   line-height: 1.7;
-}
-
-.text-sections {
-  max-width: 46rem;
-}
-
-.text-sections section {
-  display: grid;
-  grid-template-columns: minmax(10rem, 0.45fr) minmax(0, 1fr);
-  gap: 2rem;
-  padding: 2rem 0;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.text-sections h2 {
-  margin: 0;
-  font-size: 1rem;
-  letter-spacing: -0.015em;
-  line-height: 1.4;
-}
-
-.text-sections p {
-  margin-bottom: 0;
-  overflow-wrap: anywhere;
-}
-
-.release-status {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1.25rem;
-  padding-block: 1.5rem;
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.release-status__dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  background: var(--warning);
-}
-
-.release-status h2,
-.release-status p {
-  margin-bottom: 0;
-}
-
-.release-status h2 {
-  font-size: 1rem;
-}
-
-.release-status .primary-action {
-  margin-top: 0;
-}
-
-.changelog-entry {
-  display: grid;
-  grid-template-columns: 9rem minmax(0, 1fr);
-  gap: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.changelog-entry time {
-  font-weight: 650;
-}
-
-.changelog-entry ul {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: var(--text-muted);
-  line-height: 1.9;
 }
 
 .site-footer {
@@ -287,6 +213,19 @@ h2 {
   border-top: 1px solid var(--border-subtle);
   color: var(--text-muted);
   font-size: 0.78rem;
+}
+
+.site-footer ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer a:hover {
+  color: var(--text);
 }
 
 @media (max-width: 520px) {
@@ -308,20 +247,6 @@ h2 {
   .primary-action {
     width: 100%;
   }
-
-  .text-sections section,
-  .changelog-entry {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-
-  .release-status {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .release-status .primary-action {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -336,10 +261,7 @@ h2 {
 
 @media (prefers-contrast: more) {
   .site-header,
-  .site-footer,
-  .text-sections section,
-  .release-status,
-  .changelog-entry {
+  .site-footer {
     border-color: var(--border-strong);
   }
 }

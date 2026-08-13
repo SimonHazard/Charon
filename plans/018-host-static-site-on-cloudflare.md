@@ -4,12 +4,14 @@
 > 2026-08-12 before Plan 017 and authorized production publication. On
 > 2026-08-13, the operator rejected preview deployments and required automatic
 > production deployment only after a matching push to `main`. Preserve ADR
-> 0004's static-only boundary, the public-site privacy contract, and every
-> verified-claim gate that remains on the supporting routes. The operator
+> 0004's static-only boundary and the public-site privacy contract. The operator
 > replaced Plan 013's detailed homepage on 2026-08-13 with a deliberately vague,
-> media-free holding page. Use Bun only, pin Wrangler exactly, keep its
-> configuration as source of truth, and never print, copy, or commit Cloudflare
-> credentials. Stop on every STOP condition.
+> media-free holding page, then removed every supporting content route for now.
+> Only the localized front pages and technical 404 remain; the footer contains
+> explicit Ko-fi and `simonhazard.com` links instead of the Charon wordmark. Use
+> Bun only, pin Wrangler exactly, keep its configuration as source of truth, and
+> never print, copy, or commit Cloudflare credentials. Stop on every STOP
+> condition.
 >
 > **Drift check (run first)**:
 > `git diff --stat c4d2f32..HEAD -- README.md docs/ARCHITECTURE.md docs/PRIVACY.md docs/SITE.md docs/RELEASING.md apps/site .github/workflows/site-deploy.yml scripts/check-workflows.ts package.json bun.lock .gitignore plans/README.md`
@@ -32,7 +34,7 @@
 
 ## Why this matters
 
-The completed Astro site needs one reproducible public home at
+The Astro holding site needs one reproducible public home at
 `https://charon.simonhazard.com`. Cloudflare Workers Static Assets can publish
 the existing ordinary static files without adding a Worker script, server
 adapter, runtime API, analytics, or client-side release lookup.
@@ -48,9 +50,12 @@ Worker logs, Network Error Logging, or content collection.
 
 ## Current state
 
-- The public home is deliberately reduced to the official PNG icon, the name
-  Charon, one vague statement, one release action, and no content below it.
-  Localized privacy, release, changelog, and 404 routes remain unchanged.
+- The localized public homes are deliberately reduced to the official PNG icon,
+  the name Charon, one vague statement, and no content below it. The release
+  action is removed. Their footer contains only Ko-fi and `simonhazard.com`
+  links, without a repeated Charon label.
+- Localized privacy, release/download, and changelog routes are not emitted. The
+  checked 404 remains the technical fallback for unknown paths.
 - `apps/site/astro.config.mjs` now emits static output for
   `https://charon.simonhazard.com` at the root path.
 - `charon-site` was created from the locally validated static artifact on
@@ -94,7 +99,7 @@ Worker logs, Network Error Logging, or content collection.
 | --- | --- | --- |
 | Install | `bun install --frozen-lockfile` | exact Wrangler pin resolves from the generated lock |
 | Site check | `bun run --cwd apps/site check` | zero Astro/TypeScript errors |
-| Site tests | `bun run test:site` | canonical, privacy, assets, config, and link checks pass |
+| Site tests | `bun run test:site` | front-only routes, canonical metadata, assets, config, and footer-link checks pass |
 | Static build | `bun run build:site` | root-relative static `apps/site/dist` produced |
 | Wrangler config | `bun run check:site:cloudflare` | assets-only dry run with no bindings |
 | Workflow policy | `bun run check:workflows` | immutable actions, read-only permissions, no PR secret use |
@@ -115,8 +120,8 @@ Worker logs, Network Error Logging, or content collection.
 - Root deploy orchestration scripts and `.gitignore` for local Wrangler state
 - Site verification updates for the production origin, root base, and disabled
   `workers.dev` and preview contract
-- Hosting, automation, and privacy disclosure in `docs/SITE.md`,
-  `docs/PRIVACY.md`, `docs/RELEASING.md`, README, and localized privacy copy
+- Hosting, automation, privacy disclosure, and front-only route contract in
+  `docs/SITE.md`, `docs/PRIVACY.md`, `docs/RELEASING.md`, README, and site tests
 - External creation of `charon-site`, its custom domain, a narrowly scoped
   Cloudflare API token, and two GitHub `site-production` environment secrets
 - `plans/README.md` status and fixed Wrangler ledger row
@@ -158,8 +163,15 @@ DNS, or hosting-provider logs.
 The production site remains cookie-free. There is no Access application because
 there is no preview or private deployment.
 
-**Verify**: privacy/content tests pass and searches find no tracker, analytics
-script, external embed, runtime fetch, preview, or secret.
+Keep the only two external destinations as ordinary explicit footer links to
+Ko-fi and `simonhazard.com`. Do not add an embed, preconnect, tracking parameter,
+or automatic request to either destination. The detailed privacy, changelog,
+and release claims stay in repository contracts instead of public routes for
+now.
+
+**Verify**: privacy/content tests pass, removed content routes are absent from
+the build and sitemap, and searches find no tracker, analytics script, external
+embed, runtime fetch, preview, or secret.
 
 ### Step 2: Keep one production-only Static Assets configuration
 
@@ -215,8 +227,9 @@ and a non-matching main push cannot start the workflow.
 Run the complete local verification. Deploy once with the approved local OAuth
 session to disable the already-created Worker's `workers.dev` route and Preview
 URLs before CI takes over. Confirm the custom domain remains active and public,
-TLS succeeds, localized pages and media load, unknown paths return the checked
-404, and the removed `workers.dev` hostname no longer serves Charon.
+TLS succeeds, both localized front pages and their brand icon load, unknown
+paths return the checked 404, and the removed `workers.dev` hostname no longer
+serves Charon.
 
 Disable Cloudflare Network Error Logging in the dashboard if it remains enabled
 for the zone; do not add Worker code merely to remove an infrastructure header.
@@ -242,8 +255,9 @@ without separate authority.
 
 - Config: exact Worker name/date/domain/assets/404/HTML handling, disabled
   `workers.dev`/preview/observability/instrumentation, no runtime binding or secret.
-- Build: production canonical origin, root base, localized routes, sitemap,
-  robots, custom 404, media, and release-link truth.
+- Build: production canonical origin, root base, the two localized front pages,
+  absent supporting content routes, sitemap, robots, custom 404, brand assets,
+  and exact footer-link truth.
 - Workflow: main-only push, exact path filters, immutable actions, read-only
   GitHub permission, frozen Bun install, verification before deploy, secrets
   scoped only to deploy step, no PR or preview event.
@@ -265,6 +279,7 @@ without separate authority.
 - [ ] Workflow actions are immutable, GitHub permissions are read-only, and verification precedes deployment.
 - [ ] A scoped Cloudflare token and account ID exist only as `site-production` environment secrets.
 - [ ] No Worker runtime, backend, analytics, tracker, form, CMS, runtime API, Access app, or preview exists.
+- [ ] Only the localized front pages and technical 404 are emitted; the footer contains the exact Ko-fi and personal-site links without a Charon label.
 - [ ] Hosting metadata processing is disclosed without weakening desktop privacy.
 - [ ] No credential, account token, local Wrangler state, or generated output is committed.
 - [ ] All site, workflow, aggregate, Cargo, production, privacy, and diff checks pass.

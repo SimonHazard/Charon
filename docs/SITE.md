@@ -10,8 +10,8 @@ holding page. Charon is still taking shape, so the homepage stays concise and
 avoids detailed product, platform, privacy, and workflow claims for now.
 
 The public home has one job: establish the Charon name, signal that the project
-is in progress, and offer one truthful route to release information. It does not
-try to explain the complete desktop product before that story is ready.
+is in progress, and provide quiet authorship and support links in the footer. It
+does not try to explain the complete desktop product before that story is ready.
 
 ## Homepage composition
 
@@ -21,18 +21,21 @@ The English `/` and French `/fr/` pages contain only:
    `Charon`;
 2. one short headline;
 3. one deliberately vague sentence;
-4. one `View releases` or `Voir les versions` action;
-5. one minimal footer containing only `Charon`.
+4. one minimal footer with `Ko-fi` linking to
+   `https://ko-fi.com/simonhazard` and `simonhazard.com` linking to
+   `https://simonhazard.com/`.
+
+The footer does not repeat `Charon`. The homepage has no primary action and no
+release link.
 
 There is no product navigation, language switch, theme control, source link,
 product screenshot, video, feature section, platform table, privacy proof,
 demo, or content section below the initial statement. The homepage does not
 contain a client script.
 
-The localized privacy, release, changelog, and 404 routes remain available by
-their stable direct URLs. They keep verified operational and privacy copy, but
-the homepage does not promote or summarize them beyond its single release
-action.
+The localized privacy, release, and changelog routes are not emitted. The
+checked static `404.html` remains only as the hosting fallback for unknown
+paths; it is not a promoted content destination.
 
 ## Design direction
 
@@ -43,8 +46,9 @@ font, and spends the only visual emphasis on the approved Lavender icon.
 
 Structure comes from type, space, and two hairline rules. The page has no
 gradient, glow, permanent glass, shadowed card, fake interface, decorative
-illustration, remote font, or ambient animation. The primary action has a small
-press response and respects reduced motion.
+illustration, remote font, or ambient animation. The technical 404's primary
+action has a small press response, and every interactive link respects reduced
+motion.
 
 The page remains readable at 320 CSS pixels and above, preserves browser zoom,
 uses a visible focus indicator, includes a skip link, and maintains WCAG AA
@@ -66,10 +70,10 @@ derived logo is accepted.
 
 - `/` is the English holding page.
 - `/fr/` is the French holding page.
-- `/privacy/` and `/fr/confidentialite/` are localized privacy pages.
-- `/download/` and `/fr/telechargement/` report the verified release state.
-- `/changelog/` and `/fr/changelog/` list only shipped facts.
 - unknown paths use the checked static `404.html`.
+
+No other public content route is emitted for now. In particular, privacy,
+release/download, and changelog URLs are absent in both languages.
 
 Astro output remains static only. There are no accounts, forms, cookies,
 analytics, CMS, newsletter, client framework, runtime fetch, or runtime API.
@@ -82,23 +86,27 @@ visible holding copy. Open Graph and Twitter use the official 1024 pixel PNG
 icon with a compact `summary` card, not a product screenshot or large media
 card.
 
-Every route keeps a verified canonical URL and reciprocal `hreflang` links,
-including `x-default`. Sitemap and robots files remain generated. Structured
-application data is omitted while the public homepage intentionally avoids
-detailed product and release claims.
+Both localized home routes keep verified canonical URLs and reciprocal
+`hreflang` links, including `x-default`. Sitemap and robots files remain
+generated. Structured application data is omitted while the public homepage
+intentionally avoids detailed product and release claims.
 
-## Privacy and supporting routes
+## Privacy and outbound links
 
-The privacy pages remain the source of truth for local Workspace ownership,
-permissions, bounded source Copy behavior, explicit `Copy as Markdown`, managed
-Attachment paths, deletion limits, and Cloudflare hosting metadata. The release
-pages continue to state that no signed public installer is available and link
-only to the real GitHub Releases destination.
+The repository privacy and product contracts remain the source of truth for
+local Workspace ownership, permissions, bounded source Copy behavior, explicit
+`Copy as Markdown`, managed Attachment paths, deletion limits, and Cloudflare
+hosting metadata. Those detailed claims are intentionally not published as site
+routes for now.
 
 The public site itself stays free of analytics, trackers, fingerprinting,
 cookies, forms, behavioral pixels, third-party embeds, and application request
 logging. It never sends Note content, Tags, Attachments, searches, selections,
 clipboard contents, filenames, or paths to the developer.
+
+The Ko-fi and personal-site destinations are ordinary footer anchors, not
+embedded resources and not contacted by the Charon page. A visitor leaves the
+Charon site's privacy boundary only after explicitly following one of them.
 
 ## Hosting contract
 
@@ -117,8 +125,8 @@ runs the checked static build before deployment and has read-only GitHub
 permissions.
 
 Cloudflare necessarily processes ordinary HTTP connection metadata to deliver
-and protect the site. The localized privacy page discloses that hosting
-boundary.
+and protect the site. The repository privacy contract discloses that hosting
+boundary while the public site remains front-page only.
 
 ## Verification gate
 
@@ -126,7 +134,12 @@ Before publication:
 
 - build all localized routes and validate canonical and `hreflang` metadata;
 - verify both homes contain no media, video, secondary navigation, theme or
-  language control, source link, or section below the holding statement;
+  language control, source link, release action, or section below the holding
+  statement;
+- verify the footer contains only the exact Ko-fi and personal-site links and
+  does not repeat `Charon`;
+- verify privacy, release/download, and changelog routes are absent in both
+  languages and absent from the sitemap;
 - verify all referenced Charon PNG icons are exact site-owned assets and stay
   within their size budgets;
 - review English and French visible strings and reject em dash characters;

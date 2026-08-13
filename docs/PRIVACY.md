@@ -12,8 +12,10 @@ not send Notes, Tags, Attachments, searches, selections, clipboard contents,
 filenames, paths, or usage events to the developer.
 
 The public site is static and uses no analytics, trackers, fingerprinting,
-cookies, forms, or behavioral pixels. Downloads link only to verified signed
-assets or a real GitHub Release.
+cookies, forms, or behavioral pixels. Its footer contains ordinary links to
+`https://simonhazard.com/` and `https://ko-fi.com/simonhazard`; neither site is
+embedded or contacted until the visitor explicitly follows its link. Those
+destinations have their own hosting and privacy boundaries after navigation.
 
 The public site is hosted as ordinary static files on Cloudflare Workers Static
 Assets. Cloudflare necessarily processes ordinary connection metadata such as

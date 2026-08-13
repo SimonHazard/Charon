@@ -223,11 +223,13 @@ not remove these states.
 ### Public site
 
 Until the public product story is ready, a visitor sees a deliberately concise
-Charon holding page with the approved PNG icon, one vague statement, and one
-route to the verified release state. Detailed workflow, platform, and privacy
-claims remain on their truthful supporting routes and in the product contracts.
-The static site performs no tracking and links only to verified signed downloads
-or real GitHub Releases.
+Charon holding page with the approved PNG icon, one vague statement, and a
+minimal footer linking to the operator's website and Ko-fi page. The footer does
+not repeat the Charon name. Detailed workflow, platform, privacy, changelog, and
+release claims remain in the repository contracts rather than public site
+routes for now. The static site performs no tracking and embeds no third-party
+content; its two external destinations are followed only after an explicit link
+activation.
 
 ## Non-goals
 

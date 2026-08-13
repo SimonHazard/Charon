@@ -125,7 +125,8 @@ No paid Apple or Windows publisher certificate is planned:
 Plan 015 owns the exact workflow, protected updater secrets, `latest.json`,
 detached signatures, checksums, installers, draft approval, and release runbook.
 The desktop updater remains default-off and explicit. The site remains static
-and will link directly to:
+and front-page only for now. After the release gate passes, a separately
+reviewed site change may link directly to:
 
 ```text
 https://github.com/SimonHazard/Charon/releases/latest

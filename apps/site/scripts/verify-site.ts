@@ -3,16 +3,14 @@ import { access, readFile, stat } from 'node:fs/promises';
 
 const root = new URL('../dist/', import.meta.url);
 const productionOrigin = 'https://charon.simonhazard.com';
-const routes = [
-  'index.html',
-  'fr/index.html',
+const routes = ['index.html', 'fr/index.html', '404.html'];
+const removedRoutes = [
   'privacy/index.html',
   'fr/confidentialite/index.html',
   'download/index.html',
   'fr/telechargement/index.html',
   'changelog/index.html',
   'fr/changelog/index.html',
-  '404.html',
 ];
 
 const failures: string[] = [];
@@ -34,6 +32,14 @@ for (const route of routes) {
     failures.push(`${route} contains obsolete GitHub Pages base`);
   }
 }
+for (const route of removedRoutes) {
+  try {
+    await access(new URL(route, root));
+    failures.push(`obsolete route still emitted: ${route}`);
+  } catch {
+    // The holding site intentionally emits no supporting content routes.
+  }
+}
 
 const homes = await Promise.all(
   ['index.html', 'fr/index.html'].map((route) => readFile(new URL(route, root), 'utf8')),
@@ -50,6 +56,9 @@ for (const banned of [
   'locale-link',
   'View source',
   'Voir le code source',
+  'View releases',
+  'Voir les versions',
+  'github.com/SimonHazard/Charon/releases',
 ]) {
   if (homes.some((html) => html.includes(banned))) failures.push(`banned home claim: ${banned}`);
 }
@@ -64,6 +73,25 @@ for (const required of [
 }
 if (!homes[0]?.includes('Keep what matters.')) failures.push('English home copy changed');
 if (!homes[1]?.includes('Gardez l’essentiel.')) failures.push('French home copy changed');
+for (const [href, label] of [
+  ['https://ko-fi.com/simonhazard', 'Ko-fi'],
+  ['https://simonhazard.com/', 'simonhazard.com'],
+]) {
+  for (const [index, html] of homes.entries()) {
+    if (!html.includes(`href="${href}"`) || !html.includes(`>${label}</a>`)) {
+      failures.push(`localized home ${index + 1} misses footer link ${href}`);
+    }
+  }
+}
+for (const [index, html] of homes.entries()) {
+  const footer = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/u)?.[1] ?? '';
+  if (footer.includes('Charon')) {
+    failures.push(`localized home ${index + 1} keeps Charon footer text`);
+  }
+  if ((footer.match(/<a\b/gu) ?? []).length !== 2) {
+    failures.push(`localized home ${index + 1} footer must contain exactly two links`);
+  }
+}
 
 const icons = [
   [
@@ -128,21 +156,27 @@ for (const icon of ['/brand/charon-icon-lavender-180.png', '/brand/charon-icon-l
   }
 }
 
-const sitemap = await readFile(new URL('sitemap-index.xml', root), 'utf8');
-if (!sitemap.includes(productionOrigin) || sitemap.includes('simonhazard.github.io')) {
+const sitemapIndex = await readFile(new URL('sitemap-index.xml', root), 'utf8');
+const sitemap = await readFile(new URL('sitemap-0.xml', root), 'utf8');
+if (
+  !sitemapIndex.includes(productionOrigin) ||
+  !sitemap.includes(productionOrigin) ||
+  sitemapIndex.includes('simonhazard.github.io') ||
+  sitemap.includes('simonhazard.github.io')
+) {
   failures.push('sitemap origin is not production');
 }
-
-const privacyPages = await Promise.all(
-  ['privacy/index.html', 'fr/confidentialite/index.html'].map((route) =>
-    readFile(new URL(route, root), 'utf8'),
-  ),
-);
-for (const disclosure of ['Cloudflare Workers Static Assets', 'connection metadata']) {
-  if (!privacyPages[0].includes(disclosure)) failures.push(`English privacy misses ${disclosure}`);
-}
-for (const disclosure of ['Cloudflare Workers Static Assets', 'métadonnées de connexion']) {
-  if (!privacyPages[1].includes(disclosure)) failures.push(`French privacy misses ${disclosure}`);
+for (const removedRoute of [
+  '/privacy/',
+  '/download/',
+  '/changelog/',
+  '/fr/confidentialite/',
+  '/fr/telechargement/',
+  '/fr/changelog/',
+]) {
+  if (sitemap.includes(`${productionOrigin}${removedRoute}`)) {
+    failures.push(`sitemap contains obsolete route ${removedRoute}`);
+  }
 }
 
 const wrangler = JSON.parse(
@@ -195,5 +229,5 @@ for (const forbidden of [
 
 if (failures.length) throw new Error(failures.join('\n'));
 console.log(
-  `verified ${routes.length} static routes, ${icons.length} Charon PNG icons, and Cloudflare static hosting`,
+  `verified ${routes.length} static routes, ${removedRoutes.length} removed routes, ${icons.length} Charon PNG icons, and Cloudflare static hosting`,
 );

@@ -74,7 +74,7 @@ in
 ```text
 apps/
   desktop/       React, Vite, Tauri, Rust domain modules
-  site/          static Astro product and download site
+  site/          static Astro holding site
 packages/
   theme/         framework-neutral semantic CSS tokens
 ```
