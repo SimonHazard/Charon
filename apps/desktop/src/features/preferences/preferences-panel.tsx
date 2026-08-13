@@ -1,4 +1,10 @@
-import { IconCheck, IconInfoCircle, IconSettings } from '@tabler/icons-react';
+import {
+  IconAlertCircle,
+  IconCheck,
+  IconCircleCheck,
+  IconInfoCircle,
+  IconSettings,
+} from '@tabler/icons-react';
 import { m as motion } from 'motion/react';
 
 import { useMessages, usePreferences } from '@/app/providers';
@@ -17,12 +23,6 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { usePressFeedback } from '@/motion/press';
-
-function capabilityTone(state: CapabilityState) {
-  if (state === 'available') return 'available';
-  if (state === 'unsupported') return 'muted';
-  return 'attention';
-}
 
 export function PreferencesPanel() {
   const m = useMessages();
@@ -49,6 +49,13 @@ export function PreferencesPanel() {
     return labels[state];
   };
 
+  const stateIcon = (state: CapabilityState) =>
+    state === 'available' ? (
+      <IconCircleCheck aria-hidden="true" className="capability-state-icon" data-state={state} />
+    ) : (
+      <IconAlertCircle aria-hidden="true" className="capability-state-icon" data-state={state} />
+    );
+
   const permissionRow = (
     permission: CapturePermissionKind,
     state: CapabilityState,
@@ -58,7 +65,7 @@ export function PreferencesPanel() {
   ) => (
     <div className="preferences-permission-row">
       <div className="preferences-row-title">
-        <span className="capability-dot" data-tone={capabilityTone(state)} />
+        {stateIcon(state)}
         <span>{label}</span>
         <Tooltip>
           <TooltipTrigger
@@ -73,16 +80,14 @@ export function PreferencesPanel() {
         </Tooltip>
         <span className="preferences-state">{stateLabel(state)}</span>
       </div>
-      {state !== 'unsupported' ? (
+      {state !== 'available' && state !== 'unsupported' ? (
         <Button
           disabled={native.pendingPermission !== null}
           onClick={() => void native.requestPermission(permission)}
           size="sm"
           variant="outline"
         >
-          {state === 'available'
-            ? m.preferences_permission_review()
-            : m.preferences_permission_open()}
+          {m.preferences_permission_open()}
         </Button>
       ) : null}
     </div>
@@ -218,7 +223,11 @@ export function PreferencesPanel() {
                     </TooltipContent>
                   </Tooltip>
                 </span>
-                <kbd>{native.capabilities.activeShortcut}</kbd>
+                <kbd>
+                  {native.capabilities.platform === 'macos'
+                    ? m.preferences_shortcut_macos()
+                    : m.preferences_shortcut_other()}
+                </kbd>
               </div>
               {native.capabilities.platform === 'macos' ? (
                 <div className="preferences-permissions">

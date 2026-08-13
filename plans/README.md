@@ -44,7 +44,7 @@ See [`plans/LAUNCH.md`](./LAUNCH.md) for the current development launch commands
 | 013 | [Build the brand-led static product site](./013-build-brand-led-static-site.md) | P1 | L | 009, 011, 012 | DONE |
 | 016 | [Retarget the premium desktop to a compact vertical capture shelf](./016-refine-premium-desktop-shelf.md) | P1 | L | 009-013; existing 014 automated harness | DONE |
 | 018 | [Host the static site on Cloudflare Workers](./018-host-static-site-on-cloudflare.md) | P1 | M | 013; operator reprioritization | AWAITING OPERATOR: GitHub secrets, main merge, first CI run, NEL off |
-| 017 | [Align every Charon workflow inside the compact shelf](./017-align-compact-shelf-features.md) | P1 | XL | 016 | TODO |
+| 017 | [Align every Charon workflow inside the compact shelf](./017-align-compact-shelf-features.md) | P1 | XL | 016 | AWAITING OPERATOR: native macOS permissions, motion, Dock naming, and VoiceOver review |
 | 014 | [Close release quality against exact GitHub candidate artifacts](./014-close-rapid-capture-quality-gaps.md) | P1 | L + physical matrix | 017 | TODO |
 | 015 | [Publish GitHub Releases with Tauri-signed updates and no paid platform certificates](./015-automate-builds-and-releases.md) | P1 | XL | 014 | TODO |
 
@@ -209,10 +209,10 @@ Authoritative brand primitives:
 | Solarized Ink | `#073642` | default text |
 
 The wordmark is vector artwork; system UI and system monospace fonts remain the
-application type roles. The one signature element is a lavender crossing line,
-derived from the icon's oar, which communicates capture arrival, active/selected
-state, and the origin of the expanded editor. Everything else stays quiet: no
-gradient, glow, emoji UI, generic bento, rounded-card grid, or permanent glass.
+application type roles. Lavender communicates focus, active controls, and
+Selection through semantic surfaces and borders, never a decorative vertical
+rail beside content. Everything else stays quiet: no gradient, glow, emoji UI,
+generic bento, rounded-card grid, or permanent glass.
 
 All components use semantic theme tokens. `@charon/theme` continues to export
 CSS variables, theme names, radius, and motion contracts only. It contains no

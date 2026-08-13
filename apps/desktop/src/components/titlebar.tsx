@@ -24,7 +24,13 @@ export function Titlebar() {
     <header className="titlebar" data-tauri-drag-region>
       <picture className="titlebar-brand">
         <source media="(max-width: 159px)" srcSet={icon} />
-        <img alt={m.app_title()} className="titlebar-wordmark" src={wordmark} />
+        <img
+          alt={m.app_title()}
+          className="titlebar-wordmark"
+          height="19"
+          src={wordmark}
+          width="88"
+        />
       </picture>
       <div className="titlebar-actions">
         <Popover>
@@ -52,7 +58,16 @@ export function Titlebar() {
           <PopoverContent align="end" className="help-popover" sideOffset={4}>
             <PopoverHeader>
               <PopoverTitle>{m.capture_help_title()}</PopoverTitle>
-              <PopoverDescription>{m.capture_help_description()}</PopoverDescription>
+              <PopoverDescription className="help-shortcut-list">
+                <span className="help-shortcut-row">
+                  <kbd>{m.capture_help_double_shift_keys()}</kbd>
+                  <span>{m.capture_help_double_shift_description()}</span>
+                </span>
+                <span className="help-shortcut-row">
+                  <kbd>{m.capture_help_composer_keys()}</kbd>
+                  <span>{m.capture_help_composer_description()}</span>
+                </span>
+              </PopoverDescription>
             </PopoverHeader>
           </PopoverContent>
         </Popover>

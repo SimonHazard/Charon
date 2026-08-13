@@ -23,10 +23,11 @@
   color-scheme: light;
   --canvas: var(--solarized-canvas);
   --surface: var(--solarized-surface);
-  --surface-elevated: #fffdf6;
+  --surface-elevated: #fffaf0;
+  --field-surface: #fffefb;
   --surface-inset: #e5deca;
-  --surface-hover: #f8f2df;
-  --surface-pressed: #f1e9d2;
+  --surface-hover: #faf4e4;
+  --surface-pressed: #f2ead4;
   --text: var(--solarized-ink);
   --text-muted: #4d6268;
   --text-subtle: #596b70;
@@ -37,7 +38,7 @@
   --action-pressed: #7b76d5;
   --action-text: var(--brand-prune);
   --selection-surface: #e3dff7;
-  --selection-subtle: #f1effb;
+  --selection-subtle: #efedfb;
   --selection-text: var(--brand-prune);
   --selection-border: #5c56ad;
   --focus: #5c56ad;
@@ -62,6 +63,7 @@
   --canvas: var(--brand-cream);
   --surface: #eee9e2;
   --surface-elevated: #ffffff;
+  --field-surface: var(--surface-elevated);
   --surface-inset: #e6e0d8;
   --surface-hover: #f8f5f1;
   --surface-pressed: #eee9e4;
@@ -100,6 +102,7 @@
   --canvas: var(--brand-prune);
   --surface: #211a2d;
   --surface-elevated: #2a2236;
+  --field-surface: var(--surface-elevated);
   --surface-inset: #110d18;
   --surface-hover: #282033;
   --surface-pressed: #31273f;

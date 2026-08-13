@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
@@ -11,7 +11,6 @@ const ROW_HEIGHT = 84;
 export function NoteList({
   notes,
   selection,
-  selectionMode,
   expandedId,
   allTags,
   onSelection,
@@ -30,7 +29,6 @@ export function NoteList({
 }: {
   notes: readonly NoteDto[];
   selection: SelectionState;
-  selectionMode: boolean;
   expandedId: string | null;
   allTags: readonly string[];
   onSelection(
@@ -42,7 +40,7 @@ export function NoteList({
   onToggleStatus(note: NoteDto): Promise<void>;
   onExpand(noteId: string): void;
   onFocusAttachments(noteId: string): Promise<void>;
-  onCloseEditor(): void;
+  onCloseEditor(noteId: string): void;
   onTagFilter(tag: string): void;
   onCopy(noteId: string): Promise<void>;
   onSave(noteId: string, body: string): Promise<void>;
@@ -55,6 +53,20 @@ export function NoteList({
   const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
   const selected = useMemo(() => new Set(selection.selectedIds), [selection.selectedIds]);
+  const activateNote = useCallback(
+    (id: string, event: React.MouseEvent | React.KeyboardEvent) =>
+      onSelection({
+        type: 'click',
+        id,
+        toggle: 'metaKey' in event && (event.metaKey || event.ctrlKey),
+        extend: 'shiftKey' in event && event.shiftKey,
+      }),
+    [onSelection],
+  );
+  const toggleNoteSelection = useCallback(
+    (id: string) => onSelection({ type: 'toggle', id }),
+    [onSelection],
+  );
   const virtualizer = useVirtualizer({
     count: notes.length,
     estimateSize: () => ROW_HEIGHT,
@@ -97,14 +109,7 @@ export function NoteList({
                 allTags={allTags}
                 expanded={expandedId === note.id}
                 note={note}
-                onActivate={(id, event) =>
-                  onSelection({
-                    type: 'click',
-                    id,
-                    toggle: 'metaKey' in event && (event.metaKey || event.ctrlKey),
-                    extend: 'shiftKey' in event && event.shiftKey,
-                  })
-                }
+                onActivate={activateNote}
                 onAddAttachments={onAddAttachments}
                 onCloseEditor={onCloseEditor}
                 onCopy={onCopy}
@@ -116,10 +121,9 @@ export function NoteList({
                 onSave={onSave}
                 onSetTags={onSetTags}
                 onTagFilter={onTagFilter}
-                onToggleSelection={(id) => onSelection({ type: 'toggle', id })}
+                onToggleSelection={toggleNoteSelection}
                 onToggleStatus={onToggleStatus}
                 selected={selected.has(note.id)}
-                selectionMode={selectionMode}
               />
             </li>
           );

@@ -12,6 +12,7 @@ const desktopCss = readFileSync(resolve(process.cwd(), 'src/styles/app.css'), 'u
 const tauriConfig = JSON.parse(
   readFileSync(resolve(process.cwd(), 'src-tauri/tauri.conf.json'), 'utf8'),
 );
+const cargoManifest = readFileSync(resolve(process.cwd(), 'src-tauri/Cargo.toml'), 'utf8');
 
 const generatedNativeIcons = [
   '32x32.png',
@@ -57,6 +58,7 @@ const requiredSemanticTokens = [
   '--canvas',
   '--surface',
   '--surface-elevated',
+  '--field-surface',
   '--surface-inset',
   '--surface-hover',
   '--surface-pressed',
@@ -186,6 +188,8 @@ describe('theme token contract', () => {
         ['--text-muted', '--surface-hover'],
         ['--text', '--surface-pressed'],
         ['--text-muted', '--surface-pressed'],
+        ['--text', '--field-surface'],
+        ['--text-muted', '--field-surface'],
         ['--text', '--selection-subtle'],
         ['--text-muted', '--selection-subtle'],
         ['--action-text', '--action'],
@@ -210,6 +214,7 @@ describe('theme token contract', () => {
         ['--focus', '--canvas'],
         ['--focus', '--surface'],
         ['--focus', '--surface-elevated'],
+        ['--focus', '--field-surface'],
         ['--focus', '--selection-surface'],
         ['--focus', '--surface-hover'],
         ['--focus', '--surface-pressed'],
@@ -238,6 +243,7 @@ describe('theme token contract', () => {
   it('ships the stable Charon bundle identity and complete generated icon families', () => {
     expect(tauriConfig.productName).toBe('Charon');
     expect(tauriConfig.mainBinaryName).toBe('Charon');
+    expect(cargoManifest).toMatch(/\[\[bin\]\]\s+name = "Charon"\s+path = "src\/main\.rs"/u);
     expect(tauriConfig.identifier).toBe('dev.simonhazard.charon');
     expect(tauriConfig.bundle.macOS.minimumSystemVersion).toBe('14.0');
     expect(tauriConfig.bundle.macOS.signingIdentity).toBe('-');

@@ -76,7 +76,7 @@ describe('compact Preferences', () => {
     expect(document.querySelector('.preferences-section-icon')).toBeNull();
     await screen.findByText('Charon Notes');
     expect(document.body.textContent).not.toContain('/Users/');
-    expect(screen.getByText('CmdOrCtrl+Shift+Space')).toBeTruthy();
+    expect(screen.getByText('⌘ + Shift + Space')).toBeTruthy();
   });
 
   it('applies immediate theme/language and requests each permission explicitly', async () => {
@@ -100,6 +100,35 @@ describe('compact Preferences', () => {
     expect(native.requestPermission).toHaveBeenCalledWith('inputMonitoring');
   });
 
+  it('rechecks macOS permissions when Charon regains focus', async () => {
+    const native = clients();
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <Titlebar />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(await screen.findByRole('button', { name: 'Open Settings' })).toBeTruthy();
+
+    const refreshedCapabilities = vi.fn().mockResolvedValue({
+      ...capabilities,
+      inputMonitoring: 'available',
+      doubleShift: 'available',
+    });
+    native.captureClient.capabilities = refreshedCapabilities;
+    window.dispatchEvent(new Event('focus'));
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Settings' })).toBeNull());
+    expect(refreshedCapabilities).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByText('Ready')).toHaveLength(2);
+  });
+
   it('keeps detailed capture disclosures in keyboard-accessible tooltips', async () => {
     const native = clients();
     render(
@@ -116,10 +145,14 @@ describe('compact Preferences', () => {
     const disclosure = /Required only to observe the double-Shift/;
     expect(screen.queryByText(disclosure)).toBeNull();
     await user.hover(screen.getByRole('button', { name: 'About Input Monitoring' }));
-    expect(await screen.findByText(disclosure)).toBeTruthy();
+    const content = await screen.findByText(disclosure);
+    expect(content).toBeTruthy();
+    expect(content.closest('[data-slot="tooltip-content"]')?.parentElement?.className).toContain(
+      'z-[60]',
+    );
     await user.unhover(screen.getByRole('button', { name: 'About Input Monitoring' }));
     await user.hover(screen.getByRole('button', { name: 'About the portable shortcut' }));
-    expect(await screen.findByText(/always reveals Charon/)).toBeTruthy();
+    expect(await screen.findByText(/Shows Charon/)).toBeTruthy();
   });
 
   it('keeps a local capability error actionable inside the Popover', async () => {

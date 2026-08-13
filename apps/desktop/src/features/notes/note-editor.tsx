@@ -182,16 +182,16 @@ export function NoteEditor({
   return (
     <motion.section
       aria-label={m.note_editor_title()}
-      animate={{ opacity: 1, scale: 1, x: 0 }}
+      animate={{ opacity: 1, scale: 1 }}
       className="note-editor-inline"
       data-note-editor={note.id}
-      initial={{ opacity: 0, scale: 0.99, x: -4 }}
+      initial={{ opacity: 0, scale: 0.995 }}
       transition={motionProfiles.surface}
     >
       <Tabs defaultValue="write">
         <div className="note-editor-heading">
           <strong className="sr-only">{m.note_editor_title()}</strong>
-          <TabsList variant="line">
+          <TabsList>
             <TabsTrigger value="write">{m.note_editor_write()}</TabsTrigger>
             <TabsTrigger value="preview">{m.note_editor_preview()}</TabsTrigger>
           </TabsList>
@@ -240,19 +240,23 @@ export function NoteEditor({
       <div className="note-editor-metadata">
         <Field data-invalid={Boolean(tagError)}>
           <FieldLabel htmlFor={`note-tags-${note.id}`}>{m.tags_label()}</FieldLabel>
-          <div className="tag-editor-row">
-            {note.tags.map((tag) => (
-              <Badge key={tag} variant="secondary">
-                {tag}
-                <button
-                  aria-label={m.tag_remove({ tag })}
-                  onClick={() => void removeTag(tag)}
-                  type="button"
-                >
-                  <IconX aria-hidden="true" />
-                </button>
-              </Badge>
-            ))}
+          {note.tags.length ? (
+            <div className="tag-editor-chips">
+              {note.tags.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                  <button
+                    aria-label={m.tag_remove({ tag })}
+                    onClick={() => void removeTag(tag)}
+                    type="button"
+                  >
+                    <IconX aria-hidden="true" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+          <div className="tag-editor-input">
             <Input
               autoComplete="off"
               id={`note-tags-${note.id}`}

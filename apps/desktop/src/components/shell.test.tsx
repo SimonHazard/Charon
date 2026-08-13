@@ -38,7 +38,9 @@ describe('single shelf shell', () => {
     expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
-    expect(await screen.findByText('Capture from anywhere')).toBeTruthy();
+    expect(await screen.findByText('Capture text')).toBeTruthy();
+    expect(screen.getByText('Shift Shift').tagName).toBe('KBD');
+    expect(screen.getByText('⌘/Ctrl + Shift + Space').tagName).toBe('KBD');
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 });

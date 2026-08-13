@@ -46,7 +46,7 @@ was copied.
 | Surface | Before | After | Review result |
 |---|---|---|---|
 | Titlebar | 52px translucent chrome, 7rem wordmark, modal Help | 48px solid chrome, 5.5rem wordmark, anchored Help Popover, Help and Preferences Tooltips | Native drag region and macOS traffic-light inset remain intact; press feedback begins on pointer/key down |
-| Toolbar | Search, status, and Selection competed on one wide row | Search owns the first row; Base UI Open/Done and Selection share a non-scrolling second row | EN/FR labels fit at 400px; focus and pressed state remain distinct |
+| Toolbar | Search, status, and Selection competed on one wide row | Search owns the first row; Base UI Open/Done and compact contextual actions share a non-scrolling second row | EN/FR labels fit at 400px; focus and pressed state remain distinct |
 | Note stack | One filled scrolling viewport with divider rows | Transparent virtual viewport containing bounded 6-8px-rhythm surfaces | 20,000-Note virtualization remains under 150 rendered rows; no lift or row shadow |
 | Note metadata | Up to three Tags shared the trailing row width | Two Tags maximum at normal width, Tags collapse first at 400px, Attachment remains count-only | Title, one-line preview, status, Actions, and an accessible metadata summary remain available |
 | Composer | Transient material plus permanent capture hint | Solid anchored body-only field with contextual errors above it | Enter, whitespace no-op, pending guard, failure preservation, retry, and portable focus remain unchanged |
@@ -104,3 +104,52 @@ still cover titlebar, search, Open/Done, virtual Notes, Selection, editor, Tags,
 Attachments, Preferences, Delete, contextual errors, composer, normal speed,
 0.25× observation, and mid-flight reversal. This is an open P1 evidence item;
 no native or VoiceOver acceptance claim is recorded here.
+
+## 2026-08-13 direct-selection and permission follow-up
+
+The operator feedback pass removed the explicit Select mode and boxed bulk bar.
+A plain row click now selects one Note, `Cmd`/`Ctrl`-click toggles it, and
+`Shift`-click selects the complete ordered range. A non-empty Selection exposes
+one compact secondary menu, a direct irreversible trash action, and a clear
+action beside the unchanged Open/Done control. Opening the editor clears the
+bulk context so destructive controls do not compete with writing.
+
+The expanded editor now continues the live Note surface without a decorative
+left rail or a nested panel. Write/Preview uses a Base UI segmented control;
+Solarized fields use a dedicated near-white semantic surface; Tag chips and the
+full-width add field have separate rhythm; and all three themes preserve focus,
+selection, contrast, reduced motion, and reduced transparency behavior.
+Tooltips render above the Preferences Popover and become non-visible after exit
+so WebKit accessibility inspection does not treat stale tooltip text as visible.
+
+The native target is explicitly named `Charon`, matching the Tauri product and
+main-binary names. Input Monitoring now uses the accepted public
+`CGRequestListenEventAccess` request API. Charon re-preflights both capture
+permissions whenever the app regains focus or becomes visible, and the UI test
+proves that an already granted permission immediately loses its stale action.
+Concurrent focus and visibility events coalesce into one capability read. The
+final interaction review also proves that a failed bulk copy remains contextual,
+preserves Selection, and does not leave an unhandled rejection.
+
+Automated evidence after this pass:
+
+- `bun run check`: 22 desktop files and 78 tests passed; all nine static routes
+  and five icon budgets passed.
+- `bun run test:e2e`: 30 Chromium/WebKit journeys passed, including direct
+  Selection, `Shift`-click range selection, irreversible Delete, compact
+  overflow, editor, Preferences, and site truthfulness.
+- `bun run test:a11y`: four major desktop/site states passed with zero serious
+  or critical Axe findings.
+- `bun run test:perf`: desktop JavaScript measured 203,691 gzip bytes; the final
+  20,000-Note search median was 18.33ms.
+- `bun run check:privacy`: desktop and site production outputs passed the
+  content, source-path, and secret scan.
+- `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked`: 74
+  Rust unit tests and all capture, clipboard, preferences, and Workspace
+  contracts passed; the test target is emitted as `Charon`.
+- `bun run verify:release`: two consecutive complete release gates passed.
+
+The real application media was regenerated after the full compact matrix and
+visually reviewed in Solarized and Graphite. Physical macOS permission grant,
+Dock naming, native motion, and VoiceOver remain operator evidence; no physical
+acceptance claim is inferred from automation.

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -65,7 +65,7 @@ describe('single note shelf', () => {
     expect(screen.queryByText('Attachment note')).toBeNull();
   });
 
-  it('keeps search first, status and Selection second, then the list and solid composer', () => {
+  it('keeps search first, status second, then the list and solid composer', () => {
     renderScreen();
     const list = screen.getByRole('list', { name: 'Notes' });
     const shelf = list.parentElement?.parentElement;
@@ -84,30 +84,33 @@ describe('single note shelf', () => {
     expect(document.querySelector('.capture-hint')).toBeNull();
   });
 
-  it('replaces status controls with a complete non-scrolling Selection bar', async () => {
+  it('selects notes directly and exposes compact contextual actions', async () => {
     const user = userEvent.setup();
     renderScreen();
-    await user.click(screen.getByRole('button', { name: 'Select' }));
+    expect(screen.queryByRole('button', { name: 'Select' })).toBeNull();
+    expect(screen.queryByRole('group', { name: /note selected/ })).toBeNull();
 
-    const toolbar = screen.getByRole('toolbar', { name: '0 notes selected' });
-    expect(within(toolbar).getByText('0 notes selected')).toBeTruthy();
-    expect(within(toolbar).getByRole('button', { name: 'Mark done' })).toBeTruthy();
-    expect(within(toolbar).getByRole('button', { name: 'Copy as Markdown' })).toBeTruthy();
-    expect(within(toolbar).getByRole('button', { name: 'Delete 0' })).toBeTruthy();
-    expect(within(toolbar).getByRole('button', { name: 'Cancel' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^Open/ })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
+    const actions = screen.getByRole('group', { name: '1 note selected' });
+    expect(within(actions).getByText('1 note selected')).toBeTruthy();
+    expect(within(actions).getByRole('button', { name: 'Selection actions' })).toBeTruthy();
+    expect(within(actions).getByRole('button', { name: 'Delete 1' })).toBeTruthy();
+    expect(within(actions).getByRole('button', { name: 'Clear selection' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Open/ })).toBeTruthy();
 
-    await user.click(screen.getByRole('checkbox', { name: 'Select Alpha' }));
-    expect(screen.getByRole('toolbar', { name: '1 note selected' })).toBeTruthy();
+    await user.click(within(actions).getByRole('button', { name: 'Selection actions' }));
+    expect(await screen.findByText('Mark done')).toBeTruthy();
+    expect(await screen.findByText('Copy as Markdown')).toBeTruthy();
   });
 
-  it('reconciles Selection while preserving native search editing focus', async () => {
+  it('extends a click selection with Shift and preserves search editing focus', async () => {
     const user = userEvent.setup();
     renderScreen();
-    await user.click(screen.getByRole('button', { name: 'Select' }));
-    await waitFor(() =>
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: /^Alpha/ })),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /^Alpha/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Attachment note/ }), {
+      shiftKey: true,
+    });
+    expect(screen.getByRole('group', { name: '2 notes selected' })).toBeTruthy();
     const search = screen.getByRole('textbox', { name: 'Search notes' });
     await user.type(search, 'brief.pdf');
     expect(document.activeElement).toBe(search);
@@ -130,6 +133,21 @@ describe('single note shelf', () => {
     );
     expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Copied');
     expect(screen.queryByText(/\/Users\//)).toBeNull();
+  });
+
+  it('keeps a failed bulk copy contextual and preserves the selection', async () => {
+    const user = userEvent.setup();
+    renderScreen({
+      clipboardClient: {
+        composeAndWrite: vi.fn().mockRejectedValue({ code: 'write_failed' }),
+      },
+    });
+    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
+    await user.click(screen.getByRole('button', { name: 'Selection actions' }));
+    await user.click(await screen.findByText('Copy as Markdown'));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/Couldn.t copy/);
+    expect(screen.getByRole('group', { name: '1 note selected' })).toBeTruthy();
   });
 
   it('forwards transient picker paths only to the typed attachment command', async () => {
@@ -172,7 +190,6 @@ describe('single note shelf', () => {
         commands.push(command);
       },
     });
-    await user.click(screen.getByRole('button', { name: 'Select' }));
     await user.click(screen.getByRole('button', { name: /^Alpha/ }));
     await user.click(screen.getByRole('button', { name: 'Delete 1' }));
     const dialog = screen.getByRole('alertdialog');
@@ -199,7 +216,6 @@ describe('single note shelf', () => {
         }
       },
     });
-    await user.click(screen.getByRole('button', { name: 'Select' }));
     await user.click(screen.getByRole('button', { name: /^Alpha/ }));
     await user.click(screen.getByRole('button', { name: 'Delete 1' }));
     await user.click(screen.getByRole('button', { name: 'Delete permanently' }));

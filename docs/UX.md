@@ -17,8 +17,9 @@ deletion.
 Solarized is the first-run default. Light and Dark remain user choices. The
 approved Charon Prune, Lavender, and Cream primitives map through semantic theme
 roles; product components never use raw palette values or theme conditionals.
-Lavender is the interaction accent for focus, selection, active controls, and
-the crossing line that visually carries a Note into its expanded editor.
+Lavender is the interaction accent for focus, selection, and active controls.
+It appears through semantic surfaces and boundaries, never as a decorative
+vertical rail beside content.
 Destructive, warning, and success colors remain semantic.
 
 Use the platform system UI font stack with optical sizing where supported,
@@ -30,8 +31,8 @@ grid.
 
 Surface radius is 14px, field radius is 10px, and compact-control radius is
 8px. Pills are reserved for quiet Tag chips or compact segmented semantics.
-Borders, alignment, spacing, and the crossing line establish hierarchy; shadows
-appear only when a layer genuinely floats.
+Borders, alignment, spacing, and restrained surface contrast establish
+hierarchy; shadows appear only when a layer genuinely floats.
 
 ## Single-shelf layout
 
@@ -46,7 +47,8 @@ uses a 720px-wide native window so the effective content width remains at least
 The shelf column is at most `34rem`/544px and stays centered in wider restored
 windows rather than stretching Notes across spare canvas. A compact titlebar
 sits above a two-line toolbar: search owns the first full-width row, while
-Open/Done and Selection share the second without horizontal scrolling. One
+Open/Done and compact contextual Selection actions share the second without
+horizontal scrolling. One
 virtualized stack of bounded vertical Note surfaces fills the available middle
 region. The solid composer remains anchored and visible at the bottom.
 
@@ -55,7 +57,7 @@ region. The solid composer remains anchored and visible at the bottom.
 | CHARON                              [?] [gear]|
 +----------------------------------------------+
 | [ Search Notes and Tags...              ][x]|
-| [ Open 5 ] [ Done 1 ]             [Select] |
+| [ Open 5 ] [ Done 1 ]                      |
 |                                              |
 | +------------------------------------------+ |
 | | o  Agent handoff                     ...| |
@@ -72,7 +74,7 @@ region. The solid composer remains anchored and visible at the bottom.
 Expanded from the live Note row:
 +------------------------------------------+
 | o  Agent handoff                      ...|
-| | [Write] [Preview]    Saved       [x] | |
+| | [ Write | Preview ]    Saved      [x] | |
 | |                                      | |
 | | Markdown editor or safe preview       | |
 | |                                      | |
@@ -87,8 +89,8 @@ Tabler outline icons and localized accessible names, never emoji glyphs.
 
 The permanent titlebar and composer are solid surfaces separated by the
 semantic separator. The wordmark stays small, native outer-window controls and
-macOS traffic-light space remain platform-owned, and one-pixel Lavender lines
-are reserved for focus, Selection, expansion, or a successful new-Note
+macOS traffic-light space remain platform-owned. Lavender-backed surfaces and
+borders are reserved for focus, Selection, or a successful new-Note
 acknowledgement. Note rows use one semantic fill, a restrained one-pixel border,
 6-8px vertical rhythm, and no lift or shadow. They remain a list, never a card
 grid.
@@ -111,14 +113,14 @@ layout pressure.
 | --- | --- | --- |
 | Search body, Tags, and Attachment names | Full-width top search row | The clear action remains reachable and a no-result state keeps the composer visible. |
 | Open and Done | Second toolbar row | One Base UI ToggleGroup includes counts and has no sliding decoration. |
-| Enter and exit Selection | Second toolbar row | Select becomes a contextual Selection bar without horizontal scrolling. |
-| Bulk status, copy, and Delete | Context bar above the list | The selected count and status, `Copy as Markdown`, irreversible Delete, and Cancel actions remain reachable. |
+| Enter and exit Selection | Note rows | A plain click selects one Note, `Cmd`/`Ctrl`-click toggles one Note, `Shift`-click extends the contiguous range, and Escape clears it. There is no separate mode button. |
+| Bulk status, copy, and Delete | Compact controls beside Open/Done | The selected count, secondary status/copy menu, direct irreversible Delete, and clear action remain reachable without a boxed selection panel. |
 | Scan a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, and Actions remain present. |
 | Edit Markdown | Expanded live Note row | Write/Preview, autosave state, close, and contextual errors stay in the same row. |
 | Edit Tags | Expanded Note, stacked section | Chips wrap, the add input stays usable, and limits and errors remain local. |
 | Manage Attachments | Expanded Note, stacked section | Generic file metadata, pending and error states, add, and remove remain available without previews. |
-| Copy as Markdown | Row Actions and Selection bar | It is the primary row-menu item; completion, failure, and local-path disclosure remain contextual and reachable. |
-| Permanently delete Notes | Selection bar and count-specific AlertDialog | The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
+| Copy as Markdown | Row Actions and contextual Selection menu | It is the primary row-menu item; completion, failure, and local-path disclosure remain contextual and reachable. |
+| Permanently delete Notes | Direct contextual trash action and count-specific AlertDialog | The action appears only for a non-empty Selection. The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
 | Preferences | Gear-anchored Popover | Appearance, language, Notes folder, and capture state scroll within a 400 by 480 shelf. |
 | Capture help and permissions | Help Popover and Preferences Capture section | Permission state and action remain visible while long disclosures use keyboard-accessible progressive disclosure. |
 | Workspace loading, empty, error, and recovery | Main shelf region | Layout-shaped progress and local recovery preserve composer or chooser priority. |
@@ -174,8 +176,11 @@ uploaded.
 
 Tag chips are quiet metadata, not colored categories or navigation. The
 paperclip count opens or focuses the Attachment area only within the same
-expanded Note. Selection and keyboard focus are visually distinct in every
-theme and are never communicated by color alone.
+expanded Note. Selection uses a filled surface plus a stronger border; keyboard
+focus keeps its own ring. Both remain distinct in every theme and are never
+communicated by color alone. A plain click selects the row, `Cmd`/`Ctrl`-click
+toggles it, and `Shift`-click selects the complete ordered range from the
+anchor.
 
 ## Composer
 
@@ -195,9 +200,10 @@ focus. Permission denial keeps the portable shortcut and composer usable.
 
 ## Editor expansion and enrichment
 
-Enter or the hover/focus pencil expands the active Note. Shared layout begins at
-the row's current on-screen position and crossing-line origin. The surface
-offers Write/Preview, autosaving Markdown, draft preservation, Tag editing,
+Enter, double-click, or the hover/focus pencil expands the active Note. Shared
+layout begins at the row's current on-screen position. The editor extends the
+same bounded surface with no nested left rail or decorative accent bar. A
+segmented Write/Preview control offers autosaving Markdown, draft preservation, Tag editing,
 Attachment list/import/removal, status, and close. Safe Preview never executes
 embedded content or arbitrary Attachment formats.
 
@@ -293,8 +299,7 @@ The allowed motion foundation is exact and intentionally small: existing
 button/icon press feedback at scale `.98`; origin-aware opacity plus scale
 `.98-.985` for Tooltips, menus, and Popovers over 120-180ms with symmetric
 exit; the existing critically damped nested row/editor transform-and-opacity
-transition; and one 160ms one-pixel Lavender line after a successful create.
-The editor expansion begins from the live row, carries its current presentation
+transition. The editor expansion begins from the live row, carries its current presentation
 value, uses the same path to expand and collapse, remains reversible at every
 point, and returns to the current row target if the list changes.
 

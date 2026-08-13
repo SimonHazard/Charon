@@ -1,10 +1,8 @@
+use crate::capture::CapturePermissionKind;
 use core_foundation::base::TCFType;
 use core_foundation::boolean::CFBoolean;
 use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
 use core_foundation::string::CFString;
-use std::ffi::c_int;
-
-use crate::capture::CapturePermissionKind;
 
 #[link(name = "ApplicationServices", kind = "framework")]
 unsafe extern "C" {
@@ -15,13 +13,7 @@ unsafe extern "C" {
 #[link(name = "CoreGraphics", kind = "framework")]
 unsafe extern "C" {
     fn CGPreflightListenEventAccess() -> bool;
-}
-
-const IOHID_REQUEST_TYPE_LISTEN_EVENT: c_int = 1;
-
-#[link(name = "IOKit", kind = "framework")]
-unsafe extern "C" {
-    fn IOHIDRequestAccess(request_type: c_int) -> bool;
+    fn CGRequestListenEventAccess() -> bool;
 }
 
 pub(super) fn accessibility_trusted() -> bool {
@@ -37,10 +29,9 @@ pub(super) fn can_listen_to_input() -> bool {
 pub(super) fn request(permission: CapturePermissionKind) {
     match permission {
         CapturePermissionKind::InputMonitoring => {
-            // SAFETY: the public IOKit request type `ListenEvent` delegates the
-            // consent flow to TCC and reliably registers the app in the Input
-            // Monitoring pane before the Core Graphics preflight is retried.
-            let _ = unsafe { IOHIDRequestAccess(IOHID_REQUEST_TYPE_LISTEN_EVENT) };
+            // SAFETY: the public Core Graphics request API delegates the consent
+            // flow to TCC. Capability state is re-preflighted after the call.
+            let _ = unsafe { CGRequestListenEventAccess() };
         }
         CapturePermissionKind::Accessibility => {
             let prompt_key = CFString::new("AXTrustedCheckOptionPrompt");

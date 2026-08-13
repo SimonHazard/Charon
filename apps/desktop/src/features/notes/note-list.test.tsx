@@ -42,7 +42,6 @@ describe('virtual note list', () => {
           expandedId={null}
           notes={notes}
           selection={emptySelection}
-          selectionMode={false}
         />
       </AppProviders>,
     );
@@ -75,7 +74,6 @@ describe('virtual note list', () => {
           expandedId={null}
           notes={[item]}
           selection={emptySelection}
-          selectionMode={false}
         />
       </AppProviders>,
     );

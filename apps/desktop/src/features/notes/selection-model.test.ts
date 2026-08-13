@@ -36,22 +36,22 @@ describe('selection model', () => {
     expect(up.selectedIds).toEqual(['c']);
   });
 
-  it('supports click, modifier toggle, shift click, and select all visible', () => {
+  it('supports click, modifier toggle, A-to-D shift click, and select all visible', () => {
     const one = selectionReducer(emptySelection, {
       type: 'click',
-      id: 'b',
+      id: 'a',
       visibleIds: visible,
       toggle: false,
       extend: false,
     });
     const toggled = selectionReducer(one, {
       type: 'click',
-      id: 'd',
+      id: 'c',
       visibleIds: visible,
       toggle: true,
       extend: false,
     });
-    expect(toggled.selectedIds).toEqual(['b', 'd']);
+    expect(toggled.selectedIds).toEqual(['a', 'c']);
     const extended = selectionReducer(one, {
       type: 'click',
       id: 'd',
@@ -59,10 +59,10 @@ describe('selection model', () => {
       toggle: false,
       extend: true,
     });
-    expect(extended.selectedIds).toEqual(['b', 'c', 'd']);
+    expect(extended.selectedIds).toEqual(['a', 'b', 'c', 'd']);
     expect(
-      selectionReducer(one, { type: 'selectAllVisible', visibleIds: ['b', 'd'] }).selectedIds,
-    ).toEqual(['b', 'd']);
+      selectionReducer(one, { type: 'selectAllVisible', visibleIds: ['a', 'd'] }).selectedIds,
+    ).toEqual(['a', 'd']);
   });
 
   it('reconciles filters, deleted anchors, and empty lists', () => {

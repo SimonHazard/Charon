@@ -23,6 +23,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-field: var(--field-surface);
   --color-ring: var(--ring);
   --radius-sm: var(--radius-control);
   --radius-md: var(--radius-control);
@@ -109,6 +110,25 @@
   backdrop-filter: blur(var(--material-blur));
   -webkit-backdrop-filter: blur(var(--material-blur));
 }
+.help-shortcut-list {
+  display: grid;
+  gap: 0.65rem;
+}
+.help-shortcut-row {
+  display: grid;
+  gap: 0.2rem;
+}
+.help-shortcut-row kbd {
+  width: fit-content;
+  padding: 0.14rem 0.38rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--field-surface);
+  color: var(--text);
+  font-family: var(--font-monospace);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
 
 .preferences-popover {
   width: min(30rem, calc(100vw - 1rem));
@@ -174,7 +194,7 @@
   gap: 0.25rem;
   border: 0;
   border-radius: calc(var(--radius-control) - 1px);
-  background: var(--surface);
+  background: var(--field-surface);
   color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 520;
@@ -226,7 +246,7 @@
   padding: 0.16rem 0.4rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background: var(--field-surface);
   color: var(--text-muted);
   font-family: var(--font-monospace);
   font-size: 0.68rem;
@@ -262,18 +282,17 @@
   font-size: 0.68rem;
   font-weight: 450;
 }
-.capability-dot {
-  width: 0.42rem;
-  height: 0.42rem;
+.capability-state-icon {
+  width: 0.95rem;
+  height: 0.95rem;
   flex: none;
-  border-radius: 50%;
-  background: var(--text-muted);
+  color: var(--warning);
 }
-.capability-dot[data-tone="available"] {
-  background: var(--success);
+.capability-state-icon[data-state="available"] {
+  color: var(--success);
 }
-.capability-dot[data-tone="attention"] {
-  background: var(--warning);
+.capability-state-icon[data-state="unsupported"] {
+  color: var(--text-muted);
 }
 .preferences-group .preferences-inline-warning {
   color: var(--warning);
@@ -354,7 +373,7 @@
   padding-left: 0.6rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-field);
-  background: var(--surface);
+  background: var(--field-surface);
 }
 .note-search > svg {
   width: 1rem;
@@ -407,40 +426,38 @@
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+.note-toolbar-row:has(.selection-context) .status-segment {
+  width: min(13rem, 58%);
+}
 
-.selection-actions {
+.selection-context {
   display: flex;
   min-width: 0;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.2rem;
-}
-.selection-bar {
-  display: grid;
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: minmax(6.5rem, 1fr) auto;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.25rem 0.2rem 0.55rem;
-  border: 1px solid var(--selection-border);
-  border-radius: var(--radius-field);
-  background: var(--selection-subtle);
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--text-muted);
 }
 .selection-count {
   min-width: 0;
+  margin-right: 0.2rem;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   font-weight: 620;
   line-height: 1.2;
 }
-.selection-bar [data-slot="button"] {
+.selection-count-short {
+  display: inline;
+}
+.selection-count-long {
+  display: none;
+}
+.selection-context [data-slot="button"] {
   min-width: 2.75rem;
   min-height: 2.75rem;
-}
-.selection-entry {
-  flex: none;
 }
 .active-tag-filter {
   display: flex;
@@ -509,29 +526,14 @@
   border-radius: var(--radius-surface);
   background: var(--surface-elevated);
 }
-.note-row::before {
-  position: absolute;
-  z-index: 1;
-  inset: 0.55rem auto 0.55rem 0;
-  width: 1px;
-  background: var(--selection-border);
-  content: "";
-  opacity: 0;
-  transform: scaleY(0.35);
-  transform-origin: center;
-  transition:
-    transform var(--motion-duration-transient) var(--motion-easing-transient),
-    opacity var(--motion-duration-transient) var(--motion-easing-transient);
-}
-.note-row[data-active="true"]::before,
-.note-row[data-selected="true"]::before,
-.note-row[data-expanded="true"]::before {
-  opacity: 1;
-  transform: scaleY(1);
-}
 .note-row[data-selected="true"] {
+  border-color: var(--selection-border);
   background: var(--selection-subtle);
   color: var(--text);
+}
+.note-row[data-expanded="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface-elevated);
 }
 .note-row:active {
   background: var(--surface-pressed);
@@ -657,6 +659,10 @@
   flex: none;
   align-items: center;
 }
+.note-row-actions [data-slot="button"] {
+  width: 2.75rem;
+  height: 2.75rem;
+}
 .note-edit-button {
   opacity: 0;
 }
@@ -666,13 +672,13 @@
 }
 
 .note-editor-inline {
-  margin: 0 0.4rem 0.45rem 2.9rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border-subtle);
-  border-left-color: var(--selection-border);
-  border-radius: 0 var(--radius-field) var(--radius-field) 0;
-  background: var(--canvas);
-  transform-origin: left top;
+  margin: 0 0.45rem 0.45rem;
+  padding: 0.7rem 0.55rem 0.75rem;
+  border: 0;
+  border-top: 1px solid var(--separator);
+  border-radius: 0;
+  background: transparent;
+  transform-origin: center top;
 }
 .note-editor-heading,
 .attachment-heading {
@@ -682,6 +688,19 @@
 }
 .note-editor-heading [data-slot="tabs-list"] {
   flex: none;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--separator);
+  background: var(--surface);
+}
+.note-editor-heading [data-slot="tabs-trigger"] {
+  min-width: 4.25rem;
+  border-radius: calc(var(--radius-control) - 2px);
+  font-size: 0.76rem;
+}
+.note-editor-heading [data-slot="tabs-trigger"][data-active] {
+  background: var(--field-surface);
+  color: var(--text);
 }
 .note-save-state {
   min-width: 0;
@@ -706,7 +725,7 @@
   padding: 0.75rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-field);
-  background: var(--surface);
+  background: var(--field-surface);
   white-space: pre-wrap;
 }
 .note-preview h2,
@@ -727,19 +746,17 @@
   gap: 0.85rem;
   margin-top: 0.85rem;
 }
-.tag-editor-row {
+.tag-editor-chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
+  margin-bottom: 0.35rem;
 }
-.tag-editor-row input {
-  width: min(12rem, 100%);
-  min-width: min(10rem, 100%);
-  height: 1.8rem;
-  flex: 1;
+.tag-editor-input input {
+  width: 100%;
 }
-.tag-editor-row [data-slot="badge"] button {
+.tag-editor-chips [data-slot="badge"] button {
   display: inline-grid;
   width: 1rem;
   height: 1rem;
@@ -748,7 +765,7 @@
   background: transparent;
   color: inherit;
 }
-.tag-editor-row [data-slot="badge"] svg {
+.tag-editor-chips [data-slot="badge"] svg {
   width: 0.75rem;
 }
 .attachment-editor {
@@ -838,7 +855,7 @@
 .note-capture-input [data-slot="input-group"] {
   height: 2.5rem;
   min-height: 2.5rem;
-  background: var(--surface);
+  background: var(--field-surface);
 }
 .transient-material {
   background: var(--material-transient);
@@ -856,11 +873,14 @@
   .note-row:hover {
     background: var(--surface-hover);
   }
-}
-
-@media (max-width: 544px) {
-  .note-editor-inline {
-    margin-left: 0.4rem;
+  .note-row[data-selected="true"]:hover {
+    background: var(--selection-surface);
+  }
+  .note-row[data-expanded="true"]:hover {
+    background: var(--surface-elevated);
+  }
+  .note-row:active {
+    background: var(--surface-pressed);
   }
 }
 
@@ -871,7 +891,6 @@
   .status-segment {
     width: min(13rem, 64%);
   }
-  .selection-action-label,
   .tag-filter-chip,
   .tag-overflow {
     display: none;
@@ -881,13 +900,6 @@
   }
   .note-row-actions {
     gap: 0;
-  }
-  .selection-bar {
-    grid-template-columns: minmax(5.75rem, 1fr) auto;
-    padding-left: 0.45rem;
-  }
-  .selection-actions {
-    flex-wrap: nowrap;
   }
   .preferences-workspace-row,
   .preferences-permission-row {
@@ -900,11 +912,16 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .note-row::before {
-    transform: none;
-    transition-property: opacity;
+@media (min-width: 520px) {
+  .selection-count-long {
+    display: inline;
   }
+  .selection-count-short {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
   .preferences-popover {
     animation-name: none;
   }

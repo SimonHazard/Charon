@@ -49,7 +49,7 @@ await sharp(solarizedPng).webp({ quality: 84 }).toFile(`${output}charon-shelf-so
 await sharp(solarizedPng).avif({ quality: 62 }).toFile(`${output}charon-shelf-solarized.avif`);
 
 await prepare(page, 'dark');
-await page.locator('[data-note-id="capture-note"] .note-row-activation').click();
+await page.locator('[data-note-id="capture-note"] .note-row-activation').dblclick();
 await page.locator('[data-note-editor="capture-note"]').waitFor();
 await settleAnimations(page);
 await page.locator('.note-list').evaluate((list) => {
@@ -68,7 +68,7 @@ const videoContext = await browser.newContext({
 const videoPage = await videoContext.newPage();
 await prepare(videoPage, 'solarized', true);
 await videoPage.waitForTimeout(500);
-await videoPage.locator('[data-note-id="capture-note"] .note-row-activation').click();
+await videoPage.locator('[data-note-id="capture-note"] .note-row-activation').dblclick();
 await videoPage.locator('[data-note-editor="capture-note"]').waitFor();
 await videoPage.waitForTimeout(900);
 await videoPage.getByRole('tab', { name: 'Preview' }).click();

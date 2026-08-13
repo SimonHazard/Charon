@@ -12,7 +12,6 @@ import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +37,6 @@ export const NoteRow = memo(function NoteRow({
   note,
   active,
   selected,
-  selectionMode,
   expanded,
   allTags,
   onActivate,
@@ -59,7 +57,6 @@ export const NoteRow = memo(function NoteRow({
   note: NoteDto;
   active: boolean;
   selected: boolean;
-  selectionMode: boolean;
   expanded: boolean;
   allTags: readonly string[];
   onActivate(noteId: string, event: React.MouseEvent | React.KeyboardEvent): void;
@@ -67,7 +64,7 @@ export const NoteRow = memo(function NoteRow({
   onToggleStatus(note: NoteDto): Promise<void>;
   onExpand(noteId: string): void;
   onFocusAttachments(noteId: string): Promise<void>;
-  onCloseEditor(): void;
+  onCloseEditor(noteId: string): void;
   onTagFilter(tag: string): void;
   onCopy(noteId: string): Promise<void>;
   onSave(noteId: string, body: string): Promise<void>;
@@ -114,36 +111,34 @@ export const NoteRow = memo(function NoteRow({
     >
       <div className="note-row-main">
         <div className="note-row-leading">
-          {selectionMode ? (
-            <Checkbox
-              aria-label={m.note_select_label({ title })}
-              checked={selected}
-              onCheckedChange={() => onToggleSelection(note.id)}
-            />
-          ) : (
-            <Button
-              aria-label={note.status === 'done' ? m.note_mark_open() : m.note_mark_done()}
-              className="note-status-button"
-              onClick={() => void onToggleStatus(note)}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <span aria-hidden className="note-status-dot" data-status={note.status}>
-                {note.status === 'done' ? <IconCheck /> : null}
-              </span>
-            </Button>
-          )}
+          <Button
+            aria-label={note.status === 'done' ? m.note_mark_open() : m.note_mark_done()}
+            className="note-status-button"
+            onClick={() => void onToggleStatus(note)}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <span aria-hidden className="note-status-dot" data-status={note.status}>
+              {note.status === 'done' ? <IconCheck /> : null}
+            </span>
+          </Button>
         </div>
         <div className="note-row-content">
           <button
             className="note-row-activation"
             data-note-focus={note.id}
-            onClick={(event) => (selectionMode ? onActivate(note.id, event) : onExpand(note.id))}
+            aria-pressed={selected}
+            onClick={(event) => onActivate(note.id, event)}
+            onDoubleClick={() => onExpand(note.id)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
+              if (event.key === 'Enter') {
                 event.preventDefault();
-                if (selectionMode) onActivate(note.id, event);
-                else onExpand(note.id);
+                event.stopPropagation();
+                onExpand(note.id);
+              } else if (event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                onToggleSelection(note.id);
               }
             }}
             type="button"
@@ -186,57 +181,53 @@ export const NoteRow = memo(function NoteRow({
             ) : null}
           </div>
         </div>
-        {!selectionMode ? (
-          <div className="note-row-actions">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                aria-label={m.note_actions({ title })}
-                render={<Button size="icon-sm" variant="ghost" />}
-              >
-                <IconDots aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    aria-description={m.copy_local_paths_disclosure()}
-                    onClick={() => void copy()}
-                  >
-                    <IconCopy aria-hidden="true" />
-                    {copyState === 'copied' ? m.copy_inline_copied() : m.copy_as_markdown()}
-                  </DropdownMenuItem>
-                  <DropdownMenuLabel className="copy-disclosure">
-                    {m.copy_local_paths_disclosure()}
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => void onAddAttachments(note.id)}>
-                    <IconPlus aria-hidden="true" />
-                    {m.attachment_add()}
-                  </DropdownMenuItem>
-                  {copyState === 'error' ? (
-                    <DropdownMenuItem onClick={() => void copy()}>
-                      {m.copy_retry()}
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              aria-label={m.note_edit({ title })}
-              className="note-edit-button"
-              onClick={() => onExpand(note.id)}
-              size="icon-sm"
-              variant="ghost"
+        <div className="note-row-actions">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={m.note_actions({ title })}
+              render={<Button size="icon-sm" variant="ghost" />}
             >
-              <IconEdit aria-hidden="true" />
-            </Button>
-          </div>
-        ) : null}
+              <IconDots aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  aria-description={m.copy_local_paths_disclosure()}
+                  onClick={() => void copy()}
+                >
+                  <IconCopy aria-hidden="true" />
+                  {copyState === 'copied' ? m.copy_inline_copied() : m.copy_as_markdown()}
+                </DropdownMenuItem>
+                <DropdownMenuLabel className="copy-disclosure">
+                  {m.copy_local_paths_disclosure()}
+                </DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => void onAddAttachments(note.id)}>
+                  <IconPlus aria-hidden="true" />
+                  {m.attachment_add()}
+                </DropdownMenuItem>
+                {copyState === 'error' ? (
+                  <DropdownMenuItem onClick={() => void copy()}>{m.copy_retry()}</DropdownMenuItem>
+                ) : null}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            aria-label={m.note_edit({ title })}
+            className="note-edit-button"
+            onClick={() => onExpand(note.id)}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <IconEdit aria-hidden="true" />
+          </Button>
+        </div>
       </div>
       {expanded ? (
         <NoteEditor
           allTags={allTags}
           note={note}
           onAddAttachments={() => onAddAttachments(note.id)}
-          onClose={onCloseEditor}
+          onClose={() => onCloseEditor(note.id)}
           onDirtyChange={onDirtyChange}
           onRemoveAttachment={(attachment) => onRemoveAttachment(note.id, attachment)}
           onRetryCleanup={onRetryCleanup}

@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
@@ -52,28 +53,51 @@ export function NativePreferencesProvider({
   const [loading, setLoading] = useState(enabled);
   const [pendingPermission, setPendingPermission] = useState<CapturePermissionKind | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const refreshPromiseRef = useRef<Promise<void> | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!enabled) return;
-    setLoading(true);
-    setErrorKey(null);
-    try {
-      const [nextPreferences, nextCapabilities] = await Promise.all([
-        preferencesClient.read(),
-        captureClient.capabilities(),
-      ]);
-      setPreferences(nextPreferences);
-      setCapabilities(nextCapabilities);
-    } catch (error) {
-      setErrorKey(asPreferencesError(error).messageKey);
-    } finally {
-      setLoading(false);
-    }
+  const refresh = useCallback(() => {
+    if (!enabled) return Promise.resolve();
+    if (refreshPromiseRef.current) return refreshPromiseRef.current;
+
+    const pending = (async () => {
+      setLoading(true);
+      setErrorKey(null);
+      try {
+        const [nextPreferences, nextCapabilities] = await Promise.all([
+          preferencesClient.read(),
+          captureClient.capabilities(),
+        ]);
+        setPreferences(nextPreferences);
+        setCapabilities(nextCapabilities);
+      } catch (error) {
+        setErrorKey(asPreferencesError(error).messageKey);
+      } finally {
+        setLoading(false);
+      }
+    })();
+    refreshPromiseRef.current = pending;
+    void pending.finally(() => {
+      if (refreshPromiseRef.current === pending) refreshPromiseRef.current = null;
+    });
+    return pending;
   }, [captureClient, enabled, preferencesClient]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [enabled, refresh]);
 
   const requestPermission = useCallback(
     async (permission: CapturePermissionKind) => {

@@ -47,7 +47,7 @@ describe('inline note editor', () => {
     const user = userEvent.setup();
     const onSetTags = vi.fn().mockResolvedValue(undefined);
     editor({ onSetTags });
-    await user.type(screen.getByPlaceholderText('Add a tag'), '#Research{Enter}');
+    await user.type(screen.getByPlaceholderText('Add a tag…'), '#Research{Enter}');
     await waitFor(() => expect(onSetTags).toHaveBeenCalledWith(['Agent', 'Research']));
   });
 

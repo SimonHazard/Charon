@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 
 const desktop = '/?fixture=media';
-const site = 'http://127.0.0.1:4321/Charon/';
+const site = 'http://127.0.0.1:4321/';
 
 async function expectCompactShelf(page: Page, width: number, height: number) {
   await expect(page.locator('.note-search input')).toBeVisible();
@@ -76,14 +76,18 @@ test('search, exact Tag filter, Open and Done stay coherent', async ({ page }) =
 test('selection copy and irreversible Delete keep confirmation explicit', async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 480 });
   await page.goto(desktop);
-  await page.getByRole('button', { name: 'Select' }).click();
-  await page.getByRole('checkbox', { name: 'Select Agent handoff' }).click();
-  const selectionBar = page.getByRole('toolbar', { name: '1 note selected' });
+  await page.locator('[data-note-focus="capture-note"]').click();
+  await page.locator('[data-note-focus="local-note"]').click({ modifiers: ['Shift'] });
+  await expect(page.getByRole('group', { name: '2 notes selected' })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear selection' }).click();
+  await page.locator('[data-note-focus="capture-note"]').click();
+  const selectionBar = page.getByRole('group', { name: '1 note selected' });
   await expect(selectionBar).toBeVisible();
   expect(await selectionBar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
     true,
   );
-  await page.getByRole('button', { name: 'Copy as Markdown' }).click();
+  await selectionBar.getByRole('button', { name: 'Selection actions' }).click();
+  await page.getByRole('menuitem', { name: 'Copy as Markdown' }).click();
   await expect(page.getByRole('status')).toContainText('Copied');
   const deleteButton = page.getByRole('button', { name: 'Delete 1' });
   await deleteButton.click();
@@ -101,7 +105,7 @@ test('row editor supports Write, Preview, Tags and managed Attachment metadata',
   page,
 }) => {
   await page.goto(desktop);
-  await page.locator('[data-note-focus="capture-note"]').click();
+  await page.locator('[data-note-focus="capture-note"]').dblclick();
   await expect(page.getByRole('textbox', { name: 'Markdown body' })).toBeFocused();
   await page.getByRole('tab', { name: 'Preview' }).click();
   await expect(page.locator('.note-preview')).toContainText(
@@ -111,8 +115,8 @@ test('row editor supports Write, Preview, Tags and managed Attachment metadata',
     page.locator('.attachment-name').filter({ hasText: 'release-brief.pdf' }),
   ).toBeVisible();
   await page.getByRole('tab', { name: 'Write' }).click();
-  await page.getByPlaceholder('Add a tag').fill('Review');
-  await page.getByPlaceholder('Add a tag').press('Enter');
+  await page.getByPlaceholder('Add a tag…').fill('Review');
+  await page.getByPlaceholder('Add a tag…').press('Enter');
   await expect(page.locator('[data-slot="badge"]').filter({ hasText: /^Review$/ })).toBeVisible();
 });
 
@@ -266,7 +270,7 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
   const help = page.getByRole('button', { name: 'Keyboard shortcuts' });
   await help.focus();
   await help.press('Enter');
-  await expect(page.getByText('Capture from anywhere')).toBeVisible();
+  await expect(page.getByText('Capture text')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(help).toBeFocused();
   const done = page.getByRole('button', { name: 'Done', exact: true });
@@ -287,12 +291,13 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
 
 test('site routes, media, privacy and release state are truthful', async ({ page }) => {
   await page.goto(site);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Select it');
-  await expect(page.locator('img[src*="charon-shelf-solarized"]')).toBeVisible();
-  await page.getByRole('link', { name: 'Privacy' }).first().click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Keep what matters.');
+  const shelfMedia = await page.request.get(`${site}media/charon-shelf-solarized.webp`);
+  expect(shelfMedia.ok()).toBe(true);
+  await page.goto(`${site}privacy/`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy is a local contract');
   await expect(page.getByText(/one bounded source Copy/)).toBeVisible();
-  await page.goto('http://127.0.0.1:4321/Charon/download/');
+  await page.goto('http://127.0.0.1:4321/download/');
   await expect(page.getByText(/no signed installer is claimed/i)).toBeVisible();
 });
 
@@ -343,7 +348,7 @@ test('desktop major shelf and Preferences states are axe-clean', async ({ page }
   ).toEqual([]);
   await page.keyboard.press('Escape');
   await expect(page.locator('.preferences-popover')).toBeHidden();
-  await page.locator('[data-note-focus="capture-note"]').click();
+  await page.locator('[data-note-focus="capture-note"]').dblclick();
   results = await new AxeBuilder({ page }).analyze();
   expect(
     results.violations.filter((violation) =>
@@ -351,8 +356,7 @@ test('desktop major shelf and Preferences states are axe-clean', async ({ page }
     ),
   ).toEqual([]);
   await page.getByRole('button', { name: 'Close' }).click();
-  await page.getByRole('button', { name: 'Select' }).click();
-  await page.getByRole('checkbox', { name: 'Select Agent handoff' }).click();
+  await page.locator('[data-note-focus="capture-note"]').click();
   await page.getByRole('button', { name: 'Delete 1' }).click();
   await expect(page.getByRole('alertdialog')).toHaveCSS('opacity', '1');
   results = await new AxeBuilder({ page }).exclude('[data-base-ui-focus-guard]').analyze();
@@ -373,7 +377,7 @@ test('site content and capture relationship remain complete without JavaScript',
   const page = await context.newPage();
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.getByText('One ordinary local Note', { exact: true })).toBeVisible();
+  await expect(page.getByText('Charon is taking shape. More soon.', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'View releases' }).first()).toBeVisible();
   expect(
     await page.evaluate(
