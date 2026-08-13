@@ -11,8 +11,11 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
+    "check:cloudflare": "wrangler deploy --dry-run",
     "typecheck": "astro check",
     "test": "astro check && astro build && bun scripts/verify-site.ts",
+    "deploy": "bun run test && wrangler deploy",
+    "deploy:ci": "wrangler deploy",
     "astro": "astro"
   },
   "dependencies": {
@@ -25,7 +28,8 @@
     "@astrojs/check": "0.9.10",
     "@tailwindcss/vite": "4.3.3",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "wrangler": "4.122.0"
   },
   "charon": {
     "typescriptCompatibility": "Astro Check 0.9.10 supports TypeScript 5 and 6; keep 6.0.3 isolated to this workspace."
