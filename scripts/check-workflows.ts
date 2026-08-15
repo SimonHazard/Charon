@@ -25,6 +25,84 @@ for (const file of files) {
   }
 }
 
+const qualityWorkflowName = 'quality.yml';
+if (!files.includes(qualityWorkflowName)) {
+  failures.push(`${qualityWorkflowName}: routine desktop workflow is missing`);
+} else {
+  const qualityWorkflow = await Bun.file(`${directory}/${qualityWorkflowName}`).text();
+  const requiredFragments = [
+    'pull_request:\n    paths:',
+    'push:\n    branches: [main]\n    paths:',
+    'workflow_dispatch:',
+    'permissions:\n  contents: read',
+    'cancel-in-progress: true',
+    'runs-on: ubuntu-24.04',
+    'timeout-minutes: 20',
+    'bun install --frozen-lockfile',
+    'cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings',
+    'cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked',
+    'bun run bindings:check',
+    'bunx playwright install --with-deps chromium',
+    'test:e2e -- --project=chromium',
+  ];
+  for (const fragment of requiredFragments) {
+    if (!qualityWorkflow.includes(fragment)) {
+      failures.push(`${qualityWorkflowName}: missing bounded desktop contract ${fragment}`);
+    }
+  }
+  for (const path of [
+    "      - '.github/workflows/**'",
+    "      - 'apps/desktop/**'",
+    "      - 'packages/theme/**'",
+    "      - 'scripts/**'",
+    "      - 'package.json'",
+    "      - 'bun.lock'",
+    "      - 'biome.json'",
+  ]) {
+    const occurrences = qualityWorkflow.split(path).length - 1;
+    if (occurrences !== 2) {
+      failures.push(`${qualityWorkflowName}: expected PR/main path twice ${path}`);
+    }
+  }
+  const runnerCount = qualityWorkflow.match(/^\s+runs-on:/gmu)?.length ?? 0;
+  if (runnerCount !== 1) {
+    failures.push(`${qualityWorkflowName}: routine validation must use one runner`);
+  }
+  for (const forbidden of [
+    'strategy:',
+    'macos-15',
+    'windows-2025',
+    'playwright install --with-deps chromium webkit',
+    '--project=webkit',
+    "      - 'apps/site/**'",
+  ]) {
+    if (qualityWorkflow.includes(forbidden)) {
+      failures.push(`${qualityWorkflowName}: expensive routine behavior ${forbidden}`);
+    }
+  }
+}
+
+const reviewWorkflowName = 'review-builds.yml';
+if (!files.includes(reviewWorkflowName)) {
+  failures.push(`${reviewWorkflowName}: manual candidate workflow is missing`);
+} else {
+  const reviewWorkflow = await Bun.file(`${directory}/${reviewWorkflowName}`).text();
+  for (const fragment of [
+    'on:\n  workflow_dispatch:',
+    'permissions:\n  contents: read',
+    'group: review-builds-$' + '{{ github.ref }}',
+    'cancel-in-progress: true',
+    'timeout-minutes: 45',
+  ]) {
+    if (!reviewWorkflow.includes(fragment)) {
+      failures.push(`${reviewWorkflowName}: missing manual budget contract ${fragment}`);
+    }
+  }
+  if (/^ {2}(?:pull_request|push|schedule):/mu.test(reviewWorkflow)) {
+    failures.push(`${reviewWorkflowName}: candidate builds must remain manual`);
+  }
+}
+
 const siteWorkflowName = 'site-deploy.yml';
 if (!files.includes(siteWorkflowName)) {
   failures.push(`${siteWorkflowName}: production deployment workflow is missing`);
@@ -72,5 +150,5 @@ if (!files.includes(siteWorkflowName)) {
 
 if (failures.length) throw new Error(failures.join('\n'));
 console.log(
-  `verified ${files.length} workflow files with immutable actions and scoped permissions`,
+  `verified ${files.length} workflow files with immutable actions, scoped permissions, and bounded routine CI`,
 );

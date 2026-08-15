@@ -58,7 +58,6 @@
   "selection_count_one": "1 note sélectionnée",
   "selection_count_many": "{count} notes sélectionnées",
   "selection_actions": "Actions sur la sélection",
-  "selection_clear": "Désélectionner",
   "copy_as_markdown": "Copier en Markdown",
   "copy_inline_copied": "Copié",
   "copy_local_paths_disclosure": "Les chemins locaux des pièces jointes gérées entrent dans le presse-papiers, jamais leurs octets.",

@@ -1,6 +1,6 @@
 import { IconFile, IconPaperclip, IconX } from '@tabler/icons-react';
 import { m as motion } from 'motion/react';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
@@ -31,17 +31,7 @@ export function normalizeTagInput(value: string): string {
   return value.trim().replace(/^#/u, '').trim();
 }
 
-export function NoteEditor({
-  note,
-  allTags,
-  onSave,
-  onSetTags,
-  onAddAttachments,
-  onRemoveAttachment,
-  onRetryCleanup,
-  onDirtyChange,
-  onClose,
-}: {
+type NoteEditorProps = {
   note: NoteDto;
   allTags: readonly string[];
   onSave(body: string): Promise<void>;
@@ -51,7 +41,22 @@ export function NoteEditor({
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
   onClose(): void;
-}) {
+};
+
+export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function NoteEditor(
+  {
+    note,
+    allTags,
+    onSave,
+    onSetTags,
+    onAddAttachments,
+    onRemoveAttachment,
+    onRetryCleanup,
+    onDirtyChange,
+    onClose,
+  },
+  ref,
+) {
   const m = useMessages();
   const [draft, dispatch] = useReducer(
     draftReducer,
@@ -196,6 +201,7 @@ export function NoteEditor({
       data-note-editor={note.id}
       exit={{ opacity: 0, scaleY: surfaceCollapsedScale }}
       initial={{ opacity: 0, scaleY: surfaceCollapsedScale }}
+      ref={ref}
       transition={surfaceTransition}
     >
       <Tabs defaultValue="write">
@@ -404,4 +410,4 @@ export function NoteEditor({
       </AlertDialog>
     </motion.section>
   );
-}
+});

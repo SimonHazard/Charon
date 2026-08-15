@@ -178,7 +178,7 @@ export const NoteRow = memo(function NoteRow({
           </Button>
         </div>
       </div>
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         {expanded ? (
           <NoteEditor
             allTags={allTags}

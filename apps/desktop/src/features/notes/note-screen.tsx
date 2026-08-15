@@ -203,6 +203,22 @@ export function NoteScreen({
     setDeleteError(null);
   }, []);
 
+  useEffect(() => {
+    const clearSelection = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        !selectionRef.current.selectedIds.length
+      ) {
+        return;
+      }
+      event.preventDefault();
+      leaveSelection();
+    };
+    window.addEventListener('keydown', clearSelection);
+    return () => window.removeEventListener('keydown', clearSelection);
+  }, [leaveSelection]);
+
   const requestDelete = useCallback((noteIds: readonly string[]) => {
     if (!noteIds.length) return;
     setDeleteError(null);
@@ -440,16 +456,6 @@ export function NoteScreen({
               <TooltipContent>
                 {m.delete_selected({ count: selection.selectedIds.length })}
               </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger
-                aria-label={m.selection_clear()}
-                onClick={leaveSelection}
-                render={<Button size="icon-sm" variant="ghost" />}
-              >
-                <IconX aria-hidden="true" />
-              </TooltipTrigger>
-              <TooltipContent>{m.selection_clear()}</TooltipContent>
             </Tooltip>
           </fieldset>
         ) : null}

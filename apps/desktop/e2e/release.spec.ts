@@ -81,7 +81,8 @@ test('selection copy and irreversible Delete keep confirmation explicit', async 
   await page.locator('[data-note-focus="capture-note"]').click();
   await page.locator('[data-note-focus="local-note"]').click({ modifiers: ['Shift'] });
   await expect(page.getByRole('group', { name: '2 notes selected' })).toBeVisible();
-  await page.getByRole('button', { name: 'Clear selection' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('group', { name: '2 notes selected' })).toBeHidden();
   await page.locator('[data-note-focus="capture-note"]').click();
   const selectionBar = page.getByRole('group', { name: '1 note selected' });
   await expect(selectionBar).toBeVisible();
@@ -120,6 +121,40 @@ test('row editor supports Write, Preview, Tags and managed Attachment metadata',
   await page.getByPlaceholder('Add a tag…').fill('Review');
   await page.getByPlaceholder('Add a tag…').press('Enter');
   await expect(page.locator('[data-slot="badge"]').filter({ hasText: /^Review$/ })).toBeVisible();
+});
+
+test('row editor folds immediately while its content exits', async ({ page }) => {
+  await page.goto(desktop);
+  await page.getByRole('button', { name: 'Edit Agent handoff' }).click();
+  const row = page.locator('[data-note-id="capture-note"]');
+  const editor = page.locator('[data-note-editor="capture-note"]');
+  await expect(editor).toBeVisible();
+  await page.waitForFunction(() =>
+    document.getAnimations().every(({ playState }) => playState === 'finished'),
+  );
+  const expandedHeight = await row.evaluate((element) => element.getBoundingClientRect().height);
+
+  await editor.getByRole('button', { name: 'Close' }).click();
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          ({ initialHeight }) => {
+            const currentRow = document.querySelector<HTMLElement>('[data-note-id="capture-note"]');
+            const exitingEditor = document.querySelector('[data-note-editor="capture-note"]');
+            return Boolean(
+              currentRow &&
+                exitingEditor &&
+                currentRow.getBoundingClientRect().height < initialHeight - 8,
+            );
+          },
+          { initialHeight: expandedHeight },
+        ),
+      { timeout: 250 },
+    )
+    .toBe(true);
+  await expect(editor).toHaveCount(0);
+  await expect(row).toHaveAttribute('data-expanded', 'false');
 });
 
 test('Attachment count opens the same Note and focuses metadata without preview', async ({

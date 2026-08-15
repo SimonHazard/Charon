@@ -21,14 +21,18 @@ workflow. The static site is deployed separately through the checked Cloudflare
 Workers Static Assets configuration from Plan 018. A push to `main` deploys it
 only when site-affecting paths changed.
 
-The quality workflow runs the Rust test suite on macOS and Linux. Windows still
-formats and runs Clippy across all targets, including test targets; runtime
-filesystem tests remain blocked by unresolved Windows path, directory-sync, and
-watcher semantics. This compile-only gate is not Windows release evidence.
-Frontend and browser jobs validate the desktop app only. The separate site
-workflow typechecks, tests, builds, validates Wrangler, and deploys production
-from `main`; the full local release gate continues to cover both desktop and
-site. It never runs on pull requests and creates no preview deployment.
+The path-filtered quality workflow consolidates routine desktop validation on
+one bounded Ubuntu job. It covers lint, types, unit tests, the production build,
+privacy, Rust formatting/Clippy/tests, generated bindings, and Chromium desktop
+journeys. It does not build platform bundles or constitute macOS, Windows, or
+release evidence. The secret-free manual review workflow remains the place to
+produce short-lived macOS, Linux, and Windows artifacts when an exact candidate
+is actually needed.
+
+The separate site workflow typechecks, tests, builds, validates Wrangler, and
+deploys production from `main`; the full local release gate continues to cover
+both desktop and site as well as Chromium and WebKit. It never runs on pull
+requests and creates no preview deployment.
 The timing-sensitive performance budget remains in `bun run verify:release`
 rather than PR CI, where shared-runner contention makes the 20k-search benchmark
 non-deterministic.

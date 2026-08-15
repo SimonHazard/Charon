@@ -58,7 +58,6 @@
   "selection_count_one": "1 note selected",
   "selection_count_many": "{count} notes selected",
   "selection_actions": "Selection actions",
-  "selection_clear": "Clear selection",
   "copy_as_markdown": "Copy as Markdown",
   "copy_inline_copied": "Copied",
   "copy_local_paths_disclosure": "Managed local Attachment paths enter the clipboard; Attachment bytes never do.",

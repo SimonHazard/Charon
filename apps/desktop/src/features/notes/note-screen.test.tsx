@@ -105,10 +105,12 @@ describe('single note shelf', () => {
     expect(within(actions).getByText('1 note selected')).toBeTruthy();
     expect(within(actions).getByRole('button', { name: 'Selection actions' })).toBeTruthy();
     expect(within(actions).getByRole('button', { name: 'Delete 1' })).toBeTruthy();
-    expect(within(actions).getByRole('button', { name: 'Clear selection' })).toBeTruthy();
+    expect(within(actions).queryByRole('button', { name: 'Clear selection' })).toBeNull();
     await user.click(within(actions).getByRole('button', { name: 'Selection actions' }));
     expect(await screen.findByText('Mark done')).toBeTruthy();
     expect(await screen.findByText('Copy as Markdown')).toBeTruthy();
+    await user.keyboard('{Escape}{Escape}');
+    expect(screen.queryByRole('group', { name: /note selected/ })).toBeNull();
   });
 
   it('extends a click selection with Shift and preserves search editing focus', async () => {

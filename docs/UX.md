@@ -114,7 +114,7 @@ layout pressure.
 | Search body, Tags, and Attachment names | Full-width top search row | The clear action remains reachable and a no-result state keeps the composer visible. |
 | Open and Done | Unified Note stack | Done stays in place with a checked control, muted surface, and struck-through primary text. |
 | Enter and exit Selection | Note rows | A plain click selects one Note, `Cmd`/`Ctrl`-click toggles one Note, `Shift`-click extends the contiguous range, and Escape clears it. There is no separate mode button. |
-| Bulk status, copy, and Delete | Contextual controls below search | The selected count, secondary status/copy menu, direct irreversible Delete, and clear action appear only for a non-empty Selection. |
+| Bulk status, copy, and Delete | Contextual controls below search | The selected count, secondary status/copy menu, and direct irreversible Delete appear only for a non-empty Selection. Escape clears Selection without adding another compact icon action. |
 | Scan a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, Edit, and Delete remain present. |
 | Edit Markdown | Expanded live Note row | Write/Preview, autosave state, close, and contextual errors stay in the same row. |
 | Edit Tags | Expanded Note, stacked section | Chips wrap, the add input stays usable, and limits and errors remain local. |

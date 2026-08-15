@@ -20,6 +20,12 @@ That follow-up removes proven dead UI exports, messages, assets, scripts,
 dependencies, and the abandoned parallel advisor-plan queue while preserving
 accepted ADRs and completed product plans as historical evidence.
 
+On 2026-08-15 the operator asked to align the Tag field typography and height,
+give the Write/Preview control more room and a restrained Lavender active state,
+remove the redundant visible clear-Selection icon, and make editor collapse
+begin immediately instead of waiting for its content exit. Escape remains the
+compact Selection-clear path required by the keyboard contract.
+
 ## Baseline and drift check
 
 - Branch: `codex/019-simplify-unified-shelf`
@@ -73,7 +79,7 @@ cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 git diff --check
 ```
 
-The 2026-08-14 automated pass is green: 73 desktop tests, 30 Chromium/WebKit
+The 2026-08-15 automated pass is green: 73 desktop tests, 32 Chromium/WebKit
 journeys, 74 Rust unit tests plus the contract suites, privacy and workflow
 checks, performance budgets, formatting, Clippy, bindings, and production
 builds. The compact shelf was also reviewed at its native 480x720 first-run
