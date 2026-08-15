@@ -1,14 +1,16 @@
 # Charon privacy contract
 
-This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) while
-preserving ADR 0010's selected-text clipboard disclosure.
+This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
+amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
+[ADR 0013](adr/0013-direct-note-actions.md), while preserving ADR 0010's
+selected-text clipboard disclosure.
 
 ## Promise
 
 Charon keeps Note content, Tags, and managed Attachment bytes in local files
 inside a user-controlled Workspace. There is no account, cloud sync, analytics,
 telemetry, crash upload, advertising, or content-processing service. Charon does
-not send Notes, Tags, Attachments, searches, selections, clipboard contents,
+not send Notes, Tags, Attachments, searches, selected text, clipboard contents,
 filenames, paths, or usage events to the developer.
 
 The public site is static and uses no analytics, trackers, fingerprinting,
@@ -106,8 +108,8 @@ own accepted adapter and signed-build evidence.
 
 ## Irreversible deletion limits
 
-Delete always requires a concise confirmation naming the Note count. After a
-successful Workspace commit, Charon removes the active Markdown, associated
+Delete always requires a concise confirmation for one explicit Note. After a
+successful Workspace commit, Charon removes that Note's active Markdown, associated
 managed Attachment bytes, and their copies from normal completed transaction
 backups. A crash may leave a bounded incomplete recovery record only until the
 next startup deterministically finishes or rolls back that transaction and

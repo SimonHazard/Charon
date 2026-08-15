@@ -42,12 +42,12 @@ pub enum WorkspaceCommand {
     },
     SetNoteStatus {
         expected_revision: u64,
-        note_ids: Vec<String>,
+        note_id: String,
         status: NoteStatus,
     },
-    DeleteNotes {
+    DeleteNote {
         expected_revision: u64,
-        note_ids: Vec<String>,
+        note_id: String,
     },
 }
 
@@ -72,7 +72,7 @@ impl WorkspaceCommand {
             | Self::SetNoteStatus {
                 expected_revision, ..
             }
-            | Self::DeleteNotes {
+            | Self::DeleteNote {
                 expected_revision, ..
             } => *expected_revision,
         }
@@ -142,30 +142,20 @@ pub(crate) fn apply_command(
             note.updated_at = now();
         }
         WorkspaceCommand::SetNoteStatus {
-            note_ids, status, ..
+            note_id, status, ..
         } => {
-            validate_ids(note_ids, "note")?;
-            for id in note_ids {
-                find_note(&next, id)?;
-            }
+            validate_uuid(note_id, "note id")?;
             let timestamp = now();
-            for id in note_ids {
-                let note = find_note_mut(&mut next, id)?;
-                note.status = *status;
-                note.completed_at = matches!(status, NoteStatus::Done).then(|| timestamp.clone());
-                note.updated_at = timestamp.clone();
-            }
+            let note = find_note_mut(&mut next, note_id)?;
+            note.status = *status;
+            note.completed_at = matches!(status, NoteStatus::Done).then(|| timestamp.clone());
+            note.updated_at = timestamp;
         }
-        WorkspaceCommand::DeleteNotes { note_ids, .. } => {
-            validate_ids(note_ids, "note")?;
-            for id in note_ids {
-                find_note(&next, id)?;
-            }
-            let ids = note_ids.iter().collect::<HashSet<_>>();
-            next.notes.retain(|note| !ids.contains(&note.id));
-            for id in note_ids {
-                next_bodies.remove(id);
-            }
+        WorkspaceCommand::DeleteNote { note_id, .. } => {
+            validate_uuid(note_id, "note id")?;
+            find_note(&next, note_id)?;
+            next.notes.retain(|note| note.id != *note_id);
+            next_bodies.remove(note_id);
         }
         WorkspaceCommand::ImportNoteAttachments { .. }
         | WorkspaceCommand::DeleteNoteAttachments { .. } => {
@@ -237,7 +227,7 @@ mod tests {
             "importNoteAttachments",
             "deleteNoteAttachments",
             "setNoteStatus",
-            "deleteNotes",
+            "deleteNote",
         ];
         assert_eq!(variants.len(), 7);
         let value = serde_json::to_value(WorkspaceCommand::CreateNote {

@@ -663,9 +663,9 @@ mod tests {
         let deleted = apply_command(
             &current,
             &current_bodies,
-            &WorkspaceCommand::DeleteNotes {
+            &WorkspaceCommand::DeleteNote {
                 expected_revision: 1,
-                note_ids: vec![NOTE_ID.to_owned()],
+                note_id: NOTE_ID.to_owned(),
             },
             || unreachable!(),
             || "2026-07-30T12:02:00Z".to_owned(),

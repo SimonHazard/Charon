@@ -2,7 +2,7 @@
 
 ## Status
 
-AWAITING OPERATOR: native Attachment picker and motion feel
+REJECTED: Selection interaction replaced by ADR 0013 and Plan 020
 
 ## Operator direction
 
@@ -25,6 +25,11 @@ give the Write/Preview control more room and a restrained Lavender active state,
 remove the redundant visible clear-Selection icon, and make editor collapse
 begin immediately instead of waiting for its content exit. Escape remains the
 compact Selection-clear path required by the keyboard contract.
+
+Later that day, the operator rejected Selection itself for the current product.
+ADR 0013 and Plan 020 replace that interaction with direct per-Note actions.
+This plan remains historical evidence and its outstanding native checks carry
+forward to Plan 020.
 
 ## Baseline and drift check
 

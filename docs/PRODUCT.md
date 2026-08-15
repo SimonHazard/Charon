@@ -1,7 +1,8 @@
 # Charon product contract
 
 This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) as
-amended by [ADR 0012](adr/0012-unified-note-shelf.md).
+amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
+[ADR 0013](adr/0013-direct-note-actions.md).
 
 ## Product promise and users
 
@@ -23,13 +24,15 @@ durable Note visible to users, editors, backup tools, and local agents.
 - Create a Note manually from an always-visible bottom composer on every
   platform.
 - Search Markdown bodies and Tags across one unified result where completed
-  Notes remain visible, and select visible Notes for a small set of bulk actions.
+  Notes remain visible.
 - Expand one Note to write or preview Markdown, edit lightweight Tags, and add
   or remove locally managed Attachments.
-- Copy one deterministic agent-ready Markdown document containing Note bodies,
+- Act directly on one Note to change status, copy, edit, or request permanent
+  deletion without entering a selection mode.
+- Copy one deterministic agent-ready Markdown document containing the Note body,
   Tags, and managed local Attachment paths without copying file bytes or
   pasting into another application.
-- Permanently delete Notes only after an explicit count-specific confirmation,
+- Permanently delete one Note only after an explicit confirmation,
   with an honest account of what Charon can and cannot erase.
 - Keep content in readable local files and recover safely from invalid data,
   interrupted transactions, migration, external edits, or lost permissions.
@@ -79,32 +82,24 @@ across Notes. Removing an Attachment or its Note permanently removes the managed
 file through the same transaction and completed-backup cleanup contract as
 permanent deletion.
 
-### Selection
-
-A `Selection` is an ephemeral ordered sequence of Note IDs reconciled to the
-current unified search and Tag result. It is never persisted and exists only
-for bulk status changes, `Copy as Markdown`, and permanent deletion.
-
 ### Copy as Markdown
 
-`Copy as Markdown` is the single explicit composition command. One selected
-Note has no invented heading. Multiple Notes receive `## Note 1`, `## Note 2`,
-and so on in Selection order, separated by `\n\n---\n\n`; surplus blank lines
-beside separators are normalized without otherwise changing bodies. When
-present, `**Tags:**` contains Tags as safely delimited inline-code spans in
-stored order. `**Attachments:**` contains one bullet per Attachment in
-creation/UUID order with its safe display name and canonical absolute managed
-path as safely delimited inline code. Any invalid or missing managed reference
-fails before the clipboard changes. Copying changes only the system clipboard,
-never Note state, and never reads or copies Attachment bytes, uploads, or
-pastes. The action discloses that local managed paths enter the clipboard.
+`Copy as Markdown` is one explicit per-Note composition command. It preserves
+the body without an invented heading. When present, `**Tags:**` contains Tags as
+safely delimited inline-code spans in stored order. `**Attachments:**` contains
+one bullet per Attachment in creation/UUID order with its safe display name and
+canonical absolute managed path as safely delimited inline code. Any invalid or
+missing managed reference fails before the clipboard changes. Copying changes
+only the system clipboard, never Note state, and never reads or copies
+Attachment bytes, uploads, or pastes. The action discloses that local managed
+paths enter the clipboard.
 
 ### Permanent delete
 
-Delete is a separate, irreversible batch command whose concise confirmation
-names the number of Notes. After a successful commit, active Workspace files and
-normal Charon transaction backups retain neither the deleted Markdown nor its
-managed Attachment bytes. An incomplete crash-recovery record may exist only
+Delete is a separate, irreversible per-Note command whose concise confirmation
+names its permanent scope. After a successful commit, active Workspace files
+and normal Charon transaction backups retain neither the deleted Markdown nor
+its managed Attachment bytes. An incomplete crash-recovery record may exist only
 until startup deterministically finishes or rolls back the bounded transaction
 and removes the record. Operating-system snapshots, external backup tools, and
 synchronized folders are outside Charon's erasure guarantee.
@@ -146,18 +141,18 @@ make an empty result explicit. Open and Done Notes stay in the same result.
 Done Notes use a checked control, muted surface, and struck-through primary text
 so completion is visible without depending on color alone.
 
-### Selection and status
+### Direct Note actions and status
 
-Arrow keys move the active Note without changing Selection. Space toggles the
-active Note, Shift plus navigation extends a contiguous range, and
-`CmdOrCtrl+A` selects the current visible result. Bulk status changes are one
-transaction and update Notes in place. Selection is reconciled when the visible
-result changes.
+Each collapsed Note exposes direct status, `Copy as Markdown`, Edit, and
+permanent-Delete controls. Activating the main row surface expands that Note.
+Arrow keys move browser focus between visible Note rows without creating domain
+or view state. Each status change targets one Note and updates it in place.
 
 ### Editing and enrichment
 
-Enter or the row's hover/focus pencil expands one Note from its live shelf
-position into a large editor. Write/Preview, Markdown editing, Tag editing, and
+Enter, Space, a click on the main row surface, or the row's hover/focus pencil
+expands one Note from its live shelf position into a large editor. Write/Preview,
+Markdown editing, Tag editing, and
 the Attachment list and import action live in that one surface. Autosave and
 draft preservation make failure explicit without changing identity. Escape
 closes only after pending input is safe.
@@ -177,20 +172,18 @@ bytes and completed normal transaction backup in the same transaction.
 
 ### Agent-ready copy
 
-The user selects one or more Notes and chooses `Copy as Markdown` from the
-contextual Selection controls. Charon writes the exact deterministic body, optional
-Tags, and optional managed Attachment names and canonical absolute paths. It
-confirms completion, does not read file bytes, and never uploads, pastes, or
-changes a Note.
+The user chooses `Copy as Markdown` on one Note. Charon writes the exact body,
+optional Tags, and optional managed Attachment names and canonical absolute
+paths. It confirms completion, does not read file bytes, and never uploads,
+pastes, or changes the Note.
 
 ### Irreversible deletion
 
-Delete always opens one concise confirmation naming the selected Note count and
-stating that Charon provides no undo. Cancel changes nothing. Success removes
-the Notes and managed Attachments under the permanent-delete contract, clears
-or reconciles Selection, and moves focus to the nearest surviving Note or the
-composer. Failure preserves the current result and offers a contextual recovery
-action.
+Delete always opens one concise confirmation for the targeted Note and states
+that Charon provides no undo. Cancel changes nothing. Success removes that Note
+and its managed Attachments under the permanent-delete contract, then moves
+focus to the nearest surviving Note or the composer. Failure preserves the
+current result and offers a contextual recovery action.
 
 ### Schema v1 migration
 
@@ -248,6 +241,8 @@ activation.
   upload, or a cross-Note asset library.
 - Multiple clipboard formats or automatic delivery of Attachment bytes to an
   agent.
+- Note Selection, bulk status changes, multi-Note copy, or batch Delete in the
+  current v1 surface.
 - A second capture window, compact alternate mode, generic Error destination,
   or configurable shortcut catalog.
 - Modifier-only capture claims on Linux or Windows before native signed-build

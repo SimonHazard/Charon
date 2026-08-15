@@ -1,7 +1,8 @@
 # Charon architecture contract
 
 This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
-amended by [ADR 0012](adr/0012-unified-note-shelf.md).
+amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
+[ADR 0013](adr/0013-direct-note-actions.md).
 
 ## Authority and boundaries
 
@@ -180,22 +181,20 @@ native signed-build matrices pass.
 
 ### ClipboardComposer
 
-`ClipboardComposer` accepts an ordered set of immutable Note values and resolved
-Attachment metadata. It produces one deterministic Markdown document and
-performs one explicit clipboard write through an adapter. One Note has no
-invented heading; multiple Notes use sequential `## Note N` headings and
-`\n\n---\n\n` separators. Apart from separator-adjacent surplus blank lines,
-bodies stay exact. `**Tags:**` contains safely delimited inline-code spans in
-stored order only when Tags exist. `**Attachments:**` contains one bullet per
+`ClipboardComposer` accepts one immutable Note value and its resolved Attachment
+metadata. It produces one deterministic Markdown document and performs one
+explicit clipboard write through an adapter. The Note has no invented heading
+and its body stays exact. `**Tags:**` contains safely delimited inline-code spans
+in stored order only when Tags exist. `**Attachments:**` contains one bullet per
 Attachment in creation/UUID order with safe display name and canonical absolute
 managed path as inline code only when Attachments exist. The delimiter is longer
 than every backtick run in metadata. Rust resolves and validates every managed
 path before the clipboard changes; one missing or escaping reference fails the
-whole command.
+command.
 
 Composition is testable without a system clipboard. It never reads Attachment
-bytes or external source paths, changes Note status or Selection, uploads,
-pastes, or mutates Workspace files. It remains separate from the transient
+bytes or external source paths, changes Note status, uploads, pastes, or mutates
+Workspace files. It remains separate from the transient
 pasteboard transaction owned by `CaptureCoordinator`.
 
 ## IPC and view-state contract
@@ -207,10 +206,11 @@ require an explicit version strategy and coordinated Rust and TypeScript tests.
 
 React receives a complete Workspace snapshot at open, followed by ordered
 domain events or replacement snapshots. It owns only ephemeral search, Tag
-filter, Selection, focus, expanded-editor presentation, draft, and
-Preferences-surface state. Durable state becomes real only after a successful
-Rust command response. Contextual failures preserve user input and expose typed,
-content-free recovery without a generic error destination.
+filter, expanded-editor presentation, draft, copy feedback, and Preferences-
+surface state. Note-row focus remains browser-native rather than product state.
+Durable state becomes real only after a successful Rust command response.
+Contextual failures preserve user input and expose typed, content-free recovery
+without a generic error destination.
 
 ## Dependency rule and monorepo boundary
 
@@ -247,9 +247,10 @@ variable, secret, or server route. Production uses the custom domain
 
 ## Change control
 
-ADR 0011, as amended by ADR 0012, governs the flat schema v2 direction,
-irreversible deletion, shortcut reduction, unified shelf, Light default, and
-rejected chart surface. Create another ADR before changing persistence, local-
-only privacy, shortcut support, cross-app sharing, the static-site boundary, or
-the dependency rule. New adapters must correspond to a real platform boundary
-or distinct test seam.
+ADR 0011, as amended by ADR 0012 and ADR 0013, governs the flat schema v2
+direction, irreversible per-Note deletion, shortcut reduction, unified shelf,
+direct Note actions, Light default, and rejected chart surface. Create another
+ADR before changing persistence, local-only privacy, shortcut support, bulk
+interaction, cross-app sharing, the static-site boundary, or the dependency
+rule. New adapters must correspond to a real platform boundary or distinct test
+seam.

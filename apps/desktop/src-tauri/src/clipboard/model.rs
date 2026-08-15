@@ -6,7 +6,7 @@ use ts_rs::TS;
 #[ts(rename_all = "camelCase")]
 pub struct ComposeRequest {
     pub expected_revision: u64,
-    pub note_ids: Vec<String>,
+    pub note_id: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -19,7 +19,6 @@ pub struct ComposeAttachment {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComposeNote {
-    pub id: String,
     pub body: String,
     pub tags: Vec<String>,
     pub attachments: Vec<ComposeAttachment>,
@@ -29,7 +28,6 @@ pub struct ComposeNote {
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
 pub struct ComposedClipboard {
-    pub note_count: u32,
     pub tag_count: u32,
     pub attachment_count: u32,
     pub byte_count: u64,

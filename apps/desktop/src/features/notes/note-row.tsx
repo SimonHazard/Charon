@@ -1,4 +1,4 @@
-import { IconCheck, IconEdit, IconPaperclip, IconTrash } from '@tabler/icons-react';
+import { IconCheck, IconCopy, IconEdit, IconPaperclip, IconTrash } from '@tabler/icons-react';
 import { AnimatePresence, m as motion } from 'motion/react';
 import { memo } from 'react';
 
@@ -22,12 +22,10 @@ export function noteFirstLine(body: string): string {
 
 export const NoteRow = memo(function NoteRow({
   note,
-  active,
-  selected,
   expanded,
   allTags,
-  onActivate,
-  onToggleSelection,
+  copyState,
+  onCopy,
   onToggleStatus,
   onExpand,
   onFocusAttachments,
@@ -42,12 +40,10 @@ export const NoteRow = memo(function NoteRow({
   onDirtyChange,
 }: {
   note: NoteDto;
-  active: boolean;
-  selected: boolean;
   expanded: boolean;
   allTags: readonly string[];
-  onActivate(noteId: string, event: React.MouseEvent | React.KeyboardEvent): void;
-  onToggleSelection(noteId: string): void;
+  copyState: { status: 'copied' | 'error'; message: string } | null;
+  onCopy(noteId: string): Promise<void>;
   onToggleStatus(note: NoteDto): Promise<void>;
   onExpand(noteId: string): void;
   onFocusAttachments(noteId: string): Promise<void>;
@@ -80,10 +76,8 @@ export const NoteRow = memo(function NoteRow({
   return (
     <motion.article
       className="note-row"
-      data-active={active}
       data-expanded={expanded}
       data-note-id={note.id}
-      data-selected={selected}
       data-status={note.status}
       layout="size"
       transition={{ layout: surfaceTransition }}
@@ -106,17 +100,12 @@ export const NoteRow = memo(function NoteRow({
           <button
             className="note-row-activation"
             data-note-focus={note.id}
-            aria-pressed={selected}
-            onClick={(event) => onActivate(note.id, event)}
+            onClick={() => onExpand(note.id)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter') {
+              if (event.key === 'Delete' || event.key === 'Backspace') {
                 event.preventDefault();
                 event.stopPropagation();
-                onExpand(note.id);
-              } else if (event.key === ' ') {
-                event.preventDefault();
-                event.stopPropagation();
-                onToggleSelection(note.id);
+                onDelete(note.id);
               }
             }}
             type="button"
@@ -158,6 +147,21 @@ export const NoteRow = memo(function NoteRow({
           </div>
         </div>
         <div className="note-row-actions">
+          <Tooltip>
+            <TooltipTrigger
+              aria-description={m.copy_local_paths_disclosure()}
+              aria-label={m.copy_note_as_markdown({ title })}
+              className="note-copy-button"
+              onClick={() => void onCopy(note.id)}
+              render={<Button size="icon-sm" variant="ghost" />}
+            >
+              <IconCopy aria-hidden="true" data-icon="inline-start" />
+            </TooltipTrigger>
+            <TooltipContent className="copy-action-tooltip">
+              <span>{m.copy_as_markdown()}</span>
+              <span className="copy-disclosure">{m.copy_local_paths_disclosure()}</span>
+            </TooltipContent>
+          </Tooltip>
           <Button
             aria-label={m.note_edit({ title })}
             className="note-edit-button"
@@ -178,6 +182,18 @@ export const NoteRow = memo(function NoteRow({
           </Button>
         </div>
       </div>
+      {copyState ? (
+        <p
+          className={
+            copyState.status === 'error'
+              ? 'inline-error note-copy-state'
+              : 'inline-success note-copy-state'
+          }
+          role={copyState.status === 'error' ? 'alert' : 'status'}
+        >
+          {copyState.message}
+        </p>
+      ) : null}
       <AnimatePresence initial={false} mode="popLayout">
         {expanded ? (
           <NoteEditor

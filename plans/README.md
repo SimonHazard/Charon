@@ -10,13 +10,17 @@ The product pivot is governed by
 Light/Graphite appearances, direct row actions, editor transition, and
 Attachment picker permission are governed by
 [ADR 0012](../docs/adr/0012-unified-note-shelf.md).
+Direct per-Note actions and the removal of Selection are governed by
+[ADR 0013](../docs/adr/0013-direct-note-actions.md).
 
 ## Active handoff
 
-Plan 019 is the current desktop plan on branch
-`codex/019-simplify-unified-shelf`, based on `8bdcda1`. Its automated gates pass,
-including compact Light/Graphite review. It remains `AWAITING OPERATOR` for one
-native macOS Attachment-picker click and a normal-speed unfold/fold feel check.
+Plan 020 is the current desktop plan on branch `codex/020-remove-selection`,
+based on `e1e63c5`. It removes Note Selection and makes status, copy, Edit, and
+confirmed permanent Delete direct per-Note actions. Automated checks pass except
+for Playwright, whose local server is blocked by this environment's exhausted
+approval service. It carries forward one native macOS Attachment-picker click
+and a normal-speed unfold/fold feel check.
 
 Plan 018 is independently `AWAITING OPERATOR` for Cloudflare/GitHub environment
 configuration and the first authorized matching `main` deployment. It does not
@@ -49,8 +53,9 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 016 | Retarget the desktop to a compact shelf | DONE |
 | 018 | Host the static site on Cloudflare Workers | AWAITING OPERATOR: secrets, authorized main run, and NEL setting |
 | 017 | Align all workflows inside the compact shelf | REJECTED: presentation replaced by ADR 0012 and Plan 019 |
-| 019 | Simplify the unified Note shelf | AWAITING OPERATOR: native Attachment picker and motion feel |
-| 014 | Close exact-candidate quality gaps | TODO after 019 |
+| 019 | Simplify the unified Note shelf | REJECTED: Selection interaction replaced by ADR 0013 and Plan 020 |
+| 020 | Remove Note Selection | AWAITING OPERATOR: Playwright sandbox approval, native Attachment picker, and packaged motion feel |
+| 014 | Close exact-candidate quality gaps | TODO after 020 |
 | 015 | Publish protected GitHub Releases and optional updates | TODO after 014 |
 
 Status values are `TODO`, `IN PROGRESS`, `AWAITING OPERATOR: <reason>`, `DONE`,
@@ -66,7 +71,8 @@ flowchart LR
   P11 --> P16["016 compact shelf"]
   P16 --> P17["017 feature alignment"]
   P17 --> P19["019 unified shelf"]
-  P19 --> P14["014 candidate quality"]
+  P19 --> P20["020 direct Note actions"]
+  P20 --> P14["014 candidate quality"]
   P14 --> P15["015 distribution"]
   P13["013 static site"] --> P18["018 Cloudflare hosting"]
 ```
@@ -76,8 +82,8 @@ flowchart LR
 - One local `Workspace`, one flat Note collection, one unified searchable list.
 - Done is a visible Note property, not a filter or destination.
 - Optional flat Tags and Note-owned managed Attachments only.
-- Direct status, Edit, and confirmed Delete; ordered ephemeral Selection owns
-  bulk status, `Copy as Markdown`, and batch Delete.
+- Direct per-Note status, `Copy as Markdown`, Edit, and confirmed Delete; no
+  Selection or bulk Note commands.
 - One large editor expanding from the live row; one always-visible body-only
   composer.
 - Light by default, Graphite optional; legacy Solarized preferences resolve to

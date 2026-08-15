@@ -36,9 +36,8 @@ The current browser matrix covers:
 
 - the unified Open/Done Note result, muted and struck Done treatment, search,
   Tag filtering, and Attachment-name search;
-- plain, additive, and `Shift` range Selection; bulk status, explicit copy, and
-  confirmed irreversible Delete;
-- direct row status, Edit, and Delete controls;
+- direct row activation, Arrow-key focus movement, status, explicit copy, Edit,
+  and confirmed per-Note irreversible Delete;
 - editor first paint, Write/Preview, autosave failure preservation, Tags,
   managed Attachment metadata, and removal confirmation;
 - always-visible composer, portable focus, and failure preservation;
@@ -71,7 +70,7 @@ cover:
 - Dock/product naming, first-run geometry, restored window geometry, and one
   main window;
 - VoiceOver traversal of the drag region, search, unified virtual Note list,
-  Selection controls, editor, Tags, Attachments, Preferences, Delete dialog, and
+  direct Note actions, editor, Tags, Attachments, Preferences, Delete dialog, and
   composer;
 - normal speed, slow observation, mid-flight reversal, reduced motion,
   increased contrast, and reduced transparency.
@@ -84,14 +83,14 @@ capture until their own native evidence passes.
 
 The 2026-08-14 Plan 019 automated pass established the unified shelf,
 Light/Graphite rendering, direct confirmed Delete, non-flashing editor draft,
-range Selection, compact Preferences, media-free site, and the minimum
-`dialog:allow-open` capability. Bun, Playwright, privacy, performance, Cargo,
-and diff checks passed at that point.
+compact Preferences, media-free site, and the minimum `dialog:allow-open`
+capability. Plan 020 then removed Note Selection and replaced its bulk flows with
+direct per-Note status, copy, Edit, and Delete coverage.
 
 The native app launched as `Charon`, but the executor could not authorize a
 physical Attachment-button click through macOS assistive control. Plan 019
-therefore remains `AWAITING OPERATOR` for one real picker click and a subjective
-normal-speed unfold/fold review. This limitation is evidence, not a product
+therefore carried one real picker click and a subjective normal-speed unfold/
+fold review forward to Plan 020. This limitation is evidence, not a product
 failure claim.
 
 Earlier Plan 007, 016, and 017 results remain historical in their original plan

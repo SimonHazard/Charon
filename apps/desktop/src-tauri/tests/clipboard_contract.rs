@@ -6,9 +6,8 @@ use charon_desktop_lib::clipboard::{
 };
 use ts_rs::{Config, TS};
 
-fn note(id: &str, body: &str) -> ComposeNote {
+fn note(body: &str) -> ComposeNote {
     ComposeNote {
-        id: id.to_owned(),
         body: body.to_owned(),
         tags: Vec::new(),
         attachments: Vec::new(),
@@ -16,31 +15,26 @@ fn note(id: &str, body: &str) -> ComposeNote {
 }
 
 #[test]
-fn request_serialization_contains_only_revision_and_ordered_ids() {
+fn request_serialization_contains_only_revision_and_note_id() {
     let value = serde_json::to_value(ComposeRequest {
         expected_revision: 4,
-        note_ids: vec!["b".to_owned(), "a".to_owned()],
+        note_id: "a".to_owned(),
     })
     .expect("serialize");
     assert_eq!(
         value,
-        serde_json::json!({"expectedRevision":4,"noteIds":["b","a"]})
+        serde_json::json!({"expectedRevision":4,"noteId":"a"})
     );
 }
 
 #[test]
-fn one_and_many_notes_have_the_canonical_shape() {
-    assert_eq!(compose(&[note("one", "Body\n")]).expect("single"), "Body\n");
-    assert_eq!(
-        compose(&[note("two", "\nSecond\n\n"), note("one", "First")]).expect("many"),
-        "## Note 1\n\nSecond\n\n---\n\n## Note 2\n\nFirst"
-    );
+fn one_note_preserves_the_canonical_body_shape() {
+    assert_eq!(compose(&note("Body\n")).expect("single"), "Body\n");
 }
 
 #[test]
 fn tags_and_attachments_are_deterministic_and_markdown_safe() {
     let value = ComposeNote {
-        id: "note".to_owned(),
         body: "Body".to_owned(),
         tags: vec!["Research".to_owned(), "a``b".to_owned()],
         attachments: vec![
@@ -58,14 +52,12 @@ fn tags_and_attachments_are_deterministic_and_markdown_safe() {
             },
         ],
     };
-    assert_eq!(compose(&[value]).expect("compose"), "Body\n\n**Tags:** ` Research ` ``` a``b ```\n\n**Attachments:**\n- `` first`file.txt ``: ``` /workspace/first``file.txt ```\n- ` later.txt `: ` /workspace/later.txt `");
+    assert_eq!(compose(&value).expect("compose"), "Body\n\n**Tags:** ` Research ` ``` a``b ```\n\n**Attachments:**\n- `` first`file.txt ``: ``` /workspace/first``file.txt ```\n- ` later.txt `: ` /workspace/later.txt `");
 }
 
 #[test]
-fn invalid_selections_fail_atomically() {
-    assert!(compose(&[]).is_err());
-    assert!(compose(&[note("same", "one"), note("same", "two")]).is_err());
-    assert!(compose(&[note("blank", " \n")]).is_err());
+fn an_empty_note_fails_before_clipboard_write() {
+    assert!(compose(&note(" \n")).is_err());
 }
 
 #[test]

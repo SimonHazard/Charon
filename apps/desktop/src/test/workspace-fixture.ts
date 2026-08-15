@@ -57,11 +57,11 @@ export function workspaceClient(
           break;
         case 'setNoteStatus':
           notes = notes.map((item) =>
-            command.noteIds.includes(item.id) ? { ...item, status: command.status } : item,
+            command.noteId === item.id ? { ...item, status: command.status } : item,
           );
           break;
-        case 'deleteNotes':
-          notes = notes.filter((item) => !command.noteIds.includes(item.id));
+        case 'deleteNote':
+          notes = notes.filter((item) => command.noteId !== item.id);
           break;
         case 'importNoteAttachments':
         case 'deleteNoteAttachments':

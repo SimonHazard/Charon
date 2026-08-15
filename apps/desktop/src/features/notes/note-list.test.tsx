@@ -4,11 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
 import { NoteList } from '@/features/notes/note-list';
-import { emptySelection } from '@/features/notes/selection-model';
 import { note } from '@/test/workspace-fixture';
 
 const callbacks = {
-  onSelection: vi.fn(),
+  onCopy: vi.fn().mockResolvedValue(undefined),
   onToggleStatus: vi.fn().mockResolvedValue(undefined),
   onExpand: vi.fn(),
   onFocusAttachments: vi.fn().mockResolvedValue(undefined),
@@ -36,13 +35,7 @@ describe('virtual note list', () => {
     );
     render(
       <AppProviders>
-        <NoteList
-          {...callbacks}
-          allTags={[]}
-          expandedId={null}
-          notes={notes}
-          selection={emptySelection}
-        />
+        <NoteList {...callbacks} allTags={[]} copyState={null} expandedId={null} notes={notes} />
       </AppProviders>,
     );
     await waitFor(() =>
@@ -51,7 +44,7 @@ describe('virtual note list', () => {
     expect(document.querySelectorAll('[data-note-id]').length).toBeLessThan(150);
   });
 
-  it('exposes tags, attachments, status, edit, and delete to keyboard users', async () => {
+  it('exposes tags, attachments, status, copy, edit, and delete to keyboard users', async () => {
     const user = userEvent.setup();
     const item = note({
       id: 'note-a',
@@ -71,9 +64,9 @@ describe('virtual note list', () => {
         <NoteList
           {...callbacks}
           allTags={['Agent', 'Research', 'Local']}
+          copyState={null}
           expandedId={null}
           notes={[item]}
-          selection={emptySelection}
         />
       </AppProviders>,
     );
@@ -87,10 +80,34 @@ describe('virtual note list', () => {
     expect(screen.getByText('One restrained preview line')).toBeTruthy();
     expect(document.querySelector('.note-row-main')?.children).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Mark done' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Copy Alpha as Markdown' }));
+    expect(callbacks.onCopy).toHaveBeenCalledWith('note-a');
     expect(screen.getByRole('button', { name: 'Edit Alpha' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Delete Alpha' }));
     expect(callbacks.onDelete).toHaveBeenCalledWith('note-a');
     await user.click(screen.getByRole('button', { name: 'Show 1 attachments in this note' }));
     expect(callbacks.onFocusAttachments).toHaveBeenCalledWith('note-a');
+  });
+
+  it('moves native focus with Arrow keys and deletes only the focused Note', async () => {
+    const user = userEvent.setup();
+    render(
+      <AppProviders>
+        <NoteList
+          {...callbacks}
+          allTags={[]}
+          copyState={null}
+          expandedId={null}
+          notes={[note({ id: 'note-a', body: 'Alpha' }), note({ id: 'note-b', body: 'Beta' })]}
+        />
+      </AppProviders>,
+    );
+    const alpha = screen.getByRole('button', { name: 'Alpha' });
+    const beta = screen.getByRole('button', { name: 'Beta' });
+    alpha.focus();
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(document.activeElement).toBe(beta));
+    await user.keyboard('{Delete}');
+    expect(callbacks.onDelete).toHaveBeenCalledWith('note-b');
   });
 });

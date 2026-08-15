@@ -75,27 +75,15 @@ test('search, exact Tag filter, and visible status stay coherent', async ({ page
   );
 });
 
-test('selection copy and irreversible Delete keep confirmation explicit', async ({ page }) => {
+test('direct copy and irreversible Delete keep one-Note scope explicit', async ({ page }) => {
   await page.setViewportSize({ width: 400, height: 480 });
   await page.goto(desktop);
-  await page.locator('[data-note-focus="capture-note"]').click();
-  await page.locator('[data-note-focus="local-note"]').click({ modifiers: ['Shift'] });
-  await expect(page.getByRole('group', { name: '2 notes selected' })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('group', { name: '2 notes selected' })).toBeHidden();
-  await page.locator('[data-note-focus="capture-note"]').click();
-  const selectionBar = page.getByRole('group', { name: '1 note selected' });
-  await expect(selectionBar).toBeVisible();
-  expect(await selectionBar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
-    true,
-  );
-  await selectionBar.getByRole('button', { name: 'Selection actions' }).click();
-  await page.getByRole('menuitem', { name: 'Copy as Markdown' }).click();
+  await page.getByRole('button', { name: 'Copy Agent handoff as Markdown' }).click();
   await expect(page.getByRole('status')).toContainText('Copied');
-  const deleteButton = page.getByRole('button', { name: 'Delete 1' });
+  const deleteButton = page.getByRole('button', { name: 'Delete Agent handoff' });
   await deleteButton.click();
   const dialog = page.getByRole('alertdialog');
-  await expect(dialog).toContainText('Delete 1 note permanently?');
+  await expect(dialog).toContainText('Delete this note permanently?');
   await expect(dialog).toContainText('cannot be undone');
   await expect(dialog).toContainText('external backups');
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);

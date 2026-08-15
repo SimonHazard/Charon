@@ -1,7 +1,7 @@
 # Plan 014: Close release quality against exact GitHub candidate artifacts
 
 > **Executor instructions**: This is a release-quality closure plan, not a
-> feature plan. Run it only after Plan 017 is DONE. Invoke
+> feature plan. Run it only after Plan 020 is DONE. Invoke
 > `web-design-guidelines`, `apple-design`, `vercel-react-best-practices`, and
 > `thermo-nuclear-code-quality-review` after deterministic tests pass. Fix only
 > reproduced failures with regression tests. Platform code signing is not a
@@ -12,7 +12,7 @@
 >
 > **Drift check (run first)**:
 > `git diff --stat 7294773..HEAD -- package.json bun.lock apps packages scripts docs .github plans/README.md`
-> Plans 016 and 017 are expected to change desktop presentation and media.
+> Plans 016 through 020 are expected to change desktop presentation and interaction.
 > Reconcile their final compact-state matrix before running this plan. Stop if
 > a P1 journey lacks a deterministic layer or if a release claim exceeds the
 > current exact artifact evidence.
@@ -22,7 +22,7 @@
 - **Priority**: P1
 - **Effort**: L automation review plus XL physical matrix
 - **Risk**: HIGH
-- **Depends on**: `plans/017-align-compact-shelf-features.md`
+- **Depends on**: `plans/020-remove-note-selection.md`
 - **Category**: tests, performance, security, release
 - **Planned at**: commit `7294773`, 2026-08-11
 
@@ -51,8 +51,8 @@ Tauri cryptographic signature for update packages.
   macOS/Linux/Windows Rust matrix; Windows Rust tests are compile/Clippy-only.
 - `.github/workflows/review-builds.yml` can build manual unsigned macOS, Linux,
   and Windows review artifacts, but it is not the final GitHub Release path.
-- `apps/desktop/e2e/release.spec.ts` covers core shelf journeys. Plans 016-017
-  must extend it for the 400-520px compact matrix and complete feature states.
+- `apps/desktop/e2e/release.spec.ts` covers core shelf journeys. Plans 016-020
+  extend it for the 400-520px compact matrix and direct per-Note feature states.
 - `docs/TESTING.md` documents automated budgets and native-only protocols.
 - `docs/RELEASE_CHECKLIST.md` still requires a “Signed macOS” row that conflicts
   with the operator's distribution posture and must become exact-candidate
@@ -132,7 +132,7 @@ never paste a broad glob into a destructive command.
 
 ## Steps
 
-### Step 1: Reconcile the automated gate with Plans 016-017
+### Step 1: Reconcile the automated gate with Plans 016-020
 
 Review every aggregate subcommand and compact E2E state. Ensure the release gate
 actually includes bindings, lint/typecheck, unit, production builds, desktop and
@@ -195,11 +195,11 @@ Against the exact candidate, repeat:
 - macOS AppKit, WebKit, Chromium/Electron/Codex, editor, PDF, secure/blocked/
   canvas, rich clipboard, timeout, restoration failure, concurrent write,
   permission denial, restart, and exactly-one Note capture cases;
-- portable shortcut, composer, search/status, Selection, editor, Tags,
+- portable shortcut, composer, search/status, direct Note actions, editor, Tags,
   20-Attachment/long-name/import/remove states, copy, Delete, Workspace chooser,
   and restart on each available platform;
 - VoiceOver macOS, Orca Linux, and Narrator Windows where applicable;
-- compact window matrix from Plans 016-017, including 400x480 and effective
+- compact window matrix from Plans 016-020, including 400x480 and effective
   360px at 200%;
 - offline launch and network observation with updater still absent.
 
@@ -228,7 +228,7 @@ passes; index status is truthful.
 ## Test plan
 
 - Automated: every existing release subgate plus compact feature coverage from
-  Plans 016-017, twice from clean processes.
+  Plans 016-020, twice from clean processes.
 - Artifact identity: immutable name/hash/version/run/OS/arch and exact trust mechanism.
 - Native macOS: full capture, permissions, clipboard race, focus, restart, and
   ad-hoc TCC continuity matrix.
@@ -241,7 +241,7 @@ passes; index status is truthful.
 
 - [ ] `bun run verify:release` passes twice from clean processes.
 - [ ] Every aggregate subgate demonstrably fails the aggregate when broken.
-- [ ] Compact E2E/Axe/performance/privacy coverage from Plans 016-017 is included.
+- [ ] Compact E2E/Axe/performance/privacy coverage from Plans 016-020 is included.
 - [ ] Manual checklist identifies exact artifacts and separates GitHub, ad-hoc, unsigned, and Tauri-updater trust.
 - [ ] macOS evidence states ad-hoc identity and absence of Developer ID/notarization.
 - [ ] Windows evidence states unsigned/SmartScreen posture and absence of Authenticode.

@@ -28,11 +28,11 @@ impl ClipboardWriter for TauriClipboardWriter<'_> {
 
 pub(crate) fn compose_and_write(
     writer: &mut impl ClipboardWriter,
-    notes: &[ComposeNote],
+    note: &ComposeNote,
 ) -> Result<ComposedClipboard, ClipboardError> {
-    let markdown = compose(notes)?;
+    let markdown = compose(note)?;
     writer.write_text(&markdown)?;
-    summary(&markdown, notes)
+    summary(&markdown, note)
 }
 
 fn classify_write_error(error: tauri_plugin_clipboard_manager::Error) -> ClipboardError {
@@ -67,13 +67,12 @@ mod tests {
         }
     }
 
-    fn request(body: &str) -> Vec<ComposeNote> {
-        vec![ComposeNote {
-            id: "note-id".to_owned(),
+    fn request(body: &str) -> ComposeNote {
+        ComposeNote {
             body: body.to_owned(),
             tags: Vec::new(),
             attachments: Vec::new(),
-        }]
+        }
     }
 
     #[test]
@@ -102,15 +101,7 @@ mod tests {
         let mut writer = MemoryClipboardWriter::default();
         assert!(matches!(
             compose_and_write(&mut writer, &request("\n \n")),
-            Err(ClipboardError::AllBodiesEmpty)
-        ));
-        assert!(writer.writes.is_empty());
-
-        let mut empty = request("value");
-        empty.clear();
-        assert!(matches!(
-            compose_and_write(&mut writer, &empty),
-            Err(ClipboardError::EmptySelection)
+            Err(ClipboardError::EmptyBody)
         ));
         assert!(writer.writes.is_empty());
     }

@@ -649,9 +649,9 @@ mod tests {
             .expect("create note");
         assert_eq!(created.snapshot.notes.len(), 1);
         let deleted = workspace
-            .execute(WorkspaceCommand::DeleteNotes {
+            .execute(WorkspaceCommand::DeleteNote {
                 expected_revision: created.snapshot.revision,
-                note_ids: vec![created.snapshot.notes[0].id.clone()],
+                note_id: created.snapshot.notes[0].id.clone(),
             })
             .expect("delete");
         assert!(deleted.snapshot.notes.is_empty());

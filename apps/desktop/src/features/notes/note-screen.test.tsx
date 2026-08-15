@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -94,68 +94,42 @@ describe('single note shelf', () => {
     expect(document.querySelector('.capture-hint')).toBeNull();
   });
 
-  it('selects notes directly and exposes compact contextual actions', async () => {
+  it('opens a Note directly and exposes only per-Note actions', async () => {
     const user = userEvent.setup();
     renderScreen();
-    expect(screen.queryByRole('button', { name: 'Select' })).toBeNull();
-    expect(screen.queryByRole('group', { name: /note selected/ })).toBeNull();
-
+    expect(screen.getByRole('button', { name: 'Copy Alpha as Markdown' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit Alpha' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Delete Alpha' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /^Alpha/ }));
-    const actions = screen.getByRole('group', { name: '1 note selected' });
-    expect(within(actions).getByText('1 note selected')).toBeTruthy();
-    expect(within(actions).getByRole('button', { name: 'Selection actions' })).toBeTruthy();
-    expect(within(actions).getByRole('button', { name: 'Delete 1' })).toBeTruthy();
-    expect(within(actions).queryByRole('button', { name: 'Clear selection' })).toBeNull();
-    await user.click(within(actions).getByRole('button', { name: 'Selection actions' }));
-    expect(await screen.findByText('Mark done')).toBeTruthy();
-    expect(await screen.findByText('Copy as Markdown')).toBeTruthy();
-    await user.keyboard('{Escape}{Escape}');
-    expect(screen.queryByRole('group', { name: /note selected/ })).toBeNull();
+    const editor = await screen.findByRole('textbox', { name: 'Markdown body' });
+    await waitFor(() => expect(document.activeElement).toBe(editor));
   });
 
-  it('extends a click selection with Shift and preserves search editing focus', async () => {
-    const user = userEvent.setup();
-    renderScreen();
-    fireEvent.click(screen.getByRole('button', { name: /^Alpha/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Attachment note/ }), {
-      shiftKey: true,
-    });
-    expect(screen.getByRole('group', { name: '2 notes selected' })).toBeTruthy();
-    const search = screen.getByRole('textbox', { name: 'Search notes' });
-    await user.type(search, 'brief.pdf');
-    expect(document.activeElement).toBe(search);
-    expect(screen.getByRole('button', { name: /^Attachment note/ })).toBeTruthy();
-  });
-
-  it('copies only note IDs through the canonical ClipboardComposer request', async () => {
+  it('copies one Note through the canonical ClipboardComposer request', async () => {
     const user = userEvent.setup();
     const composeAndWrite = vi
       .fn()
-      .mockResolvedValue({ noteCount: 1, tagCount: 1, attachmentCount: 0, byteCount: 24 });
+      .mockResolvedValue({ tagCount: 1, attachmentCount: 0, byteCount: 24 });
     renderScreen({ clipboardClient: { composeAndWrite } });
-    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
-    await user.click(screen.getByRole('button', { name: 'Selection actions' }));
-    await user.click(await screen.findByText('Copy as Markdown'));
+    await user.click(screen.getByRole('button', { name: 'Copy Alpha as Markdown' }));
     await waitFor(() =>
-      expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteIds: ['alpha'] }),
+      expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteId: 'alpha' }),
     );
     expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Copied');
     expect(screen.queryByText(/\/Users\//)).toBeNull();
   });
 
-  it('keeps a failed bulk copy contextual and preserves the selection', async () => {
+  it('keeps a failed per-Note copy contextual without changing the Note', async () => {
     const user = userEvent.setup();
     renderScreen({
       clipboardClient: {
         composeAndWrite: vi.fn().mockRejectedValue({ code: 'write_failed' }),
       },
     });
-    await user.click(screen.getByRole('button', { name: /^Alpha/ }));
-    await user.click(screen.getByRole('button', { name: 'Selection actions' }));
-    await user.click(await screen.findByText('Copy as Markdown'));
+    await user.click(screen.getByRole('button', { name: 'Copy Alpha as Markdown' }));
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/Couldn.t copy/);
-    expect(screen.getByRole('group', { name: '1 note selected' })).toBeTruthy();
+    expect(screen.getByText('Alpha')).toBeTruthy();
   });
 
   it('forwards transient picker paths only to the typed attachment command', async () => {
@@ -200,12 +174,12 @@ describe('single note shelf', () => {
     });
     await user.click(screen.getByRole('button', { name: 'Delete Alpha' }));
     const dialog = screen.getByRole('alertdialog');
-    expect(within(dialog).getByText('Delete 1 note permanently?')).toBeTruthy();
+    expect(within(dialog).getByText('Delete this note permanently?')).toBeTruthy();
     expect(within(dialog).getByText(/cannot be undone/i)).toBeTruthy();
     expect(within(dialog).getByText(/external backups/i)).toBeTruthy();
     await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() =>
-      expect(commands.some((command) => command.type === 'deleteNotes')).toBe(true),
+      expect(commands.some((command) => command.type === 'deleteNote')).toBe(true),
     );
     expect(screen.queryByText('Trash')).toBeNull();
     expect(screen.queryByText('Undo')).toBeNull();
@@ -215,7 +189,7 @@ describe('single note shelf', () => {
     const user = userEvent.setup();
     renderScreen({
       onCommand: (command) => {
-        if (command.type === 'deleteNotes') {
+        if (command.type === 'deleteNote') {
           throw {
             code: 'deletion_cleanup_required',
             messageKey: 'workspace_error_deletion_cleanup_required',

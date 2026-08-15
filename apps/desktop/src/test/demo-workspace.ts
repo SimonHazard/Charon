@@ -32,7 +32,6 @@ export const demoWorkspaceClient = workspaceClient(
 
 export const demoClipboardClient: ClipboardClient = {
   composeAndWrite: async () => ({
-    noteCount: 1,
     tagCount: 2,
     attachmentCount: 1,
     byteCount: 68,

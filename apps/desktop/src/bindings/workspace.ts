@@ -62,8 +62,8 @@ export type WorkspaceCommand =
       noteId: string;
       attachmentIds: Array<string>;
     }
-  | { type: 'setNoteStatus'; expectedRevision: number; noteIds: Array<string>; status: NoteStatus }
-  | { type: 'deleteNotes'; expectedRevision: number; noteIds: Array<string> };
+  | { type: 'setNoteStatus'; expectedRevision: number; noteId: string; status: NoteStatus }
+  | { type: 'deleteNote'; expectedRevision: number; noteId: string };
 
 export type WorkspaceCommandResult = { snapshot: WorkspaceSnapshot; transactionId: string };
 
