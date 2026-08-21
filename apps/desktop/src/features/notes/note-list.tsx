@@ -1,19 +1,18 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
 import { NoteRow } from '@/features/notes/note-row';
-import type { SelectionState } from '@/features/notes/selection-model';
 
 const ROW_HEIGHT = 84;
 
 export function NoteList({
   notes,
-  selection,
   expandedId,
   allTags,
-  onSelection,
+  copyState,
+  onCopy,
   onToggleStatus,
   onExpand,
   onFocusAttachments,
@@ -28,15 +27,10 @@ export function NoteList({
   onDirtyChange,
 }: {
   notes: readonly NoteDto[];
-  selection: SelectionState;
   expandedId: string | null;
   allTags: readonly string[];
-  onSelection(
-    action:
-      | { type: 'click'; id: string; toggle: boolean; extend: boolean }
-      | { type: 'toggle'; id: string }
-      | { type: 'keyboard'; event: React.KeyboardEvent },
-  ): void;
+  copyState: { noteId: string; status: 'copied' | 'error'; message: string } | null;
+  onCopy(noteId: string): Promise<void>;
   onToggleStatus(note: NoteDto): Promise<void>;
   onExpand(noteId: string): void;
   onFocusAttachments(noteId: string): Promise<void>;
@@ -52,21 +46,6 @@ export function NoteList({
 }) {
   const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
-  const selected = useMemo(() => new Set(selection.selectedIds), [selection.selectedIds]);
-  const activateNote = useCallback(
-    (id: string, event: React.MouseEvent | React.KeyboardEvent) =>
-      onSelection({
-        type: 'click',
-        id,
-        toggle: 'metaKey' in event && (event.metaKey || event.ctrlKey),
-        extend: 'shiftKey' in event && event.shiftKey,
-      }),
-    [onSelection],
-  );
-  const toggleNoteSelection = useCallback(
-    (id: string) => onSelection({ type: 'toggle', id }),
-    [onSelection],
-  );
   const virtualizer = useVirtualizer({
     count: notes.length,
     estimateSize: () => ROW_HEIGHT,
@@ -76,20 +55,38 @@ export function NoteList({
     overscan: 10,
   });
 
-  useEffect(() => {
-    const index = selection.activeId
-      ? notes.findIndex((note) => note.id === selection.activeId)
-      : -1;
-    if (index < 0) return;
-    virtualizer.scrollToIndex(index, { align: 'auto' });
-  }, [notes, selection.activeId, virtualizer]);
+  const moveFocus = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const active = target?.closest<HTMLElement>('[data-note-focus]');
+      const noteId = active?.dataset.noteFocus;
+      if (!noteId) return;
+      const currentIndex = notes.findIndex((note) => note.id === noteId);
+      if (currentIndex < 0) return;
+      event.preventDefault();
+      const nextIndex = Math.max(
+        0,
+        Math.min(notes.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)),
+      );
+      const nextId = notes[nextIndex]?.id;
+      if (!nextId) return;
+      virtualizer.scrollToIndex(nextIndex, { align: 'auto' });
+      window.requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLElement>(`[data-note-focus="${nextId}"]`)
+          ?.focus({ preventScroll: true });
+      });
+    },
+    [notes, virtualizer],
+  );
 
   return (
     <div className="note-list" ref={parentRef}>
       <ul
         aria-label={m.note_list_label()}
         className="note-list-inner"
-        onKeyDown={(event) => onSelection({ type: 'keyboard', event })}
+        onKeyDown={moveFocus}
         style={{ height: virtualizer.getTotalSize() }}
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -105,13 +102,17 @@ export function NoteList({
               tabIndex={-1}
             >
               <NoteRow
-                active={selection.activeId === note.id}
                 allTags={allTags}
+                copyState={
+                  copyState?.noteId === note.id
+                    ? { status: copyState.status, message: copyState.message }
+                    : null
+                }
                 expanded={expandedId === note.id}
                 note={note}
-                onActivate={activateNote}
                 onAddAttachments={onAddAttachments}
                 onCloseEditor={onCloseEditor}
+                onCopy={onCopy}
                 onDelete={onDelete}
                 onDirtyChange={onDirtyChange}
                 onExpand={onExpand}
@@ -121,9 +122,7 @@ export function NoteList({
                 onSave={onSave}
                 onSetTags={onSetTags}
                 onTagFilter={onTagFilter}
-                onToggleSelection={toggleNoteSelection}
                 onToggleStatus={onToggleStatus}
-                selected={selected.has(note.id)}
               />
             </li>
           );

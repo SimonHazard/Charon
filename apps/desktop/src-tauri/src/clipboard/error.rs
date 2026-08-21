@@ -6,10 +6,8 @@ use crate::workspace::WorkspaceIpcError;
 
 #[derive(Debug, Error)]
 pub enum ClipboardError {
-    #[error("the clipboard composition request contains no notes")]
-    EmptySelection,
-    #[error("every selected note body is empty")]
-    AllBodiesEmpty,
+    #[error("the clipboard composition request contains an empty note body")]
+    EmptyBody,
     #[error("the clipboard composition request is invalid")]
     InvalidRequest,
     #[error("clipboard write permission was denied")]
@@ -33,12 +31,7 @@ pub struct ClipboardIpcError {
 impl From<ClipboardError> for ClipboardIpcError {
     fn from(error: ClipboardError) -> Self {
         let (code, message_key) = match error {
-            ClipboardError::EmptySelection => {
-                ("empty_selection", "clipboard_error_empty_selection")
-            }
-            ClipboardError::AllBodiesEmpty => {
-                ("all_bodies_empty", "clipboard_error_all_bodies_empty")
-            }
+            ClipboardError::EmptyBody => ("empty_body", "clipboard_error_empty_body"),
             ClipboardError::InvalidRequest => {
                 ("invalid_request", "clipboard_error_invalid_request")
             }

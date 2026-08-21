@@ -13,7 +13,7 @@ Read, in order:
 3. `docs/ARCHITECTURE.md`
 4. `docs/PRIVACY.md`
 5. `docs/UX.md` for desktop work or `docs/SITE.md` for site work
-6. relevant ADRs, especially ADR 0011 and its ADR 0012 amendment
+6. relevant ADRs, especially ADR 0011 and its ADR 0012 and ADR 0013 amendments
 7. `plans/README.md`, then the complete current plan
 
 Run the plan drift check and stop on its STOP conditions. Confirm that the
@@ -27,8 +27,6 @@ Use the vocabulary exactly:
   acquisition, ADR 0010's bounded Copy transaction, and composer-focus fallback.
 - `ClipboardComposer` owns deterministic `Copy as Markdown` composition and the
   explicit clipboard write.
-- `Selection` is ordered, ephemeral, reconciled to the unified result, and never
-  persisted.
 - `Tag` is flat Note metadata.
 - `Attachment` is one bounded managed regular-file copy owned by one Note.
 
@@ -44,7 +42,7 @@ Use the vocabulary exactly:
   exactly one synthetic platform Copy after an explicit selected-text capture
   gesture, inside its bounded snapshot, change-count, timeout, disclosure, and
   restoration contract.
-- Delete is confirmed, irreversible, and count-specific. After commit, active
+- Delete is confirmed, irreversible, and targets one explicit Note. After commit, active
   files and normal completed Charon backups retain neither deleted Markdown nor
   managed Attachment bytes. Disclose the external backup and OS-snapshot limit.
 - Preserve schema v1 active bodies byte-exactly. Keep already-trashed v1 bodies
@@ -52,7 +50,9 @@ Use the vocabulary exactly:
   destroy them.
 - Treat unmodified `Shift`, `Shift` as a native modifier sequence. Keep
   `CmdOrCtrl+Shift+Space` as the reveal-and-focus-composer fallback. Do not claim
-  a platform capability until its physical or signed-build gate passes.
+  a platform capability until its physical matrix passes on the exact
+  release-configuration artifact. Charon ships unsigned under ADR 0014; never
+  reintroduce a Developer ID, notarization, or paid-certificate gate.
 
 ## Architecture
 
@@ -66,7 +66,7 @@ Use the vocabulary exactly:
   features.
 - The active model is one flat Note collection. Do not restore Sections,
   hierarchy, manual order, Move, Merge, Trash, multiple destinations, or
-  persisted Selection without an accepted ADR.
+  Note Selection or bulk Note commands without an accepted ADR.
 - A Note has at most 16 Tags. Each trimmed Tag has 1-48 Unicode scalar values,
   no control/line-break character, first-entered spelling and order, and case-
   insensitive uniqueness. No Tag IDs, colors, nesting, registry, or management
@@ -90,8 +90,8 @@ Use the vocabulary exactly:
   roles mapped from Charon Prune, Lavender, and Cream. Product components never
   contain raw palette values or theme conditionals.
 - Keep one single-column shelf: minimal drag region; search with trailing Help
-  and Preferences; contextual Selection actions; one virtualized unified Note
-  stack; always-visible bottom composer. No navigation rail or product routes.
+  and Preferences; one virtualized unified Note stack with direct per-Note
+  actions; always-visible bottom composer. No navigation rail or product routes.
 - Use Tabler outline icons and the platform system font. No emoji UI, Inter,
   gradients, glow, permanent glass, decorative rails, card grids, or decorative
   list entrances.
@@ -105,7 +105,7 @@ Use the vocabulary exactly:
   provide reduced-transparency and increased-contrast fallbacks.
 - Reject `transition: all`, timer-modeled gestures, fixed keyframes for rapidly
   triggered UI, raw scroll listeners, and animation input locks.
-- Every flow covers loading, empty, error, destructive, focus, selected,
+- Every flow covers loading, empty, error, destructive, focus, active,
   disabled, and permission-denied states. Failures stay contextual, content-
   free, input-preserving, and actionable.
 
@@ -115,6 +115,10 @@ Use the vocabulary exactly:
 - Pin dependencies exactly. Manifests and generated lockfiles are authoritative.
 - Never hand-edit `bun.lock`, `Cargo.lock`, Paraglide output, `ts-rs` bindings,
   generated routes, build artifacts, or coverage output.
+- Keep `apps/desktop/src-tauri/target` small: it passes 10 GB within a few
+  Tauri builds, `debug/` holding the bulk. Delete `target/debug` once a debug
+  session ends, and clear the whole `target/` when no build, test, or app run
+  is using it. Both are regenerable and neither is tracked.
 - Use Base UI's `render` API; do not introduce Radix `asChild`.
 - Prove that a file, export, asset, script, message, or dependency has no live
   consumer before deleting it. Delete obsolete paths instead of leaving future-

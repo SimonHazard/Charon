@@ -34,7 +34,7 @@ fn exercise_flat_contract(mut workspace: Workspace) {
     let done = workspace
         .execute(WorkspaceCommand::SetNoteStatus {
             expected_revision: tagged.snapshot.revision,
-            note_ids: vec![id.clone()],
+            note_id: id.clone(),
             status: NoteStatus::Done,
         })
         .expect("done");
@@ -42,15 +42,15 @@ fn exercise_flat_contract(mut workspace: Workspace) {
     let reopened = workspace
         .execute(WorkspaceCommand::SetNoteStatus {
             expected_revision: done.snapshot.revision,
-            note_ids: vec![id.clone()],
+            note_id: id.clone(),
             status: NoteStatus::Open,
         })
         .expect("reopen");
     assert!(reopened.snapshot.notes[0].completed_at.is_none());
     let deleted = workspace
-        .execute(WorkspaceCommand::DeleteNotes {
+        .execute(WorkspaceCommand::DeleteNote {
             expected_revision: reopened.snapshot.revision,
-            note_ids: vec![id],
+            note_id: id,
         })
         .expect("delete");
     assert!(deleted.snapshot.notes.is_empty());
@@ -230,9 +230,9 @@ fn permanent_note_delete_removes_body_attachment_and_transaction_sentinels() {
         .relative_path
         .clone();
     let deleted = workspace
-        .execute(WorkspaceCommand::DeleteNotes {
+        .execute(WorkspaceCommand::DeleteNote {
             expected_revision: 2,
-            note_ids: vec![note_id.clone()],
+            note_id: note_id.clone(),
         })
         .expect("permanent delete");
     assert!(deleted.snapshot.notes.is_empty());

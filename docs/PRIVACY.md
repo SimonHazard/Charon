@@ -1,14 +1,16 @@
 # Charon privacy contract
 
-This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) while
-preserving ADR 0010's selected-text clipboard disclosure.
+This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
+amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
+[ADR 0013](adr/0013-direct-note-actions.md), while preserving ADR 0010's
+selected-text clipboard disclosure.
 
 ## Promise
 
 Charon keeps Note content, Tags, and managed Attachment bytes in local files
 inside a user-controlled Workspace. There is no account, cloud sync, analytics,
 telemetry, crash upload, advertising, or content-processing service. Charon does
-not send Notes, Tags, Attachments, searches, selections, clipboard contents,
+not send Notes, Tags, Attachments, searches, selected text, clipboard contents,
 filenames, paths, or usage events to the developer.
 
 The public site is static and uses no analytics, trackers, fingerprinting,
@@ -102,12 +104,18 @@ No other input or source-application automation is permitted.
 Equivalent permissions on other platforms follow least privilege, just-in-time
 explanation, visible state, retry, and a working manual fallback. Linux and
 Windows have no modifier-only or synthetic-input capture claim without their
-own accepted adapter and signed-build evidence.
+own accepted adapter and physical evidence.
+
+Because Charon ships ad-hoc signed under ADR 0014, macOS treats each released
+version as a different application and drops its Input Monitoring and
+Accessibility grants. Charon regains no permission silently: the user grants
+each one again through the same explicit, purpose-specific flow after every
+update.
 
 ## Irreversible deletion limits
 
-Delete always requires a concise confirmation naming the Note count. After a
-successful Workspace commit, Charon removes the active Markdown, associated
+Delete always requires a concise confirmation for one explicit Note. After a
+successful Workspace commit, Charon removes that Note's active Markdown, associated
 managed Attachment bytes, and their copies from normal completed transaction
 backups. A crash may leave a bounded incomplete recovery record only until the
 next startup deterministically finishes or rolls back that transaction and
@@ -139,13 +147,19 @@ or copied into preferences.
 ## Network access and updates
 
 The current build has no update client and performs no desktop network request.
-An update check is the only optional desktop request permitted for a future
-signed v1 release. It must be disclosed, default off, controlled by a clear
-setting, and limited to release metadata. GitHub will observe ordinary network
-metadata, but the request includes no Note content, Tags, Attachment metadata or
-bytes, Workspace metadata or path, stable user identifier, or behavioral event.
-Downloading and installing requires clear user action and verified signed
-artifacts, and restart must defer while a draft is dirty.
+An update check is the only optional desktop request permitted for a future v1
+release. It must be disclosed, default off, controlled by a clear setting, and
+limited to release metadata. GitHub will observe ordinary network metadata, but
+the request includes no Note content, Tags, Attachment metadata or bytes,
+Workspace metadata or path, stable user identifier, or behavioral event.
+Downloading and installing requires clear user action and an artifact verified
+against Charon's own updater signature, and restart must defer while a draft is
+dirty.
+
+That updater signature is a locally generated minisign key pair, not an Apple or
+Microsoft certificate. Charon ships unsigned by both platforms under ADR 0014
+and never presents a download or an update as platform-verified, trusted, or
+notarized.
 
 With update checks disabled, the desktop performs no network requests. Charon
 does not require connectivity for capture, manual creation, search, status,

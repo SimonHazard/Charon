@@ -80,10 +80,23 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   const draftRef = useRef(draft);
   draftRef.current = draft;
 
+  const dirty = hasUnsavedDraft(draft) || draft.status === 'saving';
+  const dirtyRef = useRef(false);
+
   useEffect(() => {
-    onDirtyChange(hasUnsavedDraft(draft) || draft.status === 'saving');
-    return () => onDirtyChange(false);
-  }, [draft, onDirtyChange]);
+    if (dirtyRef.current === dirty) return;
+    dirtyRef.current = dirty;
+    onDirtyChange(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(
+    () => () => {
+      if (!dirtyRef.current) return;
+      dirtyRef.current = false;
+      onDirtyChange(false);
+    },
+    [onDirtyChange],
+  );
 
   useEffect(() => {
     const current = draftRef.current;

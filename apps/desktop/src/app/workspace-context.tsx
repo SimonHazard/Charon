@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -20,6 +21,7 @@ import {
   type WorkspaceClient,
 } from '@/lib/ipc/workspace-client';
 import { isTauriRuntime } from '@/lib/platform';
+import { reconcileSnapshot } from '@/lib/workspace-snapshot';
 
 export type WorkspaceViewState =
   | { status: 'loading'; snapshot: WorkspaceSnapshot | null; error: null }
@@ -80,8 +82,9 @@ export function WorkspaceProvider({
   const [isWorkspaceSwitchBlocked, setWorkspaceSwitchBlocked] = useState(false);
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
-    snapshotRef.current = snapshot;
-    setState({ status: 'ready', snapshot, error: null });
+    const merged = reconcileSnapshot(snapshotRef.current, snapshot);
+    snapshotRef.current = merged;
+    setState({ status: 'ready', snapshot: merged, error: null });
   }, []);
 
   const refreshWorkspace = useCallback(async () => {
@@ -247,8 +250,9 @@ export function WorkspaceProvider({
           setState((current) => {
             const revision = current.snapshot?.revision ?? -1;
             if (event.revision <= revision) return current;
-            snapshotRef.current = event.snapshot;
-            return { status: 'ready', snapshot: event.snapshot, error: null };
+            const merged = reconcileSnapshot(current.snapshot, event.snapshot);
+            snapshotRef.current = merged;
+            return { status: 'ready', snapshot: merged, error: null };
           });
         });
         if (!active) unsubscribe();
@@ -272,24 +276,34 @@ export function WorkspaceProvider({
     };
   }, [applySnapshot, client, workspaceKey]);
 
-  return (
-    <WorkspaceContext.Provider
-      value={{
-        ...state,
-        executeWorkspaceCommand,
-        refreshWorkspace,
-        chooseWorkspace,
-        openDefaultWorkspace,
-        retryWorkspaceStartup,
-        canChooseWorkspace: Boolean(client.chooseDirectory && client.openOrCreate),
-        isChoosingWorkspace,
-        isWorkspaceSwitchBlocked,
-        setWorkspaceSwitchBlocked,
-      }}
-    >
-      {children}
-    </WorkspaceContext.Provider>
+  const canChooseWorkspace = Boolean(client.chooseDirectory && client.openOrCreate);
+  const value = useMemo<WorkspaceContextValue>(
+    () => ({
+      ...state,
+      executeWorkspaceCommand,
+      refreshWorkspace,
+      chooseWorkspace,
+      openDefaultWorkspace,
+      retryWorkspaceStartup,
+      canChooseWorkspace,
+      isChoosingWorkspace,
+      isWorkspaceSwitchBlocked,
+      setWorkspaceSwitchBlocked,
+    }),
+    [
+      canChooseWorkspace,
+      chooseWorkspace,
+      executeWorkspaceCommand,
+      isChoosingWorkspace,
+      isWorkspaceSwitchBlocked,
+      openDefaultWorkspace,
+      refreshWorkspace,
+      retryWorkspaceStartup,
+      state,
+    ],
   );
+
+  return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 
 export function useWorkspace() {

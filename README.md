@@ -2,8 +2,8 @@
 
 Charon is a small local capture shelf for people who work with AI agents. It
 turns selected text or a short manual entry into ordinary Markdown, keeps the
-files in a folder you control, and copies a deterministic Markdown selection
-when you ask it to.
+files in a folder you control, and copies one deterministic Markdown Note when
+you ask it to.
 
 No account, sync, analytics, telemetry, content upload, or automatic paste.
 
@@ -14,12 +14,13 @@ No account, sync, analytics, telemetry, content upload, or automatic paste.
   `CmdOrCtrl+Shift+Space`.
 - Search Notes, Tags, and Attachment names in one list. Done Notes stay visible
   and are muted and struck through.
-- Select one Note with a click, extend a range with `Shift`-click, or toggle
-  individual Notes with `Cmd`/`Ctrl`-click.
-- Edit Markdown, Tags, and Note-owned Attachments in an expanding Note row.
-- Copy the ordered Selection as deterministic Markdown, including optional
-  Tags and managed local Attachment paths.
-- Permanently delete Notes only after a count-specific confirmation.
+- Open a Note directly from its row and edit Markdown, Tags, and Note-owned
+  Attachments in place.
+- Mark status, copy deterministic Markdown, Edit, or permanently Delete through
+  explicit per-Note controls.
+- Include optional Tags and managed local Attachment paths in `Copy as
+  Markdown`, with a disclosure before they enter the clipboard.
+- Permanently delete one Note only after an explicit confirmation.
 
 The desktop has one narrow shelf, Light and Graphite appearances, English and
 French, compact Preferences, and an always-visible manual composer.
@@ -85,8 +86,10 @@ bun run test:perf
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 ```
 
-`bun run verify:release` runs the consolidated release gate. Native and signed-
-artifact claims remain blocked until their physical matrices pass.
+`bun run verify:release` runs the consolidated release gate. Native platform
+claims remain blocked until their physical matrices pass on the exact
+release-configuration artifact. Charon ships unsigned by ADR 0014: there is no
+Apple Developer ID, no notarization, and no purchased Windows certificate.
 
 ## Contracts
 
@@ -100,7 +103,8 @@ artifact claims remain blocked until their physical matrices pass.
 - [Implementation plans](plans/README.md)
 - [ADR 0011: rapid-capture product](docs/adr/0011-rapid-capture-product.md)
 - [ADR 0012: unified Note shelf](docs/adr/0012-unified-note-shelf.md)
+- [ADR 0013: direct Note actions](docs/adr/0013-direct-note-actions.md)
 
 Core vocabulary is deliberate: `Workspace`, `CaptureCoordinator`,
-`ClipboardComposer`, `Selection`, `Tag`, and `Attachment` mean exactly what the
-contracts define.
+`ClipboardComposer`, `Tag`, and `Attachment` mean exactly what the contracts
+define.

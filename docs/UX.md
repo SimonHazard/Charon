@@ -1,8 +1,9 @@
 # Charon desktop UX contract
 
 This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
-amended by [ADR 0012](adr/0012-unified-note-shelf.md), under the interaction and
-motion invariants of ADR 0005.
+amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
+[ADR 0013](adr/0013-direct-note-actions.md), under the interaction and motion
+invariants of ADR 0005.
 
 ## Product posture
 
@@ -18,7 +19,7 @@ deletion.
 Light is the first-run default and Graphite is the dark user choice. The
 approved Charon Prune, Lavender, and Cream primitives map through semantic theme
 roles; product components never use raw palette values or theme conditionals.
-Lavender is the interaction accent for focus, selection, and active controls.
+Lavender is the interaction accent for focus and active controls.
 It appears through semantic surfaces and boundaries, never as a decorative
 vertical rail beside content.
 Destructive, warning, and success colors remain semantic.
@@ -48,10 +49,9 @@ uses a 720px-wide native window so the effective content width remains at least
 The shelf column is at most `34rem`/544px and stays centered in wider restored
 windows rather than stretching Notes across spare canvas. A minimal native drag
 region sits above search; Help and Preferences trail the search input inside the
-same surface. Contextual Selection actions appear immediately
-below search only while needed and never create permanent toolbar chrome. One
-virtualized stack of bounded vertical Note surfaces fills the available middle
-region. The solid composer remains anchored and visible at the bottom.
+same surface. One virtualized stack of bounded vertical Note surfaces fills the
+available middle region. The solid composer remains anchored and visible at the
+bottom.
 
 ```text
 +----------------------------------------------+
@@ -60,10 +60,10 @@ region. The solid composer remains anchored and visible at the bottom.
 | [ Search Notes and Tags...       ][?][gear] |
 |                                              |
 | +------------------------------------------+ |
-| | o  Agent handoff                  edit x| |
+| | o  Agent handoff             copy edit x| |
 | |    Verify the empty state... Agent  · 1| |
 | +------------------------------------------+ |
-| | ✓  Local Markdown                 edit x| |
+| | ✓  Local Markdown            copy edit x| |
 | |    Visible files, explicit copy...      | |
 | +------------------------------------------+ |
 | |             ... virtualized stack ...   | |
@@ -73,7 +73,7 @@ region. The solid composer remains anchored and visible at the bottom.
 
 Expanded from the live Note row:
 +------------------------------------------+
-| o  Agent handoff                   edit x|
+| o  Agent handoff              copy edit x|
 | | [ Write | Preview ]    Saved      [x] | |
 | |                                      | |
 | | Markdown editor or safe preview       | |
@@ -89,16 +89,16 @@ Tabler outline icons and localized accessible names, never emoji glyphs.
 
 The minimal drag region and composer use the solid canvas. The search surface
 owns Help and Preferences without a separate wordmark row; native outer-window
-controls and macOS traffic-light space remain platform-owned. Lavender-backed surfaces and
-borders are reserved for focus, Selection, or a successful new-Note
-acknowledgement. Note rows use one semantic fill, a restrained one-pixel border,
-6-8px vertical rhythm, and no lift or shadow. They remain a list, never a card
-grid.
+controls and macOS traffic-light space remain platform-owned. Lavender-backed
+surfaces and borders are reserved for focus, active controls, or a successful
+new-Note acknowledgement. Note rows use one semantic fill, a restrained one-
+pixel border, 6-8px vertical rhythm, and no lift or shadow. They remain a list,
+never a card grid.
 
 The top chrome remains compact at large text sizes. At narrow desktop widths,
-secondary Tag metadata collapses before title, preview, status, row actions, search,
-errors, or the composer become unusable. French strings wrap or compact without
-clipping or horizontal scrolling. Preferences is a focused transient surface
+secondary Tag metadata collapses before title, preview, status, row actions,
+search, errors, or the composer become unusable. French strings wrap or compact
+without clipping or horizontal scrolling. Preferences is a focused transient surface
 containing the active Notes folder, an explicit validated chooser, theme and
 language choices, and capture permission state; it is not a product
 destination.
@@ -113,14 +113,13 @@ layout pressure.
 | --- | --- | --- |
 | Search body, Tags, and Attachment names | Full-width top search row | The clear action remains reachable and a no-result state keeps the composer visible. |
 | Open and Done | Unified Note stack | Done stays in place with a checked control, muted surface, and struck-through primary text. |
-| Enter and exit Selection | Note rows | A plain click selects one Note, `Cmd`/`Ctrl`-click toggles one Note, `Shift`-click extends the contiguous range, and Escape clears it. There is no separate mode button. |
-| Bulk status, copy, and Delete | Contextual controls below search | The selected count, secondary status/copy menu, and direct irreversible Delete appear only for a non-empty Selection. Escape clears Selection without adding another compact icon action. |
-| Scan a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, Edit, and Delete remain present. |
+| Open a Note | Main row surface | A plain click, Enter, or Space expands that Note directly; Arrow keys move native focus without creating a mode. |
+| Scan and act on a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, Copy, Edit, and Delete remain present. |
 | Edit Markdown | Expanded live Note row | Write/Preview, autosave state, close, and contextual errors stay in the same row. |
 | Edit Tags | Expanded Note, stacked section | Chips wrap, the add input stays usable, and limits and errors remain local. |
 | Manage Attachments | Expanded Note, stacked section | Generic file metadata, pending and error states, add, and remove remain available without previews. |
-| Copy as Markdown | Contextual Selection menu | One or more selected Notes preserve order; completion, failure, and local-path disclosure remain contextual and reachable. |
-| Permanently delete Notes | Direct row or Selection trash action and count-specific AlertDialog | The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
+| Copy as Markdown | Direct row action | One Note keeps its body exact; completion, failure, and local-path disclosure remain contextual and reachable. |
+| Permanently delete a Note | Direct row action and per-Note AlertDialog | The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
 | Preferences | Search-trailing gear Popover | Appearance, language, Notes folder, and capture state scroll within a 400 by 480 shelf. |
 | Capture help and permissions | Search-trailing Help Popover and Preferences Capture section | Permission state and action remain visible while long disclosures use keyboard-accessible progressive disclosure. |
 | Workspace loading, empty, error, and recovery | Main shelf region | Layout-shaped progress and local recovery preserve composer or chooser priority. |
@@ -163,23 +162,20 @@ Compact layout thresholds are explicit:
 ## Note row and direct actions
 
 A collapsed Note row exposes body excerpt, quiet Tag chips, paperclip icon plus
-Attachment count, status, selection, and direct Edit and Delete controls.
-Information stays readable without hover; fine-pointer hover reveals the two
+Attachment count, status, and direct Copy, Edit, and Delete controls.
+Information stays readable without hover; fine-pointer hover reveals the three
 actions, while focus and coarse pointers expose the same controls without
 relying on pointer location.
 
-Delete opens the count-specific irreversible confirmation for that Note. Copy
-remains an explicit Selection action and states that optional managed local
-paths enter the clipboard; it never implies Attachment bytes are copied or
-uploaded.
+Delete opens the per-Note irreversible confirmation. Copy is an explicit direct
+action and states that optional managed local paths enter the clipboard; it
+never implies Attachment bytes are copied or uploaded.
 
 Tag chips are quiet metadata, not colored categories or navigation. The
 paperclip count opens or focuses the Attachment area only within the same
-expanded Note. Selection uses a filled surface plus a stronger border; keyboard
-focus keeps its own ring. Both remain distinct in every theme and are never
-communicated by color alone. A plain click selects the row, `Cmd`/`Ctrl`-click
-toggles it, and `Shift`-click selects the complete ordered range from the
-anchor.
+expanded Note. Keyboard focus keeps its own visible ring in every theme and is
+never communicated by color alone. A plain click on the main surface expands
+the Note; modifier clicks do not create a secondary interaction mode.
 
 ## Composer
 
@@ -199,11 +195,12 @@ focus. Permission denial keeps the portable shortcut and composer usable.
 
 ## Editor expansion and enrichment
 
-Enter, double-click, or the hover/focus pencil expands the active Note. Shared
-layout begins at the row's current on-screen position. The editor extends the
-same bounded surface with no nested left rail or decorative accent bar. A
-segmented Write/Preview control offers autosaving Markdown, draft preservation, Tag editing,
-Attachment list/import/removal, status, and close. Safe Preview never executes
+Enter, Space, a click on the main row surface, or the hover/focus pencil expands
+the focused Note. Shared layout begins at the row's current on-screen position.
+The editor extends the same bounded surface with no nested left rail or
+decorative accent bar. A segmented Write/Preview control offers autosaving
+Markdown, draft preservation, Tag editing, Attachment list/import/removal,
+status, and close. Safe Preview never executes
 embedded content or arbitrary Attachment formats.
 
 Tags preserve first-entered spelling and order while preventing
@@ -231,8 +228,8 @@ Every flow and reusable control defines:
   recovery beside the operation;
 - destructive: exact scope and irreversible wording for Note or Attachment
   removal;
-- focus: a high-contrast visible ring independent of selection;
-- selected: a Lavender-backed or bordered state distinct from focus and status;
+- focus: a high-contrast visible ring independent of status;
+- active: Lavender-backed controls remain distinct from focus and status;
 - disabled: unavailable appearance plus an accessible reason when needed;
 - permission-denied: affected capture capability, purpose, settings path, retry,
   and the functional portable shortcut and composer fallback.
@@ -245,17 +242,15 @@ recovery behavior.
 
 ## Keyboard contract
 
-- Arrow keys move the active Note without changing Selection.
-- Space toggles the active Note in ephemeral Selection when focus is not inside
-  editable text.
-- Shift plus arrow navigation extends a contiguous range from the anchor.
-- `CmdOrCtrl+A` selects every Note in the current visible result when focus is
-  not inside editable text; native select-all wins inside an editor.
+- Arrow keys move browser focus between visible Note row surfaces.
+- Enter or Space expands the focused Note row or activates the focused control.
+- `CmdOrCtrl+A` keeps its native text-selection meaning; Charon assigns it no
+  Note-list command.
 - `CmdOrCtrl+F` focuses search.
-- Enter expands the active Note, activates the focused control, or submits the
+- Enter expands the focused Note, activates the focused control, or submits the
   bottom composer according to unambiguous focus context.
-- Delete opens the irreversible confirmation for the current Selection when
-  focus is not inside editable text.
+- Delete or Backspace opens the irreversible confirmation for the focused Note
+  row when focus is not inside editable text.
 - Escape closes the topmost surface first and preserves predictable focus.
 - Unmodified `Shift`, `Shift` performs silent selected-text capture only where
   the native adapter and required permissions are proved.
@@ -269,15 +264,15 @@ surviving Note or the composer.
 
 ## Irreversible deletion and recovery
 
-Delete always opens one concise confirmation naming the exact Note count and
-stating that the action cannot be undone in Charon. It does not use an extra
-typed phrase or repeated warning. Cancel returns focus to the initiating Note or
-bulk action and changes nothing. Confirmation commits one batch transaction.
+Delete always opens one concise confirmation for the exact targeted Note and
+states that the action cannot be undone in Charon. It does not use an extra
+typed phrase or repeated warning. Cancel returns focus to the initiating Note
+action and changes nothing. Confirmation commits one bounded transaction.
 
-On success, Charon removes the Notes and managed Attachments, clears or
-reconciles Selection, acknowledges the count, and returns focus to the nearest
-surviving Note or the composer. The confirmation links concise disclosure that
-external backups, synchronized histories, and operating-system snapshots are
+On success, Charon removes the Note and its managed Attachments, acknowledges
+completion, and returns focus to the nearest surviving Note or the composer.
+The confirmation links concise disclosure that external backups, synchronized
+histories, and operating-system snapshots are
 outside Charon's erasure guarantee. Failure leaves the visible Notes and input
 intact and offers contextual retry or Workspace recovery.
 
@@ -298,9 +293,9 @@ The allowed motion foundation is exact and intentionally small: existing
 button/icon press feedback at scale `.98`; origin-aware opacity plus scale
 `.98-.985` for Tooltips, menus, and Popovers over 120-180ms with symmetric
 exit; the existing critically damped nested row/editor transform-and-opacity
-transition. The editor expansion begins from the live row, carries its current presentation
-value, uses the same path to expand and collapse, remains reversible at every
-point, and returns to the current row target if the list changes.
+transition. The editor expansion begins from the live row, carries its current
+presentation value, uses the same path to expand and collapse, remains reversible
+at every point, and returns to the current row target if the list changes.
 
 Reject list entrance and search-result motion, status-filter chrome, row
 lift, hover shadow, parallax, bounce, gradients, grain, composer-focus
@@ -322,7 +317,7 @@ architecture.
 
 Review keyboard-only use, screen-reader names and announcements, larger text,
 EN/FR strings, Light/Graphite, reduced motion, reduced transparency,
-increased contrast, loading, empty, failure, destructive, focus, selected,
+increased contrast, loading, empty, failure, destructive, focus, active,
 disabled, and permission-denied states. Note counts, status, Tags, Attachment
 counts, import progress, copy success, and deletion result are announced without
 exposing content in diagnostics.

@@ -379,35 +379,6 @@
   opacity: 1;
 }
 
-.selection-context {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.1rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  color: var(--text-muted);
-}
-.selection-count {
-  min-width: 0;
-  margin-right: 0.2rem;
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-  font-weight: 620;
-  line-height: 1.2;
-}
-.selection-count-short {
-  display: inline;
-}
-.selection-count-long {
-  display: none;
-}
-.selection-context [data-slot="button"] {
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-}
 .active-tag-filter {
   display: flex;
   align-items: center;
@@ -434,6 +405,14 @@
 .copy-disclosure {
   max-width: 17rem;
   white-space: normal;
+}
+.copy-action-tooltip {
+  align-items: flex-start;
+  flex-direction: column;
+}
+.copy-action-tooltip .copy-disclosure {
+  color: currentColor;
+  opacity: 0.78;
 }
 .delete-boundary {
   overflow-wrap: anywhere;
@@ -469,11 +448,6 @@
   border-radius: var(--radius-surface);
   background: var(--surface-elevated);
 }
-.note-row[data-selected="true"] {
-  border-color: var(--selection-border);
-  background: var(--selection-subtle);
-  color: var(--text);
-}
 .note-row[data-expanded="true"] {
   border-color: var(--separator);
   background: var(--surface-elevated);
@@ -481,11 +455,6 @@
 .note-row[data-status="done"] {
   background: var(--surface);
   color: var(--text-muted);
-}
-.note-row[data-selected="true"][data-status="done"] {
-  border-color: var(--selection-border);
-  background: var(--selection-subtle);
-  color: var(--text);
 }
 .note-row[data-expanded="true"][data-status="done"] {
   border-color: var(--separator);
@@ -584,48 +553,72 @@
   padding: 0 0.2rem;
   color: var(--text-muted);
 }
-.tag-filter-chip {
-  max-width: 5.5rem;
-  overflow: hidden;
+.tag-filter-chip,
+.tag-overflow,
+.attachment-count {
+  display: inline-flex;
+  min-height: 1.4rem;
+  align-items: center;
   padding: 0.16rem 0.45rem;
   border: 0;
   border-radius: 999px;
   background: var(--secondary);
-  color: var(--secondary-foreground);
   font-size: 0.7rem;
+  line-height: 1.1;
+}
+.tag-filter-chip {
+  max-width: 5.5rem;
+  overflow: hidden;
+  color: var(--secondary-foreground);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.tag-filter-chip:hover,
+.attachment-count:hover {
+  background: color-mix(in srgb, var(--secondary) 88%, var(--text) 12%);
+}
+.tag-filter-chip:active,
+.attachment-count:active {
+  background: color-mix(in srgb, var(--secondary) 78%, var(--text) 22%);
+}
 .attachment-count {
-  display: inline-flex;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.15rem;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: inherit;
-  font-size: 0.72rem;
+  position: relative;
+  gap: 0.24rem;
+  padding-inline: 0.36rem 0.46rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.attachment-count:hover {
+  color: var(--text);
+}
+/* The chip stays metadata-sized while its target grows past the pill. */
+.attachment-count::after {
+  content: "";
+  position: absolute;
+  inset-block: -0.4rem;
+  inset-inline: -0.35rem;
 }
 .attachment-count:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 .attachment-count svg {
-  width: 0.85rem;
+  width: 0.78rem;
+  height: 0.78rem;
+  stroke-width: 1.75;
 }
 .note-row-actions {
   display: flex;
   flex: none;
   align-items: center;
 }
-.note-row-actions [data-slot="button"] {
+.note-row-actions [data-slot="button"],
+.note-copy-button {
   width: 2.75rem;
   height: 2.75rem;
 }
+.note-copy-button,
 .note-edit-button,
 .note-delete-button {
   opacity: 0;
@@ -637,11 +630,15 @@
   background: var(--danger-surface);
   color: var(--danger-text);
 }
-.note-row:focus-within .note-delete-button,
-.note-row:hover .note-delete-button,
-.note-row:focus-within .note-edit-button,
-.note-row:hover .note-edit-button {
+.note-row:focus-within .note-row-actions [data-slot="button"],
+.note-row:hover .note-row-actions [data-slot="button"],
+.note-row:focus-within .note-copy-button,
+.note-row:hover .note-copy-button {
   opacity: 1;
+}
+.note-copy-state {
+  margin: -0.15rem 0.65rem 0.35rem 3.25rem;
+  padding: 0;
 }
 
 .note-editor-inline {
@@ -867,8 +864,18 @@
 
 @media (hover: none), (pointer: coarse) {
   .note-edit-button,
+  .note-copy-button,
   .note-delete-button {
     opacity: 1;
+  }
+  .tag-filter-chip,
+  .tag-overflow,
+  .attachment-count {
+    min-height: 1.75rem;
+  }
+  .attachment-count::after {
+    inset-block: -0.6rem;
+    inset-inline: -0.5rem;
   }
 }
 
@@ -876,17 +883,11 @@
   .note-row:hover {
     background: var(--surface-hover);
   }
-  .note-row[data-selected="true"]:hover {
-    background: var(--selection-surface);
-  }
   .note-row[data-expanded="true"]:hover {
     background: var(--surface-elevated);
   }
   .note-row[data-status="done"]:hover {
     background: var(--surface-inset);
-  }
-  .note-row[data-selected="true"][data-status="done"]:hover {
-    background: var(--selection-surface);
   }
   .note-row:active {
     background: var(--surface-pressed);
@@ -912,15 +913,6 @@
   .preferences-workspace-row [data-slot="button"],
   .preferences-permission-row > [data-slot="button"] {
     align-self: flex-start;
-  }
-}
-
-@media (min-width: 520px) {
-  .selection-count-long {
-    display: inline;
-  }
-  .selection-count-short {
-    display: none;
   }
 }
 

@@ -6,20 +6,32 @@ claims without an operator decision and evidence from the exact artifact.
 
 ## Distribution posture
 
-Charon is free. No Mac App Store or Microsoft Store listing is planned. macOS
-ships, if approved, as a direct app or DMG; local and review builds use Tauri's
-ad-hoc identity until an optional Developer ID and notarization path is supplied.
-Windows review artifacts may remain unsigned and must disclose the resulting
-SmartScreen warning. Unsigned artifacts never promote an unproved capture
-capability or enable an unsigned updater path.
+Charon is free and ships unsigned. ADR 0014 accepted that no Apple Developer ID,
+notarization, or purchased Windows certificate is part of the release path. No
+Mac App Store or Microsoft Store listing is planned. macOS ships as a direct app
+or DMG under Tauri's ad-hoc identity; Windows and Linux artifacts are unsigned.
+Every published artifact must disclose its first-launch warning. Unsigned
+artifacts never promote an unproved capture capability or enable an unsigned
+updater path.
 
-GitHub Releases is the desktop distribution destination. An annotated `vX.Y.Z`
-tag runs the protected Tauri workflow, which creates a draft GitHub Release and
-uploads the signed macOS app and DMG for human verification. Unsigned macOS,
-Linux, and Windows review bundles are available only through the manual review
-workflow. The static site is deployed separately through the checked Cloudflare
-Workers Static Assets configuration from Plan 018. A push to `main` deploys it
-only when site-affecting paths changed.
+Two costs are disclosed, never minimized. macOS blocks the first launch of a
+downloaded build: the user opens it through System Settings, Privacy & Security,
+Open Anyway on macOS 15 and later, or Control-click, Open on macOS 14. Windows
+shows a SmartScreen warning cleared through More info, Run anyway. Separately,
+an ad-hoc signature binds the designated requirement to the binary, so TCC
+treats each version as a different app and macOS users must grant Input
+Monitoring and Accessibility again after every update.
+
+Published SHA-256 checksums are the integrity mechanism. Record the checksum of
+every artifact next to it and never claim that a release is verified, trusted,
+or notarized by Apple or Microsoft.
+
+GitHub Releases is the desktop distribution destination. Releases are created as
+drafts and promoted only by a human. Unsigned macOS, Linux, and Windows review
+bundles are available through the manual review workflow. The static site is
+deployed separately through the checked Cloudflare Workers Static Assets
+configuration from Plan 018. A push to `main` deploys it only when
+site-affecting paths changed.
 
 The path-filtered quality workflow consolidates routine desktop validation on
 one bounded Ubuntu job. It covers lint, types, unit tests, the production build,
@@ -57,34 +69,67 @@ Resolved from official repositories on 2026-08-09. Each workflow uses the
 
 ## Protected inputs
 
-Create a GitHub environment named `release` with required reviewers. Add only
-these Actions secrets: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`,
-`APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`,
-`TAURI_SIGNING_PRIVATE_KEY`, and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Store no
-certificate, password, private updater key, or notarization credential in Git,
-artifacts, logs, or repository variables.
+The desktop release needs no signing secret. ADR 0014 removed every Apple input,
+so `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
+`APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID` are not created, not stored,
+and not referenced. A `release` environment with required reviewers remains
+useful as a human approval gate, but it guards no credential.
 
-The updater public key and real endpoint may enter Tauri configuration only
-after the first protected key ceremony. Until then, updater dependencies and UI
-remain absent. This is deliberate: a placeholder key or unsigned update path is
-not a feature.
+Tauri updater signing is unaffected and free. Its minisign key pair is generated
+locally and has no relationship to Apple or Microsoft signing. If an updater is
+ever accepted, `TAURI_SIGNING_PRIVATE_KEY` and
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` are the only release secrets, and the
+updater public key and real endpoint may enter Tauri configuration only after
+that key ceremony. Until then, updater dependencies and UI remain absent. This
+is deliberate: a placeholder key or unsigned update path is not a feature.
+
+Store no private updater key in Git, artifacts, logs, or repository variables.
+
+`.github/workflows/release.yml` references exactly one secret, the automatic
+`GITHUB_TOKEN`. It pins `APPLE_SIGNING_IDENTITY` to the literal ad-hoc `-`, as
+`review-builds.yml` already did, so a changed `tauri.conf.json` cannot make a
+release attempt a signature that cannot exist.
 
 ## Release procedure
 
+The procedure needs no credential beyond ordinary GitHub write access, so it
+runs locally on the operator's machine. It does not depend on Actions.
+
+Two equivalent paths produce the same draft. Pushing a `vX.Y.Z` tag runs
+`release.yml`, which gates on `verify:release`, builds the ad-hoc bundles,
+creates the draft, and uploads `SHA256SUMS.txt`; steps 3, 4, and 6 below are
+then already done. Without Actions, run every step by hand. Either way a human
+performs steps 7 and 8.
+
 1. Bump Cargo and Tauri versions to the same semver and update the localized
-   changelog with facts that will ship.
+   changelog with facts that will ship. `scripts/check-release-version.ts`
+   enforces tag/Tauri/Cargo consistency only when `GITHUB_REF_NAME` is set, so
+   confirm the two manifests by hand when releasing locally.
 2. Run `bun run verify:release` twice from clean processes. Complete every
    applicable row in `docs/RELEASE_CHECKLIST.md`.
-3. Create an annotated `vX.Y.Z` tag only after review. Push the tag only with
+3. Build the exact candidate. `bundle.targets` is `["app"]`, so pass the DMG
+   target explicitly:
+   `bun run --cwd apps/desktop tauri build --bundles app,dmg`.
+4. Record the SHA-256 of every artifact that will be published, as
+   `SHA256SUMS.txt`, plus the checksum of the executable inside the app bundle
+   for the support ledger. These are the release's only integrity evidence,
+   because nothing in the artifact carries a platform signature.
+5. Create an annotated `vX.Y.Z` tag only after review. Push the tag only with
    publication authority.
-4. Approve the protected `release` environment. The workflow creates a draft,
-   never a public release.
-5. A human downloads checksums and signed artifacts, verifies macOS signature
-   and notarization, installs each supported artifact, repeats native capture,
-   clipboard, focus, Workspace, edit, copy, and Delete smoke, then records IDs.
-6. Promote the draft and latest metadata only after those checks. The current
-   site remains front-page only; exposing a release link requires a separately
-   reviewed site change.
+6. Create a draft release and upload the artifacts and `SHA256SUMS.txt`, for
+   example with `gh release create vX.Y.Z --draft`. Never create a public
+   release directly. The draft body must already carry the disclosures required
+   by step 8.
+7. A human installs each published artifact from the draft, clears the
+   first-launch block the way a user will, confirms the installed bytes match
+   the recorded SHA-256, grants Input Monitoring and Accessibility again,
+   repeats native capture, clipboard, focus, Workspace, edit, copy, and Delete
+   smoke, then records the artifact IDs.
+8. Promote the draft and latest metadata only after those checks. Release notes
+   must state the first-launch bypass, the SmartScreen warning where Windows
+   artifacts ship, and the permission regrant. The current site remains
+   front-page only; exposing a release link requires a separately reviewed site
+   change.
 
 ## Rollback and incidents
 
@@ -97,10 +142,14 @@ not a feature.
 - To yank a release, mark it prerelease or draft, remove any public site link if
   one was later introduced, and state the reason. Never replace an asset under
   the same tag.
-- For a signing or updater key compromise, stop release jobs, remove the public
-  latest metadata, revoke affected certificates/keys, rotate protected secrets,
-  publish a security notice, and require a new version and trust root. Do not
-  use the compromised key to ship its own replacement.
+- Charon cannot revoke a published unsigned artifact. There is no certificate to
+  revoke and no platform kill switch, so a bad build is withdrawn by yanking the
+  release, publishing the affected checksums in the notice, and shipping a new
+  version. Say so plainly rather than implying platform-level recall.
+- For an updater key compromise, if an updater exists, stop release jobs, remove
+  the public latest metadata, revoke the affected key, rotate the protected
+  secret, publish a security notice, and require a new version and trust root.
+  Do not use the compromised key to ship its own replacement.
 - GitHub observes ordinary network metadata when a user explicitly checks a
   release or update. Charon sends no Note, Tag, Attachment byte, Workspace path,
   or stable Workspace identifier.

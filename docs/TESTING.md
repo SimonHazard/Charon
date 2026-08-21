@@ -28,7 +28,8 @@ Fixture code is development-only and removed from the production bundle.
 The fixture proves React behavior and layout. It cannot prove Tauri IPC,
 operating-system permissions, global shortcut delivery, selected-text access,
 clipboard restoration, file/folder pickers, Dock naming, window restoration, or
-signed-artifact behavior.
+packaged release-artifact behavior such as the first-launch bypass and the
+permission regrant that follows every unsigned update.
 
 ## Automated coverage
 
@@ -36,9 +37,8 @@ The current browser matrix covers:
 
 - the unified Open/Done Note result, muted and struck Done treatment, search,
   Tag filtering, and Attachment-name search;
-- plain, additive, and `Shift` range Selection; bulk status, explicit copy, and
-  confirmed irreversible Delete;
-- direct row status, Edit, and Delete controls;
+- direct row activation, Arrow-key focus movement, status, explicit copy, Edit,
+  and confirmed per-Note irreversible Delete;
 - editor first paint, Write/Preview, autosave failure preservation, Tags,
   managed Attachment metadata, and removal confirmation;
 - always-visible composer, portable focus, and failure preservation;
@@ -50,10 +50,15 @@ The current browser matrix covers:
 - the localized media-free static site, absent legacy routes, exact icon
   checksums, canonical metadata, footer links, and no third-party request.
 
-Performance gates cap desktop JavaScript at 230 KiB gzip, scan 20,000 Notes
-across body, Tags, and Attachment names with a median below 50 ms, and assert
-fewer than 150 rendered virtual rows. Public pages reserve image dimensions and
-target LCP below 2.5 seconds, INP below 200 ms, and CLS below 0.1.
+Performance gates cap desktop JavaScript at 230 KiB gzip and exercise the
+shipped `filterNotes` index over 20,000 Notes with a multi-token query: the
+cold scan of body, Tags, and Attachment names stays below 50 ms (measured
+43.5 ms) and a warm snapshot — reconciliation plus filter plus Tag list — stays
+below 20 ms (measured 10.1 ms), so an autosave never re-normalizes the corpus.
+They also assert fewer than 150 rendered virtual rows. Load the same scale in
+the browser with `?fixture=demo&notes=20000` against `bun run --cwd apps/desktop
+dev`. Public pages reserve image dimensions and target LCP below 2.5 seconds,
+INP below 200 ms, and CLS below 0.1.
 
 ## Native acceptance
 
@@ -71,7 +76,7 @@ cover:
 - Dock/product naming, first-run geometry, restored window geometry, and one
   main window;
 - VoiceOver traversal of the drag region, search, unified virtual Note list,
-  Selection controls, editor, Tags, Attachments, Preferences, Delete dialog, and
+  direct Note actions, editor, Tags, Attachments, Preferences, Delete dialog, and
   composer;
 - normal speed, slow observation, mid-flight reversal, reduced motion,
   increased contrast, and reduced transparency.
@@ -84,14 +89,14 @@ capture until their own native evidence passes.
 
 The 2026-08-14 Plan 019 automated pass established the unified shelf,
 Light/Graphite rendering, direct confirmed Delete, non-flashing editor draft,
-range Selection, compact Preferences, media-free site, and the minimum
-`dialog:allow-open` capability. Bun, Playwright, privacy, performance, Cargo,
-and diff checks passed at that point.
+compact Preferences, media-free site, and the minimum `dialog:allow-open`
+capability. Plan 020 then removed Note Selection and replaced its bulk flows with
+direct per-Note status, copy, Edit, and Delete coverage.
 
 The native app launched as `Charon`, but the executor could not authorize a
 physical Attachment-button click through macOS assistive control. Plan 019
-therefore remains `AWAITING OPERATOR` for one real picker click and a subjective
-normal-speed unfold/fold review. This limitation is evidence, not a product
+therefore carried one real picker click and a subjective normal-speed unfold/
+fold review forward to Plan 020. This limitation is evidence, not a product
 failure claim.
 
 Earlier Plan 007, 016, and 017 results remain historical in their original plan
