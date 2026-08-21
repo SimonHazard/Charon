@@ -104,7 +104,13 @@ No other input or source-application automation is permitted.
 Equivalent permissions on other platforms follow least privilege, just-in-time
 explanation, visible state, retry, and a working manual fallback. Linux and
 Windows have no modifier-only or synthetic-input capture claim without their
-own accepted adapter and signed-build evidence.
+own accepted adapter and physical evidence.
+
+Because Charon ships ad-hoc signed under ADR 0014, macOS treats each released
+version as a different application and drops its Input Monitoring and
+Accessibility grants. Charon regains no permission silently: the user grants
+each one again through the same explicit, purpose-specific flow after every
+update.
 
 ## Irreversible deletion limits
 
@@ -141,13 +147,19 @@ or copied into preferences.
 ## Network access and updates
 
 The current build has no update client and performs no desktop network request.
-An update check is the only optional desktop request permitted for a future
-signed v1 release. It must be disclosed, default off, controlled by a clear
-setting, and limited to release metadata. GitHub will observe ordinary network
-metadata, but the request includes no Note content, Tags, Attachment metadata or
-bytes, Workspace metadata or path, stable user identifier, or behavioral event.
-Downloading and installing requires clear user action and verified signed
-artifacts, and restart must defer while a draft is dirty.
+An update check is the only optional desktop request permitted for a future v1
+release. It must be disclosed, default off, controlled by a clear setting, and
+limited to release metadata. GitHub will observe ordinary network metadata, but
+the request includes no Note content, Tags, Attachment metadata or bytes,
+Workspace metadata or path, stable user identifier, or behavioral event.
+Downloading and installing requires clear user action and an artifact verified
+against Charon's own updater signature, and restart must defer while a draft is
+dirty.
+
+That updater signature is a locally generated minisign key pair, not an Apple or
+Microsoft certificate. Charon ships unsigned by both platforms under ADR 0014
+and never presents a download or an update as platform-verified, trusted, or
+notarized.
 
 With update checks disabled, the desktop performs no network requests. Charon
 does not require connectivity for capture, manual creation, search, status,

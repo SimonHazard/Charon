@@ -1,6 +1,16 @@
 import type { ClipboardClient } from '@/lib/ipc/clipboard-client';
 import { note, snapshot, workspaceClient } from '@/test/workspace-fixture';
 
+/** `?fixture=demo&notes=20000` loads a scale corpus for the typing budget in docs/TESTING.md. */
+const scale = Number(new URLSearchParams(window.location.search).get('notes') ?? '0');
+const bulk = Array.from({ length: Number.isFinite(scale) ? Math.max(0, scale) : 0 }, (_, index) =>
+  note({
+    id: `bulk-${index}`,
+    body: `# Bulk note ${index}\n\nParagraphe de travail ${index} avec assez de texte pour peser sur la recherche et sur le rendu des lignes.\n\n- point un\n- point deux`,
+    tags: index % 3 === 0 ? ['Bulk', 'Research'] : ['Bulk'],
+  }),
+);
+
 export const demoWorkspaceClient = workspaceClient(
   snapshot([
     note({
@@ -27,6 +37,7 @@ export const demoWorkspaceClient = workspaceClient(
       tags: ['Product'],
       status: 'done',
     }),
+    ...bulk,
   ]),
 );
 

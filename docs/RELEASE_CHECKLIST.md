@@ -14,7 +14,10 @@ not a pass.
 | 0.25x motion response and reversal review | Design reviewer |  |  | Pending |
 | Reduced motion, transparency and increased contrast | Design reviewer |  |  | Pending |
 | True 200% WebView zoom | Accessibility reviewer |  |  | Pending |
-| Signed macOS install, restart and permission continuity | Release operator |  |  | Pending |
+| Unsigned macOS first-launch bypass performed as a user, install and restart | Release operator |  |  | Pending |
+| Installed bytes match the published SHA-256 for every artifact | Release operator |  |  | Pending |
+| Input Monitoring and Accessibility regrant after the version change, then capture works | Release operator |  |  | Pending |
 | Linux standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
-| Windows standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
+| Windows SmartScreen bypass, standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
+| Release notes state the first-launch bypass, SmartScreen warning and permission regrant | Release operator |  |  | Pending |
 | Site EN/FR, three themes, no-JS, media and link review | Web reviewer |  |  | Pending |

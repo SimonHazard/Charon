@@ -1,6 +1,6 @@
 import { IconCheck, IconCopy, IconEdit, IconPaperclip, IconTrash } from '@tabler/icons-react';
 import { AnimatePresence, m as motion } from 'motion/react';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
@@ -10,14 +10,25 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { NoteEditor } from '@/features/notes/note-editor';
 import { surfaceTransition } from '@/motion/system';
 
-export function noteFirstLine(body: string): string {
-  return (
-    body
-      .split(/\r?\n/u)
-      .find((line) => line.trim())
-      ?.replace(/^#{1,6}\s*/u, '')
-      .trim() ?? ''
-  );
+const lineBreak = /\r?\n/u;
+const headingMarker = /^#{1,6}\s*/u;
+
+export function noteHeadline(body: string): { title: string; snippet: string } {
+  let title = '';
+  const snippet: string[] = [];
+  let cursor = 0;
+  while (cursor <= body.length && snippet.length < 2) {
+    const match = lineBreak.exec(body.slice(cursor));
+    const end = match ? cursor + (match.index ?? 0) : body.length;
+    const line = body.slice(cursor, end).trim();
+    if (line) {
+      if (title) snippet.push(line);
+      else title = line.replace(headingMarker, '').trim();
+    }
+    if (!match) break;
+    cursor = end + match[0].length;
+  }
+  return { title, snippet: snippet.join(' ') };
 }
 
 export const NoteRow = memo(function NoteRow({
@@ -58,12 +69,9 @@ export const NoteRow = memo(function NoteRow({
   onDirtyChange(dirty: boolean): void;
 }) {
   const m = useMessages();
-  const title = noteFirstLine(note.body) || m.note_untitled();
-  const remainingLines = note.body
-    .split(/\r?\n/u)
-    .filter((line) => line.trim())
-    .slice(1, 3)
-    .join(' ');
+  const headline = useMemo(() => noteHeadline(note.body), [note.body]);
+  const title = headline.title || m.note_untitled();
+  const remainingLines = headline.snippet;
   const attachmentSummary = m.attachment_count({ count: note.attachments.length });
   const attachmentDetails = note.attachments.length
     ? m.note_attachment_names({
@@ -117,19 +125,6 @@ export const NoteRow = memo(function NoteRow({
             <span className="sr-only">
               {m.note_metadata_summary({ tags: tagSummary, attachments: attachmentDetails })}
             </span>
-            {note.tags.slice(0, 2).map((tag) => (
-              <button
-                className="tag-filter-chip"
-                key={tag}
-                onClick={() => onTagFilter(tag)}
-                type="button"
-              >
-                {tag}
-              </button>
-            ))}
-            {note.tags.length > 2 ? (
-              <Badge className="tag-overflow">+{note.tags.length - 2}</Badge>
-            ) : null}
             {note.attachments.length ? (
               <Tooltip>
                 <TooltipTrigger
@@ -143,6 +138,19 @@ export const NoteRow = memo(function NoteRow({
                 </TooltipTrigger>
                 <TooltipContent>{m.attachment_focus({ count: attachmentSummary })}</TooltipContent>
               </Tooltip>
+            ) : null}
+            {note.tags.slice(0, 2).map((tag) => (
+              <button
+                className="tag-filter-chip"
+                key={tag}
+                onClick={() => onTagFilter(tag)}
+                type="button"
+              >
+                {tag}
+              </button>
+            ))}
+            {note.tags.length > 2 ? (
+              <Badge className="tag-overflow">+{note.tags.length - 2}</Badge>
             ) : null}
           </div>
         </div>

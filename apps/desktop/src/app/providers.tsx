@@ -1,5 +1,13 @@
 import type { ThemeName } from '@charon/theme/theme-contract';
-import { createContext, type PropsWithChildren, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { captureStatusTone } from '@/app/capture-status';
 import { ComposerFocusProvider, useComposerFocus } from '@/app/composer-focus-context';
 import { type AppLocale, applyLocale, readLocale } from '@/app/locale';
@@ -38,17 +46,21 @@ export function AppProviders({
   const activeCaptureClient = captureClient ?? tauriCaptureClient;
   const nativePreferencesEnabled = isTauriRuntime() || Boolean(captureClient || preferencesClient);
 
-  const setTheme = (next: ThemeName) => {
+  const setTheme = useCallback((next: ThemeName) => {
     saveTheme(next);
     updateTheme(next);
-  };
-  const setLocale = (next: AppLocale) => {
+  }, []);
+  const setLocale = useCallback((next: AppLocale) => {
     applyLocale(next);
     updateLocale(next);
-  };
+  }, []);
+  const preferences = useMemo<Preferences>(
+    () => ({ theme, locale, setTheme, setLocale }),
+    [locale, setLocale, setTheme, theme],
+  );
 
   return (
-    <PreferencesContext.Provider value={{ theme, locale, setTheme, setLocale }}>
+    <PreferencesContext.Provider value={preferences}>
       <MotionSystem>
         <WorkspaceProvider client={workspaceClient}>
           <NativePreferencesProvider

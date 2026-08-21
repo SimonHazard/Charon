@@ -553,38 +553,60 @@
   padding: 0 0.2rem;
   color: var(--text-muted);
 }
-.tag-filter-chip {
-  max-width: 5.5rem;
-  overflow: hidden;
+.tag-filter-chip,
+.tag-overflow,
+.attachment-count {
+  display: inline-flex;
+  min-height: 1.4rem;
+  align-items: center;
   padding: 0.16rem 0.45rem;
   border: 0;
   border-radius: 999px;
   background: var(--secondary);
-  color: var(--secondary-foreground);
   font-size: 0.7rem;
+  line-height: 1.1;
+}
+.tag-filter-chip {
+  max-width: 5.5rem;
+  overflow: hidden;
+  color: var(--secondary-foreground);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.tag-filter-chip:hover,
+.attachment-count:hover {
+  background: color-mix(in srgb, var(--secondary) 88%, var(--text) 12%);
+}
+.tag-filter-chip:active,
+.attachment-count:active {
+  background: color-mix(in srgb, var(--secondary) 78%, var(--text) 22%);
+}
 .attachment-count {
-  display: inline-flex;
-  min-width: 2.75rem;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.15rem;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: inherit;
-  font-size: 0.72rem;
+  position: relative;
+  gap: 0.24rem;
+  padding-inline: 0.36rem 0.46rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.attachment-count:hover {
+  color: var(--text);
+}
+/* The chip stays metadata-sized while its target grows past the pill. */
+.attachment-count::after {
+  content: "";
+  position: absolute;
+  inset-block: -0.4rem;
+  inset-inline: -0.35rem;
 }
 .attachment-count:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 .attachment-count svg {
-  width: 0.85rem;
+  width: 0.78rem;
+  height: 0.78rem;
+  stroke-width: 1.75;
 }
 .note-row-actions {
   display: flex;
@@ -845,6 +867,15 @@
   .note-copy-button,
   .note-delete-button {
     opacity: 1;
+  }
+  .tag-filter-chip,
+  .tag-overflow,
+  .attachment-count {
+    min-height: 1.75rem;
+  }
+  .attachment-count::after {
+    inset-block: -0.6rem;
+    inset-inline: -0.5rem;
   }
 }
 

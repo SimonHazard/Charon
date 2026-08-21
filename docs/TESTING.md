@@ -28,7 +28,8 @@ Fixture code is development-only and removed from the production bundle.
 The fixture proves React behavior and layout. It cannot prove Tauri IPC,
 operating-system permissions, global shortcut delivery, selected-text access,
 clipboard restoration, file/folder pickers, Dock naming, window restoration, or
-signed-artifact behavior.
+packaged release-artifact behavior such as the first-launch bypass and the
+permission regrant that follows every unsigned update.
 
 ## Automated coverage
 
@@ -49,10 +50,15 @@ The current browser matrix covers:
 - the localized media-free static site, absent legacy routes, exact icon
   checksums, canonical metadata, footer links, and no third-party request.
 
-Performance gates cap desktop JavaScript at 230 KiB gzip, scan 20,000 Notes
-across body, Tags, and Attachment names with a median below 50 ms, and assert
-fewer than 150 rendered virtual rows. Public pages reserve image dimensions and
-target LCP below 2.5 seconds, INP below 200 ms, and CLS below 0.1.
+Performance gates cap desktop JavaScript at 230 KiB gzip and exercise the
+shipped `filterNotes` index over 20,000 Notes with a multi-token query: the
+cold scan of body, Tags, and Attachment names stays below 50 ms (measured
+43.5 ms) and a warm snapshot — reconciliation plus filter plus Tag list — stays
+below 20 ms (measured 10.1 ms), so an autosave never re-normalizes the corpus.
+They also assert fewer than 150 rendered virtual rows. Load the same scale in
+the browser with `?fixture=demo&notes=20000` against `bun run --cwd apps/desktop
+dev`. Public pages reserve image dimensions and target LCP below 2.5 seconds,
+INP below 200 ms, and CLS below 0.1.
 
 ## Native acceptance
 

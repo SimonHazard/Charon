@@ -177,7 +177,7 @@ Input Monitoring independently gates the macOS event tap; Accessibility gates
 selected-text acquisition and the bounded source Copy. Tauri's global-shortcut
 plugin owns `CmdOrCtrl+Shift+Space` on every platform. Linux and Windows expose
 the same capability model but do not claim modifier-only capture until their
-native signed-build matrices pass.
+native physical matrices pass on the exact release-configuration artifact.
 
 ### ClipboardComposer
 

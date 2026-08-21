@@ -50,7 +50,9 @@ Use the vocabulary exactly:
   destroy them.
 - Treat unmodified `Shift`, `Shift` as a native modifier sequence. Keep
   `CmdOrCtrl+Shift+Space` as the reveal-and-focus-composer fallback. Do not claim
-  a platform capability until its physical or signed-build gate passes.
+  a platform capability until its physical matrix passes on the exact
+  release-configuration artifact. Charon ships unsigned under ADR 0014; never
+  reintroduce a Developer ID, notarization, or paid-certificate gate.
 
 ## Architecture
 
@@ -113,6 +115,10 @@ Use the vocabulary exactly:
 - Pin dependencies exactly. Manifests and generated lockfiles are authoritative.
 - Never hand-edit `bun.lock`, `Cargo.lock`, Paraglide output, `ts-rs` bindings,
   generated routes, build artifacts, or coverage output.
+- Keep `apps/desktop/src-tauri/target` small: it passes 10 GB within a few
+  Tauri builds, `debug/` holding the bulk. Delete `target/debug` once a debug
+  session ends, and clear the whole `target/` when no build, test, or app run
+  is using it. Both are regenerable and neither is tracked.
 - Use Base UI's `render` API; do not introduce Radix `asChild`.
 - Prove that a file, export, asset, script, message, or dependency has no live
   consumer before deleting it. Delete obsolete paths instead of leaving future-

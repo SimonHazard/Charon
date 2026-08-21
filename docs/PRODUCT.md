@@ -245,6 +245,8 @@ activation.
   current v1 surface.
 - A second capture window, compact alternate mode, generic Error destination,
   or configurable shortcut catalog.
-- Modifier-only capture claims on Linux or Windows before native signed-build
+- Modifier-only capture claims on Linux or Windows before native physical
   evidence passes the accepted gates.
+- Any distribution claim that Charon is verified, trusted, or notarized. It
+  ships unsigned under ADR 0014 and discloses its first-launch warning.
 - Charts or analytics-style product surfaces in v1.

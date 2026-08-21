@@ -86,8 +86,10 @@ bun run test:perf
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 ```
 
-`bun run verify:release` runs the consolidated release gate. Native and signed-
-artifact claims remain blocked until their physical matrices pass.
+`bun run verify:release` runs the consolidated release gate. Native platform
+claims remain blocked until their physical matrices pass on the exact
+release-configuration artifact. Charon ships unsigned by ADR 0014: there is no
+Apple Developer ID, no notarization, and no purchased Windows certificate.
 
 ## Contracts
 

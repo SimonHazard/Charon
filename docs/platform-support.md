@@ -1,22 +1,35 @@
 # Platform capture support
 
 This document is the evidence ledger for ADRs 0002, 0006, 0008, 0009, 0010,
-and 0011. A capability is `supported` only after the exact final build passes
-its complete physical matrix. Runtime capability reporting remains
+0011, and 0014. A capability is `supported` only after the exact final build
+passes its complete physical matrix. Runtime capability reporting remains
 authoritative.
+
+ADR 0014 replaced the signed-build promotion gate. Charon ships unsigned, so
+promotion now requires the complete physical matrix against the exact
+release-configuration artifact that will be published, identified by its
+SHA-256. Ad-hoc identity does not block promotion; missing physical evidence
+still does.
 
 ## Current support state
 
 | Platform | Portable composer focus | Modifier capture | Selected-text acquisition | Product status |
 | --- | --- | --- | --- | --- |
-| macOS 14+ | `CmdOrCtrl+Shift+Space` global activation passed in Plan 007; ADR 0011 retargets it to the bottom composer and requires regression evidence after implementation | Native passive unmodified double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development capture support is proved. Plan 012 repeats the refactored physical matrix; Plan 015 repeats it on the stable Developer ID signed and notarized artifact before release advertising. |
+| macOS 14+ | `CmdOrCtrl+Shift+Space` global activation passed in Plan 007; ADR 0011 retargets it to the bottom composer and requires regression evidence after implementation | Native passive unmodified double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development capture support is proved. Plan 012 repeats the refactored physical matrix; Plan 015 repeats it on the ad-hoc release-configuration artifact, from a fresh permission grant, before release advertising. |
 | Linux X11 | Pinned Tauri implementation compiles; physical global-activation evidence remains required | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. |
 | Linux Wayland | Compositor and portal dependent; no local global-activation evidence | No universal modifier-only protocol accepted | Not implemented | Visible bottom composer only; no modifier-only claim. |
-| Windows | Pinned Tauri implementation compiles; no signed Windows evidence | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. |
+| Windows | Pinned Tauri implementation compiles; no physical Windows evidence | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. Artifacts are unsigned and show SmartScreen. |
 
 The macOS fallback does not create a Linux or Windows support claim. Each target
-needs its own accessibility, input, clipboard, focus, permission, and signed-
-build evidence before promotion.
+needs its own accessibility, input, clipboard, focus, and permission evidence
+against its own release-configuration artifact before promotion.
+
+Because the bundle is ad-hoc signed, the designated requirement changes on every
+rebuild, so TCC treats each released version as a different application. Input
+Monitoring and Accessibility grants do not carry across an update. Every matrix
+run must therefore start from a fresh grant rather than an inherited one, and the
+recurring regrant is a disclosed product cost under ADR 0014 rather than a
+defect.
 
 The current bundle identity is `dev.simonhazard.charon`. It replaces the
 pre-release `dev.charon.app` identifier because Tauri 2 warns against bundle
@@ -114,15 +127,18 @@ without adding content instrumentation.
 | Manual capture input creates one note and preserves failure text | Passed for the Plan 007 surface | One versioned Workspace command; Plan 012 must repeat against the bottom composer |
 | Restart registers one listener, worker, and accelerator | Passed | One action per gesture after restart |
 
-Ad-hoc debug evidence is development-only. Plan 012 must repeat the matrix after
-the single-shelf refactor, and Plan 015 must repeat it on the stable Developer ID
-signed and notarized artifact before macOS capture is advertised as release-
-supported.
+Debug-configuration evidence is development-only. Plan 012 must repeat the matrix
+after the single-shelf refactor, and Plan 015 must repeat it on the exact
+release-configuration artifact, from a fresh Input Monitoring and Accessibility
+grant, before macOS capture is advertised as release-supported. Under ADR 0014
+that artifact is ad-hoc signed; its recorded SHA-256, not a Developer ID
+signature, identifies the build the evidence belongs to.
 
 ## References
 
 - [ADR 0010](adr/0010-bounded-copy-selection-fallback.md)
 - [ADR 0011](adr/0011-rapid-capture-product.md)
+- [ADR 0014](adr/0014-unsigned-distribution.md)
 - [Tin SelectionCapture.swift](https://github.com/enzofrasca/tin/blob/main/Tin/Services/SelectionCapture.swift)
 - [Apple DTS Input Monitoring request guidance](https://developer.apple.com/forums/thread/828052)
 - [Apple Accessibility trust API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)

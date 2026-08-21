@@ -1,6 +1,6 @@
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { open } from '@tauri-apps/plugin-dialog';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useComposerFocus } from '@/app/composer-focus-context';
 import { useMessages } from '@/app/providers';
@@ -30,7 +30,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
 import { NoteList } from '@/features/notes/note-list';
-import { filterNotes } from '@/features/notes/search';
+import { createNoteIndex, type NoteIndex } from '@/features/notes/search';
 import {
   asClipboardError,
   type ClipboardClient,
@@ -71,20 +71,16 @@ export function NoteScreen({
   const searchRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<CaptureInputHandle>(null);
 
+  const indexRef = useRef<NoteIndex | null>(null);
+  indexRef.current ??= createNoteIndex();
+  const index = indexRef.current;
+  /** The first query of a session normalizes the corpus (~44 ms at 20k Notes); the field stays live while it runs. */
+  const deferredQuery = useDeferredValue(query);
   const notes = useMemo(
-    () => filterNotes(snapshot.notes, { query, tag }),
-    [query, snapshot.notes, tag],
+    () => index.filter(snapshot.notes, { query: deferredQuery, tag }),
+    [deferredQuery, index, snapshot.notes, tag],
   );
-  const allTags = useMemo(() => {
-    const values = new Map<string, string>();
-    for (const note of snapshot.notes) {
-      for (const value of note.tags) {
-        const key = value.toLocaleLowerCase();
-        if (!values.has(key)) values.set(key, value);
-      }
-    }
-    return [...values.values()];
-  }, [snapshot.notes]);
+  const allTags = useMemo(() => index.tags(snapshot.notes), [index, snapshot.notes]);
   useEffect(() => {
     if (!composerFocus.request) return;
     captureRef.current?.focus();
