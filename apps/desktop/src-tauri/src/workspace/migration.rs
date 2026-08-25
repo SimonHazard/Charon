@@ -32,6 +32,14 @@ struct LegacyManifestHeader {
     revision: u64,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MigrationRecord {
+    from: u32,
+    to: u32,
+    created_archive: bool,
+}
+
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MigrationFailure {
@@ -156,20 +164,21 @@ fn migrate_v1_with_hook(
         .map_err(|_| WorkspaceError::InvalidManifest)?;
     let bodies = read_legacy_bodies(storage, &legacy)?;
     legacy.validate(&bodies)?;
+    if storage.exists(LEGACY_ARCHIVE)? {
+        return Err(WorkspaceError::LegacyArchiveCollision);
+    }
     let trashed = legacy
         .notes
         .iter()
         .filter(|note| note.trashed_at.is_some())
         .collect::<Vec<_>>();
-    if !trashed.is_empty() && storage.exists(LEGACY_ARCHIVE)? {
-        return Err(WorkspaceError::LegacyArchiveCollision);
-    }
 
     stage_original(storage, &original_manifest_bytes, &bodies)?;
     hook(MigrationFailure::BeforeArchiveCreation)?;
     if !trashed.is_empty() {
         storage.create_dir_all(LEGACY_ARCHIVE)?;
         storage.create_dir_all(&format!("{LEGACY_ARCHIVE}/notes"))?;
+        write_migration_record(storage, true)?;
         storage.write_synced(
             &format!("{LEGACY_ARCHIVE}/README.md"),
             ARCHIVE_README.as_bytes(),
@@ -258,14 +267,30 @@ fn stage_original(
     for (id, body) in bodies {
         storage.write_synced(&format!("{MIGRATION_DIR}/notes/{id}.md"), body.as_bytes())?;
     }
-    storage.write_synced(
-        &format!("{MIGRATION_DIR}/migration.json"),
-        b"{\"from\":1,\"to\":2}\n",
-    )?;
+    write_migration_record(storage, false)?;
     storage.sync_dir(MIGRATION_DIR)
 }
 
+fn write_migration_record(
+    storage: &dyn WorkspaceStorage,
+    created_archive: bool,
+) -> Result<(), WorkspaceError> {
+    let mut record = serde_json::to_vec(&json!({
+        "from": 1,
+        "to": 2,
+        "createdArchive": created_archive,
+    }))
+    .map_err(|_| WorkspaceError::InvalidManifest)?;
+    record.push(b'\n');
+    storage.write_synced(&format!("{MIGRATION_DIR}/migration.json"), &record)
+}
+
 fn rollback_staged_migration(storage: &dyn WorkspaceStorage) -> Result<(), WorkspaceError> {
+    let created_archive = storage
+        .read(&format!("{MIGRATION_DIR}/migration.json"))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<MigrationRecord>(&bytes).ok())
+        .is_some_and(|record| record.from == 1 && record.to == 2 && record.created_archive);
     let manifest = storage.read(&format!("{MIGRATION_DIR}/charon.workspace.json"))?;
     let legacy: LegacyV1Manifest =
         serde_json::from_slice(&manifest).map_err(|_| WorkspaceError::InvalidManifest)?;
@@ -278,7 +303,7 @@ fn rollback_staged_migration(storage: &dyn WorkspaceStorage) -> Result<(), Works
     }
     storage.write_synced(".charon-migration-rollback.tmp", &manifest)?;
     storage.rename(".charon-migration-rollback.tmp", "charon.workspace.json")?;
-    if storage.exists(LEGACY_ARCHIVE)? {
+    if created_archive && storage.exists(LEGACY_ARCHIVE)? {
         storage.remove_dir_all(LEGACY_ARCHIVE)?;
     }
     storage.remove_dir_all(MIGRATION_DIR)?;

@@ -336,6 +336,41 @@ fn every_real_filesystem_attachment_failure_is_atomic_and_recoverable() {
     }
 }
 
+#[test]
+fn blocked_delete_cleanup_reports_its_transaction_and_retries_before_execute() {
+    let root = tempdir().expect("Workspace");
+    let mut workspace = Workspace::create(root.path()).expect("create Workspace");
+    let created = workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "delete me".to_owned(),
+        })
+        .expect("create Note");
+    let note_id = created.snapshot.notes[0].id.clone();
+    drop(workspace);
+
+    let mut failing = Workspace::open_with_storage_failure(root.path(), StorageFailure::Cleanup)
+        .expect("open failing Workspace");
+    let transaction_id = match failing.execute(WorkspaceCommand::DeleteNote {
+        expected_revision: created.snapshot.revision,
+        note_id,
+    }) {
+        Err(WorkspaceError::DeletionCleanupRequired { transaction_id }) => transaction_id,
+        result => panic!("expected cleanup error, got {result:?}"),
+    };
+    assert_ne!(transaction_id, "pending");
+    assert!(uuid::Uuid::parse_str(&transaction_id).is_ok());
+
+    let retried = failing
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 2,
+            body: "after cleanup".to_owned(),
+        })
+        .expect("retry cleanup before command");
+    assert_eq!(retried.snapshot.notes.len(), 1);
+    assert_eq!(retried.snapshot.notes[0].body, "after cleanup");
+}
+
 #[cfg(unix)]
 #[test]
 fn attachment_import_never_follows_symlinks() {
@@ -605,6 +640,78 @@ fn migration_collision_stops_before_mutation() {
     assert_eq!(
         fs::read(root.path().join("charon.workspace.json")).expect("unchanged"),
         original
+    );
+}
+
+#[test]
+fn migration_collision_without_trashed_notes_preserves_the_archive() {
+    let root = tempdir().expect("Workspace");
+    let note_id = "54ab01eb-ee1c-4c62-999e-147d9c0c8dab";
+    fs::create_dir(root.path().join("notes")).expect("notes");
+    fs::create_dir(root.path().join("legacy-trash-v1")).expect("archive");
+    fs::write(
+        root.path().join("legacy-trash-v1/README.md"),
+        "user-owned archive",
+    )
+    .expect("archive marker");
+    let manifest = json!({"schemaVersion":1,"workspaceId":"b7cb56b9-748e-48c8-a23d-0bf5f2d61248","revision":0,"sections":[{"id":"a4ad6d74-ea60-45df-a0ad-2c6f82c271f9","name":"Inbox","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z"}],"notes":[{"id":note_id,"sectionId":"a4ad6d74-ea60-45df-a0ad-2c6f82c271f9","status":"open","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z","completedAt":null,"trashedAt":null}]});
+    fs::write(
+        root.path().join("charon.workspace.json"),
+        serde_json::to_vec_pretty(&manifest).expect("manifest"),
+    )
+    .expect("write manifest");
+    fs::write(root.path().join(format!("notes/{note_id}.md")), "active").expect("body");
+
+    assert!(matches!(
+        Workspace::open(root.path()),
+        Err(WorkspaceError::LegacyArchiveCollision)
+    ));
+    assert_eq!(
+        fs::read_to_string(root.path().join("legacy-trash-v1/README.md"))
+            .expect("preserved archive"),
+        "user-owned archive"
+    );
+}
+
+#[test]
+fn migration_rollback_preserves_an_archive_it_did_not_create() {
+    let root = tempdir().expect("Workspace");
+    let note_id = "54ab01eb-ee1c-4c62-999e-147d9c0c8dab";
+    fs::create_dir(root.path().join("notes")).expect("notes");
+    fs::create_dir(root.path().join("backups")).expect("backups");
+    let manifest = json!({"schemaVersion":1,"workspaceId":"b7cb56b9-748e-48c8-a23d-0bf5f2d61248","revision":0,"sections":[{"id":"a4ad6d74-ea60-45df-a0ad-2c6f82c271f9","name":"Inbox","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z"}],"notes":[{"id":note_id,"sectionId":"a4ad6d74-ea60-45df-a0ad-2c6f82c271f9","status":"open","sortKey":0,"createdAt":"2026-07-30T12:00:00Z","updatedAt":"2026-07-30T12:00:00Z","completedAt":null,"trashedAt":null}]});
+    fs::write(
+        root.path().join("charon.workspace.json"),
+        serde_json::to_vec_pretty(&manifest).expect("manifest"),
+    )
+    .expect("write manifest");
+    fs::write(root.path().join(format!("notes/{note_id}.md")), "active").expect("body");
+
+    assert!(Workspace::open_with_migration_failure(
+        root.path(),
+        MigrationFailure::BeforeArchiveCreation
+    )
+    .is_err());
+    fs::write(
+        root.path().join("backups/migration-v1-v2/migration.json"),
+        "unreadable migration record",
+    )
+    .expect("corrupt migration record");
+    fs::create_dir(root.path().join("legacy-trash-v1")).expect("user archive");
+    fs::write(
+        root.path().join("legacy-trash-v1/README.md"),
+        "created after staging",
+    )
+    .expect("archive marker");
+
+    assert!(matches!(
+        Workspace::open(root.path()),
+        Err(WorkspaceError::LegacyArchiveCollision)
+    ));
+    assert_eq!(
+        fs::read_to_string(root.path().join("legacy-trash-v1/README.md"))
+            .expect("preserved archive"),
+        "created after staging"
     );
 }
 

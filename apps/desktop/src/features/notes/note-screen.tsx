@@ -108,10 +108,20 @@ export function NoteScreen({
         setCopyState({ noteId, status: 'copied', message: m.copy_inline_copied() });
       } catch (error) {
         const clipboardError = asClipboardError(error);
+        if (clipboardError.code === 'stale_revision') {
+          try {
+            await refreshWorkspace();
+          } catch {
+            // Keep the content-free stale warning when the refresh also fails.
+          }
+        }
         const message =
           {
             empty_body: m.clipboard_error_empty_body(),
             invalid_request: m.clipboard_error_invalid_request(),
+            validation: m.clipboard_error_invalid_request(),
+            stale_revision: m.workspace_error_stale_revision(),
+            not_found: m.workspace_error_not_found(),
             permission_denied: m.clipboard_error_permission_denied(),
             platform_unavailable: m.clipboard_error_platform_unavailable(),
             workspace_unavailable: m.clipboard_error_workspace_unavailable(),
@@ -120,7 +130,7 @@ export function NoteScreen({
         setCopyState({ noteId, status: 'error', message });
       }
     },
-    [clipboardClient, m, snapshot.revision],
+    [clipboardClient, m, refreshWorkspace, snapshot.revision],
   );
 
   const expandNote = useCallback((noteId: string) => {

@@ -6,8 +6,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::workspace::{
-    Workspace, WorkspaceCommand, WorkspaceCommandResult, WorkspaceHealth, WorkspaceIpcError,
-    WorkspaceSnapshot,
+    Workspace, WorkspaceCommand, WorkspaceCommandResult, WorkspaceHealth, WorkspaceHealthIssue,
+    WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
 };
 
 #[derive(Default)]
@@ -75,7 +75,14 @@ pub fn workspace_bootstrap(
     let preferences = super::preferences::read_persisted(&app).map_err(preferences_error)?;
     if let Some(path) = preferences.last_workspace_path {
         let path = PathBuf::from(path);
-        return replace_workspace(&runtime, Workspace::open(&path)?);
+        return match Workspace::open(&path) {
+            Ok(workspace) => replace_workspace(&runtime, workspace),
+            Err(
+                crate::workspace::WorkspaceError::InvalidPath
+                | crate::workspace::WorkspaceError::Io(_),
+            ) => workspace_bootstrap_default(app, runtime),
+            Err(error) => Err(error.into()),
+        };
     }
     workspace_bootstrap_default(app, runtime)
 }
@@ -188,18 +195,34 @@ fn replace_workspace(
 fn validate_candidate(workspace: &mut Workspace) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
     let snapshot = workspace.snapshot()?;
     let health = workspace.health()?;
-    if !health.is_healthy {
+    if health.issues.iter().any(blocks_open) {
         return Err(crate::workspace::WorkspaceError::Validation(
-            "candidate Workspace has unresolved health issues".to_owned(),
+            "candidate Workspace cannot be opened safely".to_owned(),
         )
         .into());
     }
+    let missing_attachments = health
+        .issues
+        .iter()
+        .filter(|issue| issue.kind == WorkspaceHealthIssueKind::MissingAttachment)
+        .filter_map(|issue| issue.resource_id.as_deref())
+        .collect::<std::collections::HashSet<_>>();
     for note in &snapshot.notes {
         for attachment in &note.attachments {
+            if missing_attachments.contains(attachment.id.as_str()) {
+                continue;
+            }
             workspace.canonical_managed_path(&attachment.relative_path)?;
         }
     }
     Ok(snapshot)
+}
+
+fn blocks_open(issue: &WorkspaceHealthIssue) -> bool {
+    matches!(
+        issue.kind,
+        WorkspaceHealthIssueKind::InvalidManifest | WorkspaceHealthIssueKind::RecoveryRequired
+    )
 }
 
 fn remember_workspace(app: &AppHandle, path: &Path) -> Result<(), WorkspaceIpcError> {
@@ -334,9 +357,11 @@ mod tests {
 
     use super::{
         execute_capture_note, open_or_create_workspace, resolve_default_workspace_path,
-        selected_folder_path, workspace_choose_directory,
+        selected_folder_path, validate_candidate, workspace_choose_directory,
     };
-    use crate::workspace::{Workspace, WorkspaceIpcError};
+    use crate::workspace::{
+        Workspace, WorkspaceCommand, WorkspaceHealthIssueKind, WorkspaceIpcError,
+    };
     use tempfile::tempdir;
 
     #[test]
@@ -445,5 +470,140 @@ mod tests {
                 .join("charon.workspace.json")
                 .exists());
         }
+    }
+
+    #[test]
+    fn open_reports_import_candidate_instead_of_refusing() {
+        let root = tempdir().expect("Workspace");
+        let mut workspace = Workspace::create(root.path()).expect("create Workspace");
+        workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "known".to_owned(),
+            })
+            .expect("create Note");
+        fs::write(root.path().join("notes/stray.md"), "stray").expect("stray Note");
+        drop(workspace);
+
+        let mut reopened = Workspace::open(root.path()).expect("domain open");
+        let snapshot = validate_candidate(&mut reopened).expect("IPC candidate open");
+        assert_eq!(snapshot.notes.len(), 1);
+        assert!(reopened
+            .health()
+            .expect("health")
+            .issues
+            .iter()
+            .any(|issue| { issue.kind == WorkspaceHealthIssueKind::ImportCandidate }));
+    }
+
+    #[test]
+    fn open_reports_missing_attachment_instead_of_refusing() {
+        let root = tempdir().expect("Workspace");
+        let source_root = tempdir().expect("source");
+        let source = source_root.path().join("brief.txt");
+        fs::write(&source, "attachment").expect("source file");
+        let mut workspace = Workspace::create(root.path()).expect("create Workspace");
+        let created = workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "known".to_owned(),
+            })
+            .expect("create Note");
+        let imported = workspace
+            .execute(WorkspaceCommand::ImportNoteAttachments {
+                expected_revision: created.snapshot.revision,
+                note_id: created.snapshot.notes[0].id.clone(),
+                source_paths: vec![source.to_string_lossy().into_owned()],
+            })
+            .expect("import Attachment");
+        fs::remove_file(
+            root.path()
+                .join(&imported.snapshot.notes[0].attachments[0].relative_path),
+        )
+        .expect("delete managed Attachment");
+        drop(workspace);
+
+        let mut reopened = Workspace::open(root.path()).expect("domain open");
+        let snapshot = validate_candidate(&mut reopened).expect("IPC candidate open");
+        assert_eq!(snapshot.notes.len(), 1);
+        assert!(reopened
+            .health()
+            .expect("health")
+            .issues
+            .iter()
+            .any(|issue| { issue.kind == WorkspaceHealthIssueKind::MissingAttachment }));
+    }
+
+    #[test]
+    fn open_reports_missing_note_body() {
+        let root = tempdir().expect("Workspace");
+        let mut workspace = Workspace::create(root.path()).expect("create Workspace");
+        let created = workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "known".to_owned(),
+            })
+            .expect("create Note");
+        let note_id = created.snapshot.notes[0].id.clone();
+        fs::remove_file(root.path().join(format!("notes/{note_id}.md"))).expect("delete Note body");
+        drop(workspace);
+
+        let mut reopened = Workspace::open(root.path()).expect("domain open");
+        let snapshot = reopened.snapshot().expect("snapshot");
+        assert_eq!(snapshot.notes[0].id, note_id);
+        assert_eq!(snapshot.notes[0].body, "");
+        assert!(reopened
+            .health()
+            .expect("health")
+            .issues
+            .iter()
+            .any(|issue| {
+                issue.kind == WorkspaceHealthIssueKind::MissingNote
+                    && issue.resource_id.as_deref() == Some(note_id.as_str())
+            }));
+        assert!(matches!(
+            reopened.execute(WorkspaceCommand::UpdateNote {
+                expected_revision: snapshot.revision,
+                note_id: note_id.clone(),
+                body: "replacement".to_owned(),
+            }),
+            Err(crate::workspace::WorkspaceError::Validation(_))
+        ));
+        let deleted = reopened
+            .execute(WorkspaceCommand::DeleteNote {
+                expected_revision: snapshot.revision,
+                note_id,
+            })
+            .expect("explicitly delete the sole quarantined Note");
+        assert!(deleted.snapshot.notes.is_empty());
+    }
+
+    #[test]
+    fn open_reports_invalid_note_body() {
+        let root = tempdir().expect("Workspace");
+        let mut workspace = Workspace::create(root.path()).expect("create Workspace");
+        let created = workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "known".to_owned(),
+            })
+            .expect("create Note");
+        let note_id = created.snapshot.notes[0].id.clone();
+        fs::write(root.path().join(format!("notes/{note_id}.md")), [0xff])
+            .expect("invalidate Note body");
+        drop(workspace);
+
+        let mut reopened = Workspace::open(root.path()).expect("domain open");
+        let snapshot = validate_candidate(&mut reopened).expect("IPC candidate open");
+        assert_eq!(snapshot.notes[0].body, "");
+        assert!(reopened
+            .health()
+            .expect("health")
+            .issues
+            .iter()
+            .any(|issue| {
+                issue.kind == WorkspaceHealthIssueKind::InvalidNote
+                    && issue.resource_id.as_deref() == Some(note_id.as_str())
+            }));
     }
 }
