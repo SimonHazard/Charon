@@ -18,6 +18,10 @@ and site suites, static builds, Chromium and WebKit journeys, privacy
 sentinels, performance budgets, workflow policy, Rust formatting, Clippy, and
 Rust tests.
 
+CI additionally runs that Rust formatting, Clippy, and test suite on macOS and
+Windows through `Portability`; the routine `Quality` workflow supplies the Linux
+leg. This automated coverage is not physical platform or release evidence.
+
 ## Deterministic browser fixture
 
 Desktop E2E tests use `/?fixture=demo`, a deterministic synthetic Workspace that

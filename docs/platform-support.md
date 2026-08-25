@@ -16,15 +16,16 @@ still does.
 | Platform | Portable composer focus | Modifier capture | Selected-text acquisition | Product status |
 | --- | --- | --- | --- | --- |
 | macOS 14+ | `CmdOrCtrl+Shift+Space` global activation passed in Plan 007; ADR 0011 retargets it to the bottom composer and requires regression evidence after implementation | Native passive unmodified double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development capture support is proved. Plan 012 repeats the refactored physical matrix; Plan 015 repeats it on the ad-hoc release-configuration artifact, from a fresh permission grant, before release advertising. |
-| Linux X11 | Pinned Tauri implementation compiles; physical global-activation evidence remains required | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. |
+| Linux X11 | The Rust core and its tests are gated in CI by `Quality`; physical global-activation evidence remains required | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. |
 | Linux Wayland | Compositor and portal dependent; no local global-activation evidence | No universal modifier-only protocol accepted | Not implemented | Visible bottom composer only; no modifier-only claim. |
-| Windows | Pinned Tauri implementation compiles; no physical Windows evidence | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. Artifacts are unsigned and show SmartScreen. |
+| Windows | The `Portability` CI gate builds and tests the Rust core; its first run remains deferred, and there is no physical Windows evidence | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. Artifacts are unsigned and show SmartScreen. |
 
 Workspace and preferences persistence, path containment, the filesystem watcher
 filter, and managed paths emitted by `Copy as Markdown` are separator- and
 Windows-verbatim-prefix-agnostic by construction. Runtime Windows and Linux
-evidence remains gated by Plan 022’s three-OS CI and the applicable physical
-matrices.
+evidence remains gated by the applicable physical matrices. Plan 022 configures
+the three-OS CI, but the first remote `Portability` run remains deferred until
+the final CI pass.
 
 The macOS fallback does not create a Linux or Windows support claim. Each target
 needs its own accessibility, input, clipboard, focus, and permission evidence

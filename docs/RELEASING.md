@@ -41,6 +41,11 @@ release evidence. The secret-free manual review workflow remains the place to
 produce short-lived macOS, Linux, and Windows artifacts when an exact candidate
 is actually needed.
 
+The separate `Portability` workflow runs Rust formatting, Clippy, and tests on
+macOS and Windows whenever `src-tauri` changes; `Quality` runs the same Rust
+gate on Linux. These compile-and-test results do not constitute physical or
+release evidence for any platform.
+
 The separate site workflow typechecks, tests, builds, validates Wrangler, and
 deploys production from `main`; the full local release gate continues to cover
 both desktop and site as well as Chromium and WebKit. It never runs on pull

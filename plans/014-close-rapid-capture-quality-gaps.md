@@ -47,8 +47,9 @@ Tauri cryptographic signature for update packages.
 - `package.json` exposes `bun run verify:release`, which orders bindings, lint,
   typecheck, unit tests, builds, E2E, privacy, performance, workflow policy,
   Rust formatting, Clippy, and Rust tests.
-- `.github/workflows/quality.yml` runs desktop frontend/browser validation and a
-  macOS/Linux/Windows Rust matrix; Windows Rust tests are compile/Clippy-only.
+- `.github/workflows/quality.yml` runs desktop frontend/browser validation and
+  the Linux Rust gate; the separate `Portability` workflow restores the macOS
+  and Windows Rust checks and tests (restored by Plan 022).
 - `.github/workflows/review-builds.yml` can build manual unsigned macOS, Linux,
   and Windows review artifacts, but it is not the final GitHub Release path.
 - `apps/desktop/e2e/release.spec.ts` covers core shelf journeys. Plans 016-020
