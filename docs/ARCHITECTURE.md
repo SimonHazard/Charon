@@ -84,11 +84,13 @@ winner.
 Schema limits are explicit constants with deterministic boundary tests. A Note
 has at most 16 Tags of 1-48 Unicode scalar values after trimming, with no
 control or line-break character and case-insensitive uniqueness. It has at most
-20 Attachments of at most 100 MiB each. Adding one accepts only an explicitly
-selected regular non-symlink file outside the Workspace. Rust never persists
-the source path, copies into the Note-owned directory, derives a validated
-display basename and generated UUID relative path, and commits bytes plus
-manifest metadata atomically.
+20 Attachments of at most 100 MiB each. The explicit picker runs in Rust and
+returns only short-lived opaque one-shot tokens to React; the webview never
+handles source paths. Adding one accepts only an explicitly selected regular
+non-symlink file outside every Charon Workspace. Rust never persists the source
+path, copies into the Note-owned directory, derives a validated display basename
+and generated UUID relative path, and commits bytes plus manifest metadata
+atomically.
 
 Removing an Attachment follows the same permanent cleanup rules as deleting its
 Note.

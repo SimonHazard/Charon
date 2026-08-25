@@ -106,6 +106,20 @@ impl Workspace {
         &mut self,
         command: WorkspaceCommand,
     ) -> Result<WorkspaceCommandResult, WorkspaceError> {
+        let attachment_sources = match &command {
+            WorkspaceCommand::ImportNoteAttachments { source_tokens, .. } => {
+                Some(source_tokens.clone())
+            }
+            _ => None,
+        };
+        self.execute_with_attachment_sources(command, attachment_sources)
+    }
+
+    pub(crate) fn execute_with_attachment_sources(
+        &mut self,
+        command: WorkspaceCommand,
+        attachment_sources: Option<Vec<String>>,
+    ) -> Result<WorkspaceCommandResult, WorkspaceError> {
         self.retry_cleanup_if_needed()?;
         self.reconcile_external_changes()?;
         self.ensure_quarantine_allows(&command)?;
@@ -113,8 +127,14 @@ impl Workspace {
             WorkspaceCommand::ImportNoteAttachments {
                 expected_revision,
                 note_id,
-                source_paths,
-            } => self.prepare_attachment_import(*expected_revision, note_id, source_paths)?,
+                source_tokens: _,
+            } => self.prepare_attachment_import(
+                *expected_revision,
+                note_id,
+                attachment_sources
+                    .as_deref()
+                    .ok_or(WorkspaceError::InvalidPath)?,
+            )?,
             WorkspaceCommand::DeleteNoteAttachments {
                 expected_revision,
                 note_id,

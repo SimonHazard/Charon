@@ -1,13 +1,14 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Core main-window permissions, explicit text clipboard writes, and the user-invoked Attachment picker; Workspace and capture use custom Rust commands",
+  "description": "Named event and window permissions plus explicit text clipboard writes; Workspace, Attachment picking, and capture use custom Rust commands",
   "windows": ["main"],
   "permissions": [
-    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
     "core:window:allow-destroy",
     "core:window:allow-start-dragging",
-    "clipboard-manager:allow-write-text",
-    "dialog:allow-open"
+    "core:window:allow-internal-toggle-maximize",
+    "clipboard-manager:allow-write-text"
   ]
 }

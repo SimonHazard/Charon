@@ -1,5 +1,4 @@
 import { IconSearch, IconX } from '@tabler/icons-react';
-import { open } from '@tauri-apps/plugin-dialog';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useComposerFocus } from '@/app/composer-focus-context';
@@ -36,14 +35,12 @@ import {
   type ClipboardClient,
   tauriClipboardClient,
 } from '@/lib/ipc/clipboard-client';
+import { tauriWorkspaceClient } from '@/lib/ipc/workspace-client';
 
 type AttachmentPicker = () => Promise<string[]>;
 
-const nativeAttachmentPicker: AttachmentPicker = async () => {
-  const selected = await open({ directory: false, multiple: true });
-  if (!selected) return [];
-  return Array.isArray(selected) ? selected : [selected];
-};
+const nativeAttachmentPicker: AttachmentPicker = () =>
+  tauriWorkspaceClient.chooseAttachments?.() ?? Promise.resolve([]);
 
 export function NoteScreen({
   snapshot,
@@ -157,9 +154,9 @@ export function NoteScreen({
 
   const importAttachments = useCallback(
     async (noteId: string) => {
-      const sourcePaths = await pickAttachments();
-      if (!sourcePaths.length) return;
-      await executeWorkspaceCommand({ type: 'importNoteAttachments', noteId, sourcePaths });
+      const sourceTokens = await pickAttachments();
+      if (!sourceTokens.length) return;
+      await executeWorkspaceCommand({ type: 'importNoteAttachments', noteId, sourceTokens });
     },
     [executeWorkspaceCommand, pickAttachments],
   );

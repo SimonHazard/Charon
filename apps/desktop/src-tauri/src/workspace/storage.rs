@@ -290,6 +290,13 @@ impl WorkspaceStorage for RealWorkspaceStorage {
         if canonical.starts_with(&self.root) {
             return Err(WorkspaceError::InvalidPath);
         }
+        for directory in canonical.ancestors().skip(1) {
+            match fs::symlink_metadata(directory.join("charon.workspace.json")) {
+                Ok(_) => return Err(WorkspaceError::InvalidPath),
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
         let before = fs::metadata(&canonical)?;
         if !before.is_file() || before.len() > MAX_ATTACHMENT_BYTES {
             return Err(WorkspaceError::Validation(
@@ -336,10 +343,7 @@ impl WorkspaceStorage for RealWorkspaceStorage {
         if !canonical.starts_with(&self.root) {
             return Err(WorkspaceError::InvalidPath);
         }
-        canonical
-            .into_os_string()
-            .into_string()
-            .map_err(|_| WorkspaceError::InvalidPath)
+        safe_path_string(canonical)
     }
 }
 
@@ -631,6 +635,17 @@ fn safe_extension(file_name: &str) -> Option<String> {
     .then(|| extension.to_ascii_lowercase())
 }
 
+fn safe_path_string(path: PathBuf) -> Result<String, WorkspaceError> {
+    let value = path
+        .into_os_string()
+        .into_string()
+        .map_err(|_| WorkspaceError::InvalidPath)?;
+    if value.chars().any(char::is_control) {
+        return Err(WorkspaceError::InvalidPath);
+    }
+    Ok(value)
+}
+
 /// Strips the Windows verbatim prefix (`\\?\` or `\\?\UNC\`) from a path
 /// string. Compiled and unit-tested on every platform (pure string logic);
 /// a no-op for paths without the prefix.
@@ -706,6 +721,32 @@ mod tests {
             strip_verbatim_prefix(Path::new("/tmp/x")),
             PathBuf::from("/tmp/x")
         );
+    }
+
+    #[test]
+    fn rejects_control_characters_in_canonical_paths() {
+        assert!(matches!(
+            safe_path_string(PathBuf::from("/tmp/managed\nattachment.txt")),
+            Err(WorkspaceError::InvalidPath)
+        ));
+        assert!(matches!(
+            safe_path_string(PathBuf::from("/tmp/managed\u{0007}attachment.txt")),
+            Err(WorkspaceError::InvalidPath)
+        ));
+    }
+
+    #[test]
+    fn real_storage_rejects_sources_from_another_workspace() {
+        let active = tempfile::tempdir().expect("active Workspace");
+        let other = tempfile::tempdir().expect("other Workspace");
+        fs::write(other.path().join("charon.workspace.json"), "{}").expect("marker");
+        fs::write(other.path().join("source.txt"), "private").expect("source");
+        let storage = RealWorkspaceStorage::create(active.path()).expect("storage");
+
+        assert!(matches!(
+            storage.read_external_regular(&other.path().join("source.txt").to_string_lossy()),
+            Err(WorkspaceError::InvalidPath)
+        ));
     }
 
     #[test]

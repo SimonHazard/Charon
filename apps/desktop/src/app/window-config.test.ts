@@ -1,6 +1,6 @@
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -8,6 +8,12 @@ const tauriConfig = JSON.parse(
   readFileSync(resolve(process.cwd(), 'src-tauri/tauri.conf.json'), 'utf8'),
 );
 const tauriBootstrap = readFileSync(resolve(process.cwd(), 'src-tauri/src/lib.rs'), 'utf8');
+const mainCapability = JSON.parse(
+  readFileSync(resolve(process.cwd(), 'src-tauri/capabilities/main.json'), 'utf8'),
+);
+
+const csp =
+  "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'";
 
 describe('desktop window contract', () => {
   it('opens the compact first-run shelf without restricting restored window sizes', () => {
@@ -30,6 +36,37 @@ describe('desktop window contract', () => {
     expect(tauriBootstrap).toContain(
       '.plugin(tauri_plugin_window_state::Builder::default().build())',
     );
+  });
+
+  it('pins the production webview content security policy', () => {
+    expect(tauriConfig.app.security.csp).toBe(csp);
+  });
+
+  it('grants only the named webview permissions used by the shelf', () => {
+    expect(mainCapability.permissions).toEqual([
+      'core:event:allow-listen',
+      'core:event:allow-unlisten',
+      'core:window:allow-destroy',
+      'core:window:allow-start-dragging',
+      'core:window:allow-internal-toggle-maximize',
+      'clipboard-manager:allow-write-text',
+    ]);
+  });
+
+  it('registers exactly the custom commands invoked by the frontend IPC clients', () => {
+    const registered = [...tauriBootstrap.matchAll(/ipc::\w+::(\w+),/gu)]
+      .map((match) => match[1])
+      .sort();
+    const ipcDirectory = resolve(process.cwd(), 'src/lib/ipc');
+    const invoked = readdirSync(ipcDirectory)
+      .filter((file) => file.endsWith('.ts'))
+      .flatMap((file) => {
+        const source = readFileSync(resolve(ipcDirectory, file), 'utf8');
+        return [...source.matchAll(/invoke(?:<[^>]+>)?\('([^']+)'/gu)].map((match) => match[1]);
+      })
+      .sort();
+
+    expect(registered).toEqual(invoked);
   });
 
   it('configures native desktop bundles without mobile or download-only installers', () => {

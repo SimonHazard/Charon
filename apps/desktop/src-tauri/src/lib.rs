@@ -35,15 +35,12 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             ipc::workspace::workspace_choose_directory,
+            ipc::workspace::workspace_choose_attachments,
             ipc::workspace::workspace_bootstrap,
             ipc::workspace::workspace_bootstrap_default,
-            ipc::workspace::workspace_create,
-            ipc::workspace::workspace_open,
             ipc::workspace::workspace_open_or_create,
             ipc::workspace::workspace_snapshot,
             ipc::workspace::workspace_execute,
-            ipc::workspace::workspace_close,
-            ipc::workspace::workspace_health,
             ipc::clipboard::clipboard_compose_and_write,
             ipc::capture::capture_capabilities,
             ipc::capture::capture_open,
