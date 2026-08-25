@@ -78,8 +78,8 @@ Planning-time facts from those sources:
 ## Current state
 
 - `.github/workflows/quality.yml` validates the desktop frontend/browser surface
-  and runs Rust format/Clippy on macOS, Linux, and Windows; Rust runtime tests run
-  on macOS/Linux only.
+  and runs the Linux Rust gate; `Portability` runs format, Clippy, and tests on
+  macOS and Windows (restored by Plan 022).
 - `.github/workflows/security.yml` runs `bun audit`, workflow policy, and privacy
   checks weekly/manually.
 - `.github/workflows/review-builds.yml:1-52` manually builds unsigned/ad-hoc

@@ -1,7 +1,9 @@
 import { readdir } from 'node:fs/promises';
 
 const directory = '.github/workflows';
-const files = (await readdir(directory)).filter((file) => file.endsWith('.yml'));
+const files = (await readdir(directory)).filter(
+  (file) => file.endsWith('.yml') || file.endsWith('.yaml'),
+);
 const failures: string[] = [];
 const sha = /^[0-9a-f]{40}$/u;
 
@@ -100,6 +102,38 @@ if (!files.includes(reviewWorkflowName)) {
   }
   if (/^ {2}(?:pull_request|push|schedule):/mu.test(reviewWorkflow)) {
     failures.push(`${reviewWorkflowName}: candidate builds must remain manual`);
+  }
+}
+
+const portabilityWorkflowName = 'portability.yml';
+if (!files.includes(portabilityWorkflowName)) {
+  failures.push(`${portabilityWorkflowName}: three-OS Rust workflow is missing`);
+} else {
+  const portabilityWorkflow = await Bun.file(`${directory}/${portabilityWorkflowName}`).text();
+  for (const fragment of [
+    'matrix:',
+    'os: [macos-15, windows-2025]',
+    'permissions:\n  contents: read',
+    'cancel-in-progress: true',
+    'timeout-minutes: 30',
+    'cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings',
+    'cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked',
+  ]) {
+    if (!portabilityWorkflow.includes(fragment)) {
+      failures.push(`${portabilityWorkflowName}: missing portability contract ${fragment}`);
+    }
+  }
+}
+
+const securityWorkflowName = 'security.yml';
+if (!files.includes(securityWorkflowName)) {
+  failures.push(`${securityWorkflowName}: scheduled security workflow is missing`);
+} else {
+  const securityWorkflow = await Bun.file(`${directory}/${securityWorkflowName}`).text();
+  for (const fragment of ['schedule:', 'permissions:\n  contents: read']) {
+    if (!securityWorkflow.includes(fragment)) {
+      failures.push(`${securityWorkflowName}: missing security contract ${fragment}`);
+    }
   }
 }
 

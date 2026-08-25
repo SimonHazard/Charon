@@ -7,6 +7,10 @@
 - Node.js 22.12 or newer for Astro tooling invoked by Bun
 - Tauri 2 platform prerequisites
 
+The exact macOS, Debian/Ubuntu, and Windows prerequisites are listed in the
+[README platform prerequisites](../README.md#develop), with a link to Tauri's
+upstream setup guide.
+
 ```sh
 bun --version
 node --version

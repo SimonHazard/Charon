@@ -61,6 +61,15 @@ runtime, client script, tracker, form, or API.
 Requirements: Bun `1.3.12`, Rust/Cargo, Node.js 22.12 or newer for Astro, and
 the platform prerequisites for Tauri 2.
 
+Platform prerequisites ([Tauri guide](https://v2.tauri.app/start/prerequisites/)):
+
+- macOS: Xcode Command Line Tools.
+- Debian/Ubuntu Linux: `libwebkit2gtk-4.1-dev`, `build-essential`, `curl`,
+  `wget`, `file`, `libxdo-dev`, `libssl-dev`,
+  `libayatana-appindicator3-dev`, and `librsvg2-dev`.
+- Windows: Microsoft C++ Build Tools with MSVC, the WebView2 Runtime
+  (preinstalled on Windows 11), and the Rust `x86_64-pc-windows-msvc` target.
+
 ```sh
 bun install --frozen-lockfile
 bun run tauri:dev
