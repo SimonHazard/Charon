@@ -57,7 +57,22 @@ impl From<ClipboardError> for ClipboardIpcError {
 }
 
 impl From<WorkspaceIpcError> for ClipboardIpcError {
-    fn from(_: WorkspaceIpcError) -> Self {
-        ClipboardError::WorkspaceUnavailable.into()
+    fn from(error: WorkspaceIpcError) -> Self {
+        match error.code.as_str() {
+            "stale_revision" => Self {
+                code: "stale_revision".to_owned(),
+                message_key: "workspace_error_stale_revision".to_owned(),
+            },
+            "not_found" => Self {
+                code: "not_found".to_owned(),
+                message_key: "workspace_error_not_found".to_owned(),
+            },
+            "validation" => Self {
+                code: "validation".to_owned(),
+                message_key: "clipboard_error_invalid_request".to_owned(),
+            },
+            "not_open" => ClipboardError::WorkspaceUnavailable.into(),
+            _ => ClipboardError::WorkspaceUnavailable.into(),
+        }
     }
 }

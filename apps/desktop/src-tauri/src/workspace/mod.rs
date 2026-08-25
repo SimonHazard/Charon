@@ -39,9 +39,17 @@ pub struct Workspace {
     manifest: PersistedManifest,
     bodies: HashMap<String, String>,
     health: WorkspaceHealth,
+    quarantined: HashSet<String>,
     watcher: Option<WorkspaceWatcher>,
     events: Vec<WorkspaceChangedEvent>,
-    cleanup_blocked: bool,
+    blocked_cleanup: Option<String>,
+}
+
+struct LoadedState {
+    manifest: PersistedManifest,
+    bodies: HashMap<String, String>,
+    health: WorkspaceHealth,
+    quarantined: HashSet<String>,
 }
 
 impl Workspace {
@@ -98,12 +106,9 @@ impl Workspace {
         &mut self,
         command: WorkspaceCommand,
     ) -> Result<WorkspaceCommandResult, WorkspaceError> {
+        self.retry_cleanup_if_needed()?;
         self.reconcile_external_changes()?;
-        if self.cleanup_blocked {
-            return Err(WorkspaceError::DeletionCleanupRequired {
-                transaction_id: "pending".to_owned(),
-            });
-        }
+        self.ensure_quarantine_allows(&command)?;
         let (applied, new_attachments) = match &command {
             WorkspaceCommand::ImportNoteAttachments {
                 expected_revision,
@@ -142,13 +147,19 @@ impl Workspace {
             Err(error @ WorkspaceError::DeletionCleanupRequired { .. }) => {
                 self.manifest = applied.manifest;
                 self.bodies = applied.bodies;
-                self.cleanup_blocked = true;
+                self.quarantined
+                    .retain(|id| self.manifest.notes.iter().any(|note| note.id == *id));
+                if let WorkspaceError::DeletionCleanupRequired { transaction_id } = &error {
+                    self.blocked_cleanup = Some(transaction_id.clone());
+                }
                 return Err(error);
             }
             Err(error) => return Err(error),
         };
         self.manifest = applied.manifest;
         self.bodies = applied.bodies;
+        self.quarantined
+            .retain(|id| self.manifest.notes.iter().any(|note| note.id == *id));
         self.health = self.scan_health();
         let snapshot = self
             .manifest
@@ -215,9 +226,10 @@ impl Workspace {
                 is_healthy: true,
                 issues: Vec::new(),
             },
+            quarantined: HashSet::new(),
             watcher: None,
             events: Vec::new(),
-            cleanup_blocked: false,
+            blocked_cleanup: None,
         })
     }
 
@@ -231,15 +243,21 @@ impl Workspace {
             2 => recover_incomplete(storage.as_ref())?,
             version => return Err(WorkspaceError::UnsupportedSchema(version)),
         }
-        let (manifest, bodies, health) = load_state(storage.as_ref())?;
+        let LoadedState {
+            manifest,
+            bodies,
+            health,
+            quarantined,
+        } = load_state(storage.as_ref())?;
         Ok(Self {
             storage,
             manifest,
             bodies,
             health,
+            quarantined,
             watcher: None,
             events: Vec::new(),
-            cleanup_blocked: false,
+            blocked_cleanup: None,
         })
     }
 
@@ -256,15 +274,21 @@ impl Workspace {
             2 => recover_incomplete(storage.as_ref())?,
             version => return Err(WorkspaceError::UnsupportedSchema(version)),
         }
-        let (manifest, bodies, health) = load_state(storage.as_ref())?;
+        let LoadedState {
+            manifest,
+            bodies,
+            health,
+            quarantined,
+        } = load_state(storage.as_ref())?;
         Ok(Self {
             storage,
             manifest,
             bodies,
             health,
+            quarantined,
             watcher: None,
             events: Vec::new(),
-            cleanup_blocked: false,
+            blocked_cleanup: None,
         })
     }
 
@@ -285,9 +309,20 @@ impl Workspace {
 
         if relative_paths.contains("charon.workspace.json") {
             match load_state(self.storage.as_ref()) {
-                Ok((mut manifest, bodies, health)) => {
+                Ok(LoadedState {
+                    mut manifest,
+                    bodies,
+                    health,
+                    quarantined,
+                }) => {
+                    if !quarantined.is_empty() {
+                        self.health = health;
+                        self.quarantined = quarantined;
+                        return Ok(());
+                    }
                     if manifest == self.manifest && bodies == self.bodies {
                         self.health = health;
+                        self.quarantined.clear();
                         return Ok(());
                     }
                     manifest.revision = self.manifest.revision.checked_add(1).ok_or_else(|| {
@@ -304,6 +339,7 @@ impl Workspace {
                     self.manifest = manifest;
                     self.bodies = bodies;
                     self.health = health;
+                    self.quarantined.clear();
                     self.push_external_event()?;
                 }
                 Err(_) => self.set_health_issue(WorkspaceHealthIssue {
@@ -381,6 +417,14 @@ impl Workspace {
             self.set_health_issue(issue);
             return Ok(());
         }
+        for id in &changed_ids {
+            self.quarantined.remove(id);
+        }
+        if !self.quarantined.is_empty() {
+            self.bodies = next_bodies;
+            self.health = self.scan_health();
+            return Ok(());
+        }
         if changed_ids.is_empty() {
             return Ok(());
         }
@@ -424,7 +468,7 @@ impl Workspace {
 
     fn scan_health(&self) -> WorkspaceHealth {
         load_state(self.storage.as_ref())
-            .map(|(_, _, health)| health)
+            .map(|state| state.health)
             .unwrap_or_else(|_| WorkspaceHealth {
                 is_healthy: false,
                 issues: vec![WorkspaceHealthIssue {
@@ -444,16 +488,42 @@ impl Workspace {
     }
 
     fn retry_cleanup_if_needed(&mut self) -> Result<(), WorkspaceError> {
-        if !self.cleanup_blocked {
+        let Some(transaction_id) = self.blocked_cleanup.clone() else {
             return Ok(());
+        };
+        if recover_incomplete(self.storage.as_ref()).is_err() {
+            return Err(WorkspaceError::DeletionCleanupRequired { transaction_id });
         }
-        recover_incomplete(self.storage.as_ref())?;
-        let (manifest, bodies, health) = load_state(self.storage.as_ref())?;
+        let LoadedState {
+            manifest,
+            bodies,
+            health,
+            quarantined,
+        } = load_state(self.storage.as_ref()).map_err(|_| {
+            WorkspaceError::DeletionCleanupRequired {
+                transaction_id: transaction_id.clone(),
+            }
+        })?;
         self.manifest = manifest;
         self.bodies = bodies;
         self.health = health;
-        self.cleanup_blocked = false;
+        self.quarantined = quarantined;
+        self.blocked_cleanup = None;
         Ok(())
+    }
+
+    fn ensure_quarantine_allows(&self, command: &WorkspaceCommand) -> Result<(), WorkspaceError> {
+        if self.quarantined.is_empty() {
+            return Ok(());
+        }
+        if let WorkspaceCommand::DeleteNote { note_id, .. } = command {
+            if self.quarantined.len() == 1 && self.quarantined.contains(note_id) {
+                return Ok(());
+            }
+        }
+        Err(WorkspaceError::Validation(
+            "note body is unavailable".to_owned(),
+        ))
     }
 
     fn prepare_attachment_import(
@@ -572,21 +642,46 @@ impl Drop for Workspace {
     }
 }
 
-fn load_state(
-    storage: &dyn WorkspaceStorage,
-) -> Result<(PersistedManifest, HashMap<String, String>, WorkspaceHealth), WorkspaceError> {
+fn load_state(storage: &dyn WorkspaceStorage) -> Result<LoadedState, WorkspaceError> {
     let manifest = read_manifest(storage)?;
     let mut bodies = HashMap::with_capacity(manifest.notes.len());
+    let mut issues = Vec::new();
+    let mut quarantined = HashSet::new();
     for note in &manifest.notes {
         let path = format!("notes/{}.md", note.id);
-        let bytes = storage.read(&path)?;
-        if bytes.len() > MAX_NOTE_BYTES {
-            return Err(WorkspaceError::Validation(
-                "note body exceeds the v1 limit".to_owned(),
-            ));
-        }
-        let body = String::from_utf8(bytes)
-            .map_err(|_| WorkspaceError::Validation("note body must be UTF-8".to_owned()))?;
+        let body = match storage.read(&path) {
+            Ok(bytes) if bytes.len() <= MAX_NOTE_BYTES => match String::from_utf8(bytes) {
+                Ok(body) if validate_body(&body).is_ok() => body,
+                Ok(_) | Err(_) => {
+                    issues.push(note_health_issue(
+                        WorkspaceHealthIssueKind::InvalidNote,
+                        &note.id,
+                        "workspace_health_invalid_note",
+                    ));
+                    quarantined.insert(note.id.clone());
+                    String::new()
+                }
+            },
+            Ok(_) | Err(WorkspaceError::InvalidPath) => {
+                issues.push(note_health_issue(
+                    WorkspaceHealthIssueKind::InvalidNote,
+                    &note.id,
+                    "workspace_health_invalid_note",
+                ));
+                quarantined.insert(note.id.clone());
+                String::new()
+            }
+            Err(WorkspaceError::Io(error)) if error.kind() == std::io::ErrorKind::NotFound => {
+                issues.push(note_health_issue(
+                    WorkspaceHealthIssueKind::MissingNote,
+                    &note.id,
+                    "workspace_health_missing_note",
+                ));
+                quarantined.insert(note.id.clone());
+                String::new()
+            }
+            Err(error) => return Err(error),
+        };
         bodies.insert(note.id.clone(), body);
     }
     manifest.validate(&bodies)?;
@@ -601,19 +696,18 @@ fn load_state(
         .into_iter()
         .filter(|name| name.ends_with(".md") && !known.contains(name))
         .count();
-    let mut issues = if import_candidates == 0 {
-        Vec::new()
-    } else {
-        vec![WorkspaceHealthIssue {
+    if import_candidates != 0 {
+        issues.push(WorkspaceHealthIssue {
             kind: ImportCandidate,
             resource_id: None,
             message_key: "workspace_health_import_candidate".to_owned(),
-        }]
-    };
+        });
+    }
     for note in &manifest.notes {
         for attachment in &note.attachments {
-            if !storage.exists(&attachment.relative_path)?
-                || storage.read(&attachment.relative_path).is_err()
+            if storage
+                .canonical_managed_path(&attachment.relative_path)
+                .is_err()
             {
                 issues.push(WorkspaceHealthIssue {
                     kind: WorkspaceHealthIssueKind::MissingAttachment,
@@ -623,14 +717,27 @@ fn load_state(
             }
         }
     }
-    Ok((
+    Ok(LoadedState {
         manifest,
         bodies,
-        WorkspaceHealth {
+        health: WorkspaceHealth {
             is_healthy: issues.is_empty(),
             issues,
         },
-    ))
+        quarantined,
+    })
+}
+
+fn note_health_issue(
+    kind: WorkspaceHealthIssueKind,
+    note_id: &str,
+    message_key: &str,
+) -> WorkspaceHealthIssue {
+    WorkspaceHealthIssue {
+        kind,
+        resource_id: Some(note_id.to_owned()),
+        message_key: message_key.to_owned(),
+    }
 }
 
 #[cfg(test)]

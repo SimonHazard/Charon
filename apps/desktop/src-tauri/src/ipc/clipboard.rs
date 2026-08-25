@@ -58,3 +58,60 @@ fn resolve_request(
         attachments,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_request;
+    use crate::clipboard::{ClipboardIpcError, ComposeRequest};
+    use crate::workspace::{Workspace, WorkspaceCommand, WorkspaceIpcError};
+
+    fn resolve_error(workspace: &mut Workspace, request: ComposeRequest) -> ClipboardIpcError {
+        let error = resolve_request(workspace, &request).expect_err("clipboard request error");
+        ClipboardIpcError::from(WorkspaceIpcError::from(error))
+    }
+
+    #[test]
+    fn clipboard_request_preserves_workspace_error_codes() {
+        let mut workspace = Workspace::in_memory().expect("Workspace");
+        let created = workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "note".to_owned(),
+            })
+            .expect("create Note");
+
+        assert_eq!(
+            resolve_error(
+                &mut workspace,
+                ComposeRequest {
+                    expected_revision: 0,
+                    note_id: created.snapshot.notes[0].id.clone(),
+                },
+            )
+            .code,
+            "stale_revision"
+        );
+        assert_eq!(
+            resolve_error(
+                &mut workspace,
+                ComposeRequest {
+                    expected_revision: created.snapshot.revision,
+                    note_id: String::new(),
+                },
+            )
+            .code,
+            "validation"
+        );
+        assert_eq!(
+            resolve_error(
+                &mut workspace,
+                ComposeRequest {
+                    expected_revision: created.snapshot.revision,
+                    note_id: "54ab01eb-ee1c-4c62-999e-147d9c0c8dab".to_owned(),
+                },
+            )
+            .code,
+            "not_found"
+        );
+    }
+}
