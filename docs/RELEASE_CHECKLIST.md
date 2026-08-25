@@ -17,7 +17,7 @@ not a pass.
 | Unsigned macOS first-launch bypass performed as a user, install and restart | Release operator |  |  | Pending |
 | Installed bytes match the published SHA-256 for every artifact | Release operator |  |  | Pending |
 | Input Monitoring and Accessibility regrant after the version change, then capture works | Release operator |  |  | Pending |
-| Linux standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
-| Windows SmartScreen bypass, standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
+| Install the Linux review artifact, launch, create/open a Workspace, then test the standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
+| Install the Windows review artifact, clear SmartScreen, launch, create/open a Workspace, then test the standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
 | Release notes state the first-launch bypass, SmartScreen warning and permission regrant | Release operator |  |  | Pending |
 | Site EN/FR, three themes, no-JS, media and link review | Web reviewer |  |  | Pending |
