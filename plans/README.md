@@ -91,7 +91,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 020 | Remove Note Selection | AWAITING OPERATOR: Playwright sandbox approval, native Attachment picker, and packaged motion feel |
 | 021 | Make Workspace and preferences persistence portable to Windows and Linux | DONE |
 | 022 | Restore an automatic three-OS Rust verification gate | AWAITING OPERATOR: first Portability run deferred until final CI pass |
-| 023 | Make the desktop shelf honest and functional on every platform | TODO |
+| 023 | Make the desktop shelf honest and functional on every platform | AWAITING OPERATOR: physical macOS drag-strip check |
 | 024 | Configure Linux and Windows bundles | TODO |
 | 025 | Open unhealthy Workspaces with reported issues; guard the legacy archive; pass Copy errors | TODO |
 | 026 | Keep the composer focused, never lose a draft, report failed saves | TODO |

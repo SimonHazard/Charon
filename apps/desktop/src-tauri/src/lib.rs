@@ -15,7 +15,13 @@ pub fn run() {
     tauri::Builder::default()
         .manage(ipc::workspace::WorkspaceRuntime::default())
         .manage(ipc::capture::CaptureRuntime::default())
-        .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()

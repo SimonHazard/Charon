@@ -12,6 +12,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { PreferencesPanel } from '@/features/preferences/preferences-panel';
 import { usePressFeedback } from '@/motion/press';
 
@@ -21,7 +22,10 @@ export function WindowDragRegion() {
 
 export function ShelfActions() {
   const m = useMessages();
+  const { capabilities } = useNativePreferences();
   const helpPress = usePressFeedback();
+  const isMacos =
+    capabilities?.platform === 'macos' || (!capabilities && navigator.platform.startsWith('Mac'));
   return (
     <div className="shelf-actions">
       <Popover>
@@ -50,12 +54,20 @@ export function ShelfActions() {
           <PopoverHeader>
             <PopoverTitle>{m.capture_help_title()}</PopoverTitle>
             <PopoverDescription className="help-shortcut-list">
+              {capabilities?.doubleShift === 'available' || capabilities?.platform === 'macos' ? (
+                <span className="help-shortcut-row">
+                  <kbd>{m.capture_help_double_shift_keys()}</kbd>
+                  <span>{m.capture_help_double_shift_description()}</span>
+                </span>
+              ) : (
+                <span className="help-shortcut-row">
+                  <span>{m.preferences_platform_fallback()}</span>
+                </span>
+              )}
               <span className="help-shortcut-row">
-                <kbd>{m.capture_help_double_shift_keys()}</kbd>
-                <span>{m.capture_help_double_shift_description()}</span>
-              </span>
-              <span className="help-shortcut-row">
-                <kbd>{m.capture_help_composer_keys()}</kbd>
+                <kbd>
+                  {isMacos ? m.preferences_shortcut_macos() : m.preferences_shortcut_other()}
+                </kbd>
                 <span>{m.capture_help_composer_description()}</span>
               </span>
             </PopoverDescription>

@@ -258,6 +258,9 @@ recovery behavior.
   invoked on every platform; global operating-system delivery remains evidence-
   gated.
 
+Displayed shortcut glyphs resolve from `capabilities.platform`: Charon shows
+`⌘` on macOS and `Ctrl` elsewhere.
+
 Normal text editing shortcuts always win inside editable content. Commands are
 reachable without a pointer. Removed or filtered rows move focus to the nearest
 surviving Note or the composer.
