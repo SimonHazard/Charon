@@ -20,4 +20,5 @@ not a pass.
 | Install the Linux review artifact, launch, create/open a Workspace, then test the standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
 | Install the Windows review artifact, clear SmartScreen, launch, create/open a Workspace, then test the standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
 | Release notes state the first-launch bypass, SmartScreen warning and permission regrant | Release operator |  |  | Pending |
-| Site EN/FR, three themes, no-JS, media and link review | Web reviewer |  |  | Pending |
+| Site EN/FR, no-JS, media and link review | Web reviewer |  |  | Pending |
+| Desktop Light/Graphite review | Design reviewer |  |  | Pending |

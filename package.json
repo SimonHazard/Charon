@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "packageManager": "bun@1.3.12",
+  "engines": {
+    "node": ">=22.22.2"
+  },
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -29,12 +32,18 @@
     "check": "bun run lint && bun run typecheck && bun run test",
     "bindings:generate": "bun scripts/check-bindings.ts --write",
     "bindings:check": "bun scripts/check-bindings.ts",
+    "ipc:check": "bun scripts/check-ipc-commands.ts",
     "tauri:dev": "bun run --cwd apps/desktop tauri:dev",
     "tauri:build": "bun run --cwd apps/desktop tauri:build",
-    "verify:release": "bun run bindings:check && bun run lint && bun run typecheck && bun run test && bun run build && bun run test:e2e && bun run check:privacy && bun run test:perf && bun run check:workflows && cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked"
+    "verify:release": "bun run bindings:check && bun run ipc:check && bun run lint && bun run typecheck && bun run test && bun run build && bun run test:e2e && bun run check:privacy && bun run test:perf && bun run check:workflows && cargo fmt --manifest-path apps/desktop/src-tauri/Cargo.toml --check && cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings && cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.6",
     "typescript": "7.0.2"
+  },
+  "overrides": {
+    "fast-uri": "3.1.5",
+    "js-yaml": "4.3.1",
+    "nanoid": "3.3.18"
   }
 }

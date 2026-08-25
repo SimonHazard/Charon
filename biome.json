@@ -1,5 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "includes": [
       "**",
@@ -8,7 +13,7 @@
       "!**/playwright-report",
       "!**/target",
       "!**/test-results",
-      "!apps/desktop/src/routeTree.gen.ts",
+      "!**/.claude",
       "!apps/desktop/src/paraglide",
       "!apps/desktop/project.inlang/cache",
       "!apps/desktop/project.inlang/.meta.json",

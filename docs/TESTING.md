@@ -6,6 +6,7 @@ Run routine source checks with:
 
 ```sh
 bun run check
+bun run build
 bun run test:e2e
 bun run check:privacy
 bun run test:perf
@@ -17,6 +18,9 @@ generated Rust-to-TypeScript bindings, formatting, lint, type safety, desktop
 and site suites, static builds, Chromium and WebKit journeys, privacy
 sentinels, performance budgets, workflow policy, Rust formatting, Clippy, and
 Rust tests.
+
+`bun run test:a11y` is a local convenience for running only the Axe-clean
+Playwright journeys while iterating on accessibility changes.
 
 CI additionally runs that Rust formatting, Clippy, and test suite on macOS and
 Windows through `Portability`; the routine `Quality` workflow supplies the Linux
@@ -54,15 +58,11 @@ The current browser matrix covers:
 - the localized media-free static site, absent legacy routes, exact icon
   checksums, canonical metadata, footer links, and no third-party request.
 
-Performance gates cap desktop JavaScript at 230 KiB gzip and exercise the
-shipped `filterNotes` index over 20,000 Notes with a multi-token query: the
-cold scan of body, Tags, and Attachment names stays below 50 ms (measured
-43.5 ms) and a warm snapshot — reconciliation plus filter plus Tag list — stays
-below 20 ms (measured 10.1 ms), so an autosave never re-normalizes the corpus.
-They also assert fewer than 150 rendered virtual rows. Load the same scale in
-the browser with `?fixture=demo&notes=20000` against `bun run --cwd apps/desktop
-dev`. Public pages reserve image dimensions and target LCP below 2.5 seconds,
-INP below 200 ms, and CLS below 0.1.
+`bun run test:perf` enforces the desktop JavaScript gzip cap and cold-search and
+warm-snapshot median budgets over 20,000 Notes using the shipped Note index. The
+desktop unit suite enforces fewer than 150 rendered virtual rows in
+`note-list.test.tsx`. LCP below 2.5 seconds, INP below 200 milliseconds, and CLS
+below 0.1 remain design targets, not automated gates.
 
 ## Native acceptance
 

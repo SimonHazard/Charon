@@ -114,7 +114,7 @@ Use the vocabulary exactly:
 - Use Bun only for JavaScript/TypeScript and Cargo for Rust. Prefer root scripts.
 - Pin dependencies exactly. Manifests and generated lockfiles are authoritative.
 - Never hand-edit `bun.lock`, `Cargo.lock`, Paraglide output, `ts-rs` bindings,
-  generated routes, build artifacts, or coverage output.
+  build artifacts, or coverage output.
 - Keep `apps/desktop/src-tauri/target` small: it passes 10 GB within a few
   Tauri builds, `debug/` holding the bulk. Delete `target/debug` once a debug
   session ends, and clear the whole `target/` when no build, test, or app run
