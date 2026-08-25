@@ -31,4 +31,13 @@ describe('desktop window contract', () => {
       '.plugin(tauri_plugin_window_state::Builder::default().build())',
     );
   });
+
+  it('configures native desktop bundles without mobile or download-only installers', () => {
+    expect(tauriConfig.bundle.targets).toEqual(
+      expect.arrayContaining(['app', 'deb', 'appimage', 'nsis', 'msi']),
+    );
+    expect(tauriConfig.bundle.windows.webviewInstallMode.type).not.toBe('downloadBootstrapper');
+    expect(tauriConfig.bundle.linux.deb.depends).toContain('libwebkit2gtk-4.1-0');
+    expect(tauriConfig.bundle.android).toBeUndefined();
+  });
 });

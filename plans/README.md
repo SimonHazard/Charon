@@ -92,7 +92,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 021 | Make Workspace and preferences persistence portable to Windows and Linux | DONE |
 | 022 | Restore an automatic three-OS Rust verification gate | AWAITING OPERATOR: first Portability run deferred until final CI pass |
 | 023 | Make the desktop shelf honest and functional on every platform | AWAITING OPERATOR: physical macOS drag-strip check |
-| 024 | Configure Linux and Windows bundles | TODO |
+| 024 | Configure Linux and Windows bundles | AWAITING OPERATOR: Linux/Windows install checks and review-builds run deferred until final pass |
 | 025 | Open unhealthy Workspaces with reported issues; guard the legacy archive; pass Copy errors | TODO |
 | 026 | Keep the composer focused, never lose a draft, report failed saves | TODO |
 | 027 | Harden the webview, IPC, site, and CI boundaries | TODO after 023 |

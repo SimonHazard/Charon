@@ -10,7 +10,6 @@ pub fn application_health() -> &'static str {
     "ok"
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .manage(ipc::workspace::WorkspaceRuntime::default())

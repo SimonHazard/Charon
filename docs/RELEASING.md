@@ -41,6 +41,14 @@ release evidence. The secret-free manual review workflow remains the place to
 produce short-lived macOS, Linux, and Windows artifacts when an exact candidate
 is actually needed.
 
+On each supported build host, `bun run tauri:build` now produces the native
+unsigned review installers selected by `tauri.conf.json`: `.app` and `.dmg` on
+macOS, `.deb`, AppImage, and `.rpm` on Linux, and NSIS plus MSI on Windows. The
+Windows installers embed the small WebView2 bootstrapper, so installation works
+offline when the WebView2 runtime is already present, as it is by default on
+Windows 11. These artifacts carry no signed-publisher, trusted, verified, or
+notarized claim.
+
 The separate `Portability` workflow runs Rust formatting, Clippy, and tests on
 macOS and Windows whenever `src-tauri` changes; `Quality` runs the same Rust
 gate on Linux. These compile-and-test results do not constitute physical or
@@ -112,9 +120,9 @@ performs steps 7 and 8.
    confirm the two manifests by hand when releasing locally.
 2. Run `bun run verify:release` twice from clean processes. Complete every
    applicable row in `docs/RELEASE_CHECKLIST.md`.
-3. Build the exact candidate. `bundle.targets` is `["app"]`, so pass the DMG
-   target explicitly:
-   `bun run --cwd apps/desktop tauri build --bundles app,dmg`.
+3. Build the exact candidate with `bun run tauri:build`; the checked-in
+   `bundle.targets` selects the platform-native unsigned installers for the
+   current host.
 4. Record the SHA-256 of every artifact that will be published, as
    `SHA256SUMS.txt`, plus the checksum of the executable inside the app bundle
    for the support ledger. These are the release's only integrity evidence,
