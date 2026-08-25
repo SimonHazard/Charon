@@ -58,8 +58,8 @@ runtime, client script, tracker, form, or API.
 
 ## Develop
 
-Requirements: Bun `1.3.12`, Rust/Cargo, Node.js 22.12 or newer for Astro, and
-the platform prerequisites for Tauri 2.
+Requirements: Bun `1.3.12`, Rust/Cargo, Node.js 22.22.2 or newer for Astro,
+Vite, and jsdom, and the platform prerequisites for Tauri 2.
 
 Platform prerequisites ([Tauri guide](https://v2.tauri.app/start/prerequisites/)):
 
@@ -89,6 +89,7 @@ shortcuts, clipboard behavior, file pickers, or window lifecycle.
 
 ```sh
 bun run check
+bun run build
 bun run test:e2e
 bun run check:privacy
 bun run test:perf

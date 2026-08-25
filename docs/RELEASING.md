@@ -66,6 +66,9 @@ non-deterministic.
 
 Resolved from official repositories on 2026-08-09. Each workflow uses the
 40-character commit, with the reviewed release tag retained as a comment.
+Dependabot proposes updates to this SHA ledger in grouped GitHub Actions pull
+requests; each immutable revision and retained release tag is reviewed before
+merge.
 
 | Repository | Reviewed release | Commit | Purpose |
 |---|---|---|---|

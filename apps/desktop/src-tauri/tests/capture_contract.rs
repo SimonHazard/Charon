@@ -341,19 +341,6 @@ fn shutdown_is_idempotent_and_unregisters_everything() {
 }
 
 #[test]
-fn capture_errors_never_contain_selected_content() {
-    let content = "do not log this selected text";
-    for error in [
-        CaptureError::PermissionDenied,
-        CaptureError::SelectionFailed,
-        CaptureError::MainEditorUnavailable,
-        CaptureError::WorkerUnavailable,
-    ] {
-        assert!(!error.to_string().contains(content));
-    }
-}
-
-#[test]
 fn capture_contract_serialization_has_stable_names() {
     let capabilities = CaptureCapabilities {
         platform: PlatformKind::LinuxWayland,

@@ -135,7 +135,13 @@ if (!files.includes(securityWorkflowName)) {
   failures.push(`${securityWorkflowName}: scheduled security workflow is missing`);
 } else {
   const securityWorkflow = await Bun.file(`${directory}/${securityWorkflowName}`).text();
-  for (const fragment of ['schedule:', 'permissions:\n  contents: read']) {
+  for (const fragment of [
+    'schedule:',
+    'permissions:\n  contents: read',
+    'timeout-minutes: 15',
+    'bun run build',
+    'cargo audit --file apps/desktop/src-tauri/Cargo.lock',
+  ]) {
     if (!securityWorkflow.includes(fragment)) {
       failures.push(`${securityWorkflowName}: missing security contract ${fragment}`);
     }

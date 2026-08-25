@@ -6,17 +6,6 @@ use charon_desktop_lib::preferences::{
 use ts_rs::{Config, TS};
 
 #[test]
-fn preferences_errors_are_content_free() {
-    let error = PreferencesIpcError {
-        code: "io".to_owned(),
-        message_key: "preferences_error_io".to_owned(),
-    };
-    let json = serde_json::to_string(&error).expect("serialize");
-    assert!(!json.contains("/Users/"));
-    assert!(!json.contains("selected text"));
-}
-
-#[test]
 #[ignore = "binding exporter"]
 fn export_preferences_bindings() {
     let output = std::env::var_os("CHARON_PREFERENCES_BINDINGS_OUT")

@@ -4,7 +4,7 @@
 
 - Bun `1.3.12`
 - Rust stable with Cargo
-- Node.js 22.12 or newer for Astro tooling invoked by Bun
+- Node.js 22.22.2 or newer for Astro, Vite, and jsdom tooling invoked by Bun
 - Tauri 2 platform prerequisites
 
 The exact macOS, Debian/Ubuntu, and Windows prerequisites are listed in the
@@ -44,6 +44,7 @@ media.
 
 ```sh
 bun run check
+bun run build
 bun run test:e2e
 bun run check:privacy
 bun run test:perf
