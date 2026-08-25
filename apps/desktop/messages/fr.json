@@ -56,6 +56,7 @@
   "note_editor_saving": "Enregistrement…",
   "note_editor_dirty": "Non enregistré",
   "note_editor_saved": "Enregistré",
+  "note_editor_save_failed": "Non enregistré",
   "note_editor_save": "Enregistrer maintenant",
   "note_editor_save_error": "La note n’a pas été enregistrée. Votre brouillon est conservé ; réessayez après avoir résolu le problème de l’espace de travail.",
   "copy_as_markdown": "Copier en Markdown",

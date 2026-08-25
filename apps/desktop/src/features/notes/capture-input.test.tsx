@@ -18,6 +18,7 @@ describe('flat capture input', () => {
     await user.type(input, '  a thought  {Enter}');
     await waitFor(() => expect(onCreate).toHaveBeenCalledWith('a thought'));
     expect((input as HTMLInputElement).value).toBe('');
+    expect(document.activeElement).toBe(input);
     await user.type(input, '   {Enter}');
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
@@ -37,8 +38,10 @@ describe('flat capture input', () => {
     await user.type(input, 'keep me{Enter}');
     expect(await screen.findByText(/text is preserved/i)).toBeTruthy();
     expect((input as HTMLInputElement).value).toBe('keep me');
-    await user.type(input, '{Enter}');
+    expect(document.activeElement).toBe(input);
+    await user.keyboard('{Enter}');
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(2));
     expect((input as HTMLInputElement).value).toBe('');
+    expect(document.activeElement).toBe(input);
   });
 });
