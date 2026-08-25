@@ -89,7 +89,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 017 | Align all workflows inside the compact shelf | REJECTED: presentation replaced by ADR 0012 and Plan 019 |
 | 019 | Simplify the unified Note shelf | REJECTED: Selection interaction replaced by ADR 0013 and Plan 020 |
 | 020 | Remove Note Selection | AWAITING OPERATOR: Playwright sandbox approval, native Attachment picker, and packaged motion feel |
-| 021 | Make Workspace and preferences persistence portable to Windows and Linux | TODO |
+| 021 | Make Workspace and preferences persistence portable to Windows and Linux | DONE |
 | 022 | Restore an automatic three-OS Rust verification gate | TODO after 021 |
 | 023 | Make the desktop shelf honest and functional on every platform | TODO |
 | 024 | Configure Linux and Windows bundles | TODO |

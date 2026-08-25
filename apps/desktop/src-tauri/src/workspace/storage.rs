@@ -82,7 +82,7 @@ impl RealWorkspaceStorage {
             return Err(WorkspaceError::InvalidPath);
         }
         fs::create_dir_all(root)?;
-        let root = fs::canonicalize(root).map_err(|_| WorkspaceError::InvalidPath)?;
+        let root = simplify_canonical(root).map_err(|_| WorkspaceError::InvalidPath)?;
         if !root.is_dir() {
             return Err(WorkspaceError::InvalidPath);
         }
@@ -90,7 +90,7 @@ impl RealWorkspaceStorage {
     }
 
     pub(crate) fn open(root: &Path) -> Result<Self, WorkspaceError> {
-        let root = fs::canonicalize(root).map_err(|_| WorkspaceError::InvalidPath)?;
+        let root = simplify_canonical(root).map_err(|_| WorkspaceError::InvalidPath)?;
         if !root.is_dir() {
             return Err(WorkspaceError::InvalidPath);
         }
@@ -99,7 +99,7 @@ impl RealWorkspaceStorage {
 
     fn resolve(&self, relative: &str, allow_missing_leaf: bool) -> Result<PathBuf, WorkspaceError> {
         validate_relative(relative)?;
-        let candidate = self.root.join(relative);
+        let candidate = join_relative(&self.root, relative);
         let mut cursor = self.root.clone();
         for component in Path::new(relative).components() {
             cursor.push(component.as_os_str());
@@ -108,7 +108,7 @@ impl RealWorkspaceStorage {
                     if metadata.file_type().is_symlink() {
                         return Err(WorkspaceError::InvalidPath);
                     }
-                    let canonical = fs::canonicalize(&cursor)?;
+                    let canonical = simplify_canonical(&cursor)?;
                     if !canonical.starts_with(&self.root) {
                         return Err(WorkspaceError::InvalidPath);
                     }
@@ -122,7 +122,7 @@ impl RealWorkspaceStorage {
             if metadata.file_type().is_symlink() {
                 return Err(WorkspaceError::InvalidPath);
             }
-            let canonical = fs::canonicalize(&candidate)?;
+            let canonical = simplify_canonical(&candidate)?;
             if !canonical.starts_with(&self.root) {
                 return Err(WorkspaceError::InvalidPath);
             }
@@ -132,13 +132,17 @@ impl RealWorkspaceStorage {
             return Ok(candidate);
         }
 
-        let parent = candidate.parent().ok_or(WorkspaceError::InvalidPath)?;
-        let canonical_parent = fs::canonicalize(parent).map_err(|_| WorkspaceError::InvalidPath)?;
+        let (parent, leaf) = split_relative_leaf(relative)?;
+        let parent_path = parent.map_or_else(
+            || self.root.clone(),
+            |parent| join_relative(&self.root, parent),
+        );
+        let canonical_parent =
+            simplify_canonical(&parent_path).map_err(|_| WorkspaceError::InvalidPath)?;
         if !canonical_parent.starts_with(&self.root) {
             return Err(WorkspaceError::InvalidPath);
         }
-        let file_name = candidate.file_name().ok_or(WorkspaceError::InvalidPath)?;
-        Ok(canonical_parent.join(file_name))
+        Ok(canonical_parent.join(leaf))
     }
 }
 
@@ -164,7 +168,7 @@ impl WorkspaceStorage for RealWorkspaceStorage {
                 fs::create_dir(&cursor)?;
             }
         }
-        let canonical = fs::canonicalize(&cursor)?;
+        let canonical = simplify_canonical(&cursor)?;
         if !canonical.starts_with(&self.root) {
             return Err(WorkspaceError::InvalidPath);
         }
@@ -234,7 +238,7 @@ impl WorkspaceStorage for RealWorkspaceStorage {
 
     fn exists(&self, relative: &str) -> Result<bool, WorkspaceError> {
         validate_relative(relative)?;
-        let candidate = self.root.join(relative);
+        let candidate = join_relative(&self.root, relative);
         if !candidate.exists() {
             return Ok(false);
         }
@@ -282,7 +286,7 @@ impl WorkspaceStorage for RealWorkspaceStorage {
         if symlink.file_type().is_symlink() || !symlink.is_file() {
             return Err(WorkspaceError::InvalidPath);
         }
-        let canonical = fs::canonicalize(source)?;
+        let canonical = simplify_canonical(source)?;
         if canonical.starts_with(&self.root) {
             return Err(WorkspaceError::InvalidPath);
         }
@@ -328,7 +332,7 @@ impl WorkspaceStorage for RealWorkspaceStorage {
         if metadata.file_type().is_symlink() || !metadata.is_file() {
             return Err(WorkspaceError::InvalidPath);
         }
-        let canonical = fs::canonicalize(path)?;
+        let canonical = simplify_canonical(&path)?;
         if !canonical.starts_with(&self.root) {
             return Err(WorkspaceError::InvalidPath);
         }
@@ -465,10 +469,13 @@ impl WorkspaceStorage for MemoryWorkspaceStorage {
     fn create_dir_all(&self, relative: &str) -> Result<(), WorkspaceError> {
         validate_relative(relative)?;
         let mut state = self.inner.lock().expect("memory storage lock");
-        let mut cursor = PathBuf::new();
-        for component in Path::new(relative).components() {
-            cursor.push(component.as_os_str());
-            state.directories.insert(path_string(&cursor)?);
+        let mut cursor = String::new();
+        for part in relative.split('/').filter(|part| !part.is_empty()) {
+            if !cursor.is_empty() {
+                cursor.push('/');
+            }
+            cursor.push_str(part);
+            state.directories.insert(cursor.clone());
         }
         Ok(())
     }
@@ -486,13 +493,9 @@ impl WorkspaceStorage for MemoryWorkspaceStorage {
 
     fn write_synced(&self, relative: &str, contents: &[u8]) -> Result<(), WorkspaceError> {
         validate_relative(relative)?;
-        let parent = Path::new(relative)
-            .parent()
-            .map(path_string)
-            .transpose()?
-            .unwrap_or_default();
+        let parent = split_relative_leaf(relative)?.0.unwrap_or_default();
         let mut state = self.inner.lock().expect("memory storage lock");
-        if !state.directories.contains(&parent) {
+        if !state.directories.contains(parent) {
             return Err(WorkspaceError::Io(std::io::Error::from(
                 std::io::ErrorKind::NotFound,
             )));
@@ -628,6 +631,26 @@ fn safe_extension(file_name: &str) -> Option<String> {
     .then(|| extension.to_ascii_lowercase())
 }
 
+/// Strips the Windows verbatim prefix (`\\?\` or `\\?\UNC\`) from a path
+/// string. Compiled and unit-tested on every platform (pure string logic);
+/// a no-op for paths without the prefix.
+pub(crate) fn strip_verbatim_prefix(path: &Path) -> PathBuf {
+    let text = path.to_string_lossy();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    if let Some(rest) = text.strip_prefix(r"\\?\") {
+        return PathBuf::from(rest);
+    }
+    path.to_path_buf()
+}
+
+/// Canonicalizes, then applies `strip_verbatim_prefix`, so results can be
+/// joined with `/`-relative paths and shown to users on every platform.
+pub(crate) fn simplify_canonical(path: &Path) -> std::io::Result<PathBuf> {
+    fs::canonicalize(path).map(|canonical| strip_verbatim_prefix(&canonical))
+}
+
 fn validate_relative(relative: &str) -> Result<(), WorkspaceError> {
     if relative.is_empty() {
         return Ok(());
@@ -643,15 +666,47 @@ fn validate_relative(relative: &str) -> Result<(), WorkspaceError> {
     Ok(())
 }
 
-fn path_string(path: &Path) -> Result<String, WorkspaceError> {
-    path.to_str()
-        .map(str::to_owned)
-        .ok_or(WorkspaceError::InvalidPath)
+fn join_relative(root: &Path, relative: &str) -> PathBuf {
+    let mut path = root.to_path_buf();
+    for part in relative.split('/').filter(|part| !part.is_empty()) {
+        path.push(part);
+    }
+    path
+}
+
+/// Splits a validated `/`-relative path into (parent, leaf).
+/// `"notes/a.md"` → `(Some("notes"), "a.md")`; `"a.md"` → `(None, "a.md")`.
+/// Returns `InvalidPath` for an empty leaf (`""`, `"notes/"`).
+fn split_relative_leaf(relative: &str) -> Result<(Option<&str>, &str), WorkspaceError> {
+    let (parent, leaf) = match relative.rsplit_once('/') {
+        Some((parent, leaf)) => (Some(parent), leaf),
+        None => (None, relative),
+    };
+    if leaf.is_empty() {
+        return Err(WorkspaceError::InvalidPath);
+    }
+    Ok((parent, leaf))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strips_windows_verbatim_prefixes() {
+        assert_eq!(
+            strip_verbatim_prefix(Path::new(r"\\?\C:\Users\x\Charon")),
+            PathBuf::from(r"C:\Users\x\Charon")
+        );
+        assert_eq!(
+            strip_verbatim_prefix(Path::new(r"\\?\UNC\server\share\Charon")),
+            PathBuf::from(r"\\server\share\Charon")
+        );
+        assert_eq!(
+            strip_verbatim_prefix(Path::new("/tmp/x")),
+            PathBuf::from("/tmp/x")
+        );
+    }
 
     #[test]
     fn memory_storage_rejects_traversal() {
@@ -664,6 +719,43 @@ mod tests {
             storage.write_synced("/outside", b"x"),
             Err(WorkspaceError::InvalidPath)
         ));
+    }
+
+    #[test]
+    fn memory_storage_uses_forward_slash_keys_on_every_platform() {
+        let storage = MemoryWorkspaceStorage::new();
+        storage.create_dir_all("backups/tx/previous").expect("dirs");
+        storage
+            .write_synced("backups/tx/previous/manifest.json", b"{}")
+            .expect("write");
+        assert_eq!(
+            storage.list("backups").expect("list"),
+            vec!["tx".to_owned()]
+        );
+        assert!(storage
+            .exists("backups/tx/previous/manifest.json")
+            .expect("exists"));
+    }
+
+    #[test]
+    fn managed_paths_never_expose_a_windows_verbatim_prefix() {
+        let workspace = tempfile::tempdir().expect("workspace tempdir");
+        let storage = RealWorkspaceStorage::create(workspace.path()).expect("storage");
+        storage
+            .create_dir_all("attachments/note-id")
+            .expect("attachment directory");
+        std::fs::write(
+            workspace
+                .path()
+                .join("attachments/note-id/attachment-id.txt"),
+            b"attachment",
+        )
+        .expect("attachment file");
+
+        let path = storage
+            .canonical_managed_path("attachments/note-id/attachment-id.txt")
+            .expect("canonical managed path");
+        assert!(!path.starts_with(r"\\?\"));
     }
 
     #[cfg(unix)]

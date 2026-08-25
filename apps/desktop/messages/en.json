@@ -67,6 +67,7 @@
   "clipboard_error_workspace_unavailable": "The current workspace could not be verified. Reopen it, then retry.",
   "workspace_error_stale_revision": "The workspace changed outside this view. The latest version is loaded; review it and retry.",
   "workspace_error_invalid_path": "The selected path is outside the workspace or is not a supported local path.",
+  "workspace_error_default_location_unavailable": "Charon could not find a Documents folder for the default Notes folder. Choose a folder to continue.",
   "workspace_error_invalid_manifest": "The workspace manifest is invalid. Charon kept the last valid state and did not write changes.",
   "workspace_error_unsupported_schema": "This workspace was created by an unsupported schema version. Open it with a compatible Charon version.",
   "workspace_error_validation": "The requested change violates a workspace rule. Review the note, then retry.",
