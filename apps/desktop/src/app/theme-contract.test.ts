@@ -243,6 +243,7 @@ describe('theme token contract', () => {
   it('allows only the explicit Attachment picker and clipboard write webview plugins', () => {
     expect(mainCapability.permissions).toEqual([
       'core:default',
+      'core:window:allow-start-dragging',
       'clipboard-manager:allow-write-text',
       'dialog:allow-open',
     ]);

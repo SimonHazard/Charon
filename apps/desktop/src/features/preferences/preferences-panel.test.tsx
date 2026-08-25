@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyLocale } from '@/app/locale';
 import { AppProviders } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
+import type { CaptureCapabilities } from '@/bindings/capture';
 import { ShelfActions } from '@/components/shelf-chrome';
 import type { CaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
@@ -20,11 +21,12 @@ const capabilities = {
   activeShortcut: 'CmdOrCtrl+Shift+Space',
 } as const;
 
-function clients() {
-  const requestPermission = vi.fn().mockResolvedValue(capabilities);
+function clients(overrides: Partial<CaptureCapabilities> = {}) {
+  const resolvedCapabilities = { ...capabilities, ...overrides };
+  const requestPermission = vi.fn().mockResolvedValue(resolvedCapabilities);
   const captureClient: CaptureClient = {
-    capabilities: vi.fn().mockResolvedValue(capabilities),
-    open: vi.fn().mockResolvedValue(capabilities),
+    capabilities: vi.fn().mockResolvedValue(resolvedCapabilities),
+    open: vi.fn().mockResolvedValue(resolvedCapabilities),
     requestPermission,
     composerReady: vi.fn().mockResolvedValue(undefined),
     subscribeComposerFocus: vi.fn().mockResolvedValue(() => undefined),
@@ -78,6 +80,23 @@ describe('compact Preferences', () => {
     await screen.findByText('Charon Notes');
     expect(document.body.textContent).not.toContain('/Users/');
     expect(screen.getByText('⌘ + Shift + Space')).toBeTruthy();
+    expect(screen.queryByText(/shortcut is already used/i)).toBeNull();
+  });
+
+  it('shows a contextual warning when the portable shortcut registration fails', async () => {
+    const native = clients({ standardShortcut: 'error' });
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(await screen.findByText(/shortcut is already used/i)).toBeTruthy();
   });
 
   it('applies immediate theme/language and requests each permission explicitly', async () => {

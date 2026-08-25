@@ -68,7 +68,6 @@
 .window-drag-region {
   width: 100%;
   background: var(--canvas);
-  -webkit-app-region: drag;
 }
 
 .shelf-actions {
@@ -81,7 +80,6 @@
 .shelf-actions button {
   width: 2.25rem;
   height: 2.25rem;
-  -webkit-app-region: no-drag;
 }
 
 .help-popover {

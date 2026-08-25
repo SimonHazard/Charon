@@ -117,6 +117,7 @@ API; icons from `@tabler/icons-react`; tests with Vitest + Testing Library
 - `apps/desktop/src/features/preferences/preferences-panel.tsx`
 - `apps/desktop/messages/en.json`, `fr.json`
 - `apps/desktop/src/components/shell.test.tsx`, `apps/desktop/src/features/preferences/preferences-panel.test.tsx`
+- `apps/desktop/src/app/theme-contract.test.ts` (exact ACL assertion discovered by the execution gate)
 - `apps/desktop/e2e/release.spec.ts` (only assertions on the Help/Preferences strings)
 - `apps/desktop/src-tauri/src/lib.rs` (single-instance callback only)
 - `apps/desktop/src-tauri/capabilities/main.json` (add one permission)
@@ -236,13 +237,16 @@ does not touch the strip).
 
 ## Done criteria
 
-- [ ] Help popover shows the double-Shift row only on macOS/available and a platform-resolved composer shortcut
-- [ ] Preferences shows the standard-shortcut state and the registration warning when `standardShortcut` is `error`/`unsupported`
-- [ ] `fr.json` no longer says "sur ce Mac"
-- [ ] Second launch focuses the existing window (verified natively on the host)
-- [ ] `capabilities/main.json` includes `core:window:allow-start-dragging`; `grep -n "webkit-app-region" apps/desktop/src/styles/app.css` → no matches
-- [ ] EN/FR key parity holds (`bun run typecheck` compiles Paraglide without missing-key errors); `bun run test:desktop` and Chromium E2E pass
-- [ ] `plans/README.md` status row for 023 updated
+- [x] Help popover shows the double-Shift row only on macOS/available and a platform-resolved composer shortcut
+- [x] Preferences shows the standard-shortcut state and the registration warning when `standardShortcut` is `error`/`unsupported`
+- [x] `fr.json` no longer says "sur ce Mac"
+- [x] Second launch focuses the existing window (verified natively on the host)
+- [x] `capabilities/main.json` includes `core:window:allow-start-dragging`; `grep -n "webkit-app-region" apps/desktop/src/styles/app.css` → no matches
+- [x] EN/FR key parity holds (`bun run typecheck` compiles Paraglide without missing-key errors); `bun run test:desktop` and Chromium E2E pass
+- [x] `plans/README.md` status row for 023 updated
+
+`AWAITING OPERATOR`: the macOS app starts and the second-instance focus path is
+proved, but a human click-drag of the 28 px strip remains to be performed.
 
 ## STOP conditions
 

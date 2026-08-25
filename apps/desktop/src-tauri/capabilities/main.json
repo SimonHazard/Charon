@@ -3,5 +3,10 @@
   "identifier": "main",
   "description": "Core main-window permissions, explicit text clipboard writes, and the user-invoked Attachment picker; Workspace and capture use custom Rust commands",
   "windows": ["main"],
-  "permissions": ["core:default", "clipboard-manager:allow-write-text", "dialog:allow-open"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "clipboard-manager:allow-write-text",
+    "dialog:allow-open"
+  ]
 }

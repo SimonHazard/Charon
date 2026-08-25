@@ -228,7 +228,14 @@ export function PreferencesPanel() {
                     ? m.preferences_shortcut_macos()
                     : m.preferences_shortcut_other()}
                 </kbd>
+                {stateIcon(native.capabilities.standardShortcut)}
               </div>
+              {native.capabilities.standardShortcut === 'error' ||
+              native.capabilities.standardShortcut === 'unsupported' ? (
+                <p className="preferences-inline-warning">
+                  {m.capture_error_shortcut_registration()}
+                </p>
+              ) : null}
               {native.capabilities.platform === 'macos' ? (
                 <div className="preferences-permissions">
                   {permissionRow(

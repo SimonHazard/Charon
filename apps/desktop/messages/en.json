@@ -9,7 +9,6 @@
   "capture_help_title": "Capture text",
   "capture_help_double_shift_keys": "Shift Shift",
   "capture_help_double_shift_description": "Capture selected text from another app.",
-  "capture_help_composer_keys": "⌘/Ctrl + Shift + Space",
   "capture_help_composer_description": "Show Charon and place the cursor in the composer.",
   "toast_close_label": "Close notification",
   "navigation_settings": "Settings",

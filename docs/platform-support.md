@@ -13,6 +13,11 @@ still does.
 
 ## Current support state
 
+Help shows selected-text capture only when the runtime reports it available or
+identifies macOS, where Preferences explains the permission path. Preferences
+also displays a failed or unsupported standard-shortcut registration instead of
+presenting the accelerator as silently available.
+
 | Platform | Portable composer focus | Modifier capture | Selected-text acquisition | Product status |
 | --- | --- | --- | --- | --- |
 | macOS 14+ | `CmdOrCtrl+Shift+Space` global activation passed in Plan 007; ADR 0011 retargets it to the bottom composer and requires regression evidence after implementation | Native passive unmodified double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development capture support is proved. Plan 012 repeats the refactored physical matrix; Plan 015 repeats it on the ad-hoc release-configuration artifact, from a fresh permission grant, before release advertising. |
