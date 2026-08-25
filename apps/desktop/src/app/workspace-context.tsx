@@ -80,17 +80,31 @@ export function WorkspaceProvider({
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [isChoosingWorkspace, setIsChoosingWorkspace] = useState(false);
   const [isWorkspaceSwitchBlocked, setWorkspaceSwitchBlocked] = useState(false);
+  const lastFocusRefreshRef = useRef(Number.NEGATIVE_INFINITY);
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
-    const merged = reconcileSnapshot(snapshotRef.current, snapshot);
+    const current = snapshotRef.current;
+    if (
+      current &&
+      current.workspaceId === snapshot.workspaceId &&
+      snapshot.revision < current.revision
+    ) {
+      return current;
+    }
+    const merged = reconcileSnapshot(current, snapshot);
     snapshotRef.current = merged;
     setState({ status: 'ready', snapshot: merged, error: null });
+    return merged;
   }, []);
 
-  const refreshWorkspace = useCallback(async () => {
-    const snapshot = await client.snapshot();
-    applySnapshot(snapshot);
-    return snapshot;
+  const refreshWorkspace = useCallback(() => {
+    const refresh = async () => applySnapshot(await client.snapshot());
+    const pending = writeQueueRef.current.then(refresh, refresh);
+    writeQueueRef.current = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
   }, [applySnapshot, client]);
 
   const executeWorkspaceCommand = useCallback(
@@ -247,13 +261,17 @@ export function WorkspaceProvider({
       try {
         unsubscribe = await client.subscribe((event) => {
           if (!active) return;
-          setState((current) => {
-            const revision = current.snapshot?.revision ?? -1;
-            if (event.revision <= revision) return current;
-            const merged = reconcileSnapshot(current.snapshot, event.snapshot);
-            snapshotRef.current = merged;
-            return { status: 'ready', snapshot: merged, error: null };
-          });
+          const current = snapshotRef.current;
+          if (
+            current &&
+            current.workspaceId === event.snapshot.workspaceId &&
+            event.revision <= current.revision
+          ) {
+            return;
+          }
+          const merged = reconcileSnapshot(current, event.snapshot);
+          snapshotRef.current = merged;
+          setState({ status: 'ready', snapshot: merged, error: null });
         });
         if (!active) unsubscribe();
       } catch (error) {
@@ -275,6 +293,23 @@ export function WorkspaceProvider({
       unsubscribe?.();
     };
   }, [applySnapshot, client, workspaceKey]);
+
+  useEffect(() => {
+    if (state.status !== 'ready' && state.status !== 'warning') return;
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = performance.now();
+      if (now - lastFocusRefreshRef.current < 1_000) return;
+      lastFocusRefreshRef.current = now;
+      void refreshWorkspace().catch(() => undefined);
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [refreshWorkspace, state.status]);
 
   const canChooseWorkspace = Boolean(client.chooseDirectory && client.openOrCreate);
   const value = useMemo<WorkspaceContextValue>(

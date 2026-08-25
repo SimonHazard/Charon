@@ -220,9 +220,10 @@ describe('theme token contract', () => {
     }
   });
 
-  it('allows only the explicit Attachment picker and clipboard write webview plugins', () => {
+  it('allows only explicit window lifecycle, Attachment picker, and clipboard commands', () => {
     expect(mainCapability.permissions).toEqual([
       'core:default',
+      'core:window:allow-destroy',
       'core:window:allow-start-dragging',
       'clipboard-manager:allow-write-text',
       'dialog:allow-open',

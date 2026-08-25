@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -109,5 +109,32 @@ describe('virtual note list', () => {
     await waitFor(() => expect(document.activeElement).toBe(beta));
     await user.keyboard('{Delete}');
     expect(callbacks.onDelete).toHaveBeenCalledWith('note-b');
+  });
+
+  it('flushes the expanded draft when virtualization unmounts its row', async () => {
+    const user = userEvent.setup();
+    const notes = Array.from({ length: 100 }, (_, index) =>
+      note({ id: `note-${index}`, body: `Note ${index}` }),
+    );
+    render(
+      <AppProviders>
+        <NoteList {...callbacks} allTags={[]} copyState={null} expandedId="note-0" notes={notes} />
+      </AppProviders>,
+    );
+    const textarea = await screen.findByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Virtualized draft');
+
+    const scroller = document.querySelector<HTMLElement>('.note-list');
+    expect(scroller).not.toBeNull();
+    if (!scroller) return;
+    scroller.scrollTop = 7_000;
+    fireEvent.scroll(scroller);
+
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'Markdown body' })).toBeNull(),
+    );
+    await waitFor(() => expect(callbacks.onSave).toHaveBeenCalledTimes(1));
+    expect(callbacks.onSave).toHaveBeenCalledWith('note-0', 'Virtualized draft');
   });
 });

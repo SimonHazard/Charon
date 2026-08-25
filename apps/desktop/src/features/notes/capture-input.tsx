@@ -12,9 +12,8 @@ export const CaptureInput = forwardRef<
   CaptureInputHandle,
   {
     onCreate(body: string): Promise<void>;
-    onCreated?(): void;
   }
->(function CaptureInput({ onCreate, onCreated }, forwardedRef) {
+>(function CaptureInput({ onCreate }, forwardedRef) {
   const m = useMessages();
   const [value, setValue] = useState('');
   const [pending, setPending] = useState(false);
@@ -31,11 +30,11 @@ export const CaptureInput = forwardRef<
     try {
       await onCreate(body);
       setValue('');
-      onCreated?.();
     } catch {
       setFailed(true);
     } finally {
       setPending(false);
+      inputRef.current?.focus();
     }
   };
 
@@ -53,14 +52,15 @@ export const CaptureInput = forwardRef<
             className="capture-field-input"
             aria-invalid={failed}
             aria-label={m.capture_input_label_flat()}
+            aria-busy={pending}
             autoComplete="off"
-            disabled={pending}
             name="captureBody"
             onChange={(event) => {
               setValue(event.target.value);
               setFailed(false);
             }}
             placeholder={m.capture_input_placeholder()}
+            readOnly={pending}
             ref={inputRef}
             value={value}
           />

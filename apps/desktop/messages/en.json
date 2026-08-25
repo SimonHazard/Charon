@@ -56,6 +56,7 @@
   "note_editor_saving": "Saving…",
   "note_editor_dirty": "Unsaved",
   "note_editor_saved": "Saved",
+  "note_editor_save_failed": "Not saved",
   "note_editor_save": "Save now",
   "note_editor_save_error": "The note was not saved. Your draft is preserved; retry after resolving the workspace issue.",
   "copy_as_markdown": "Copy as Markdown",

@@ -1,10 +1,73 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
+import type { CaptureCapabilities } from '@/bindings/capture';
 import { NoteEditor, normalizeTagInput } from '@/features/notes/note-editor';
-import { note } from '@/test/workspace-fixture';
+import type { CaptureClient } from '@/lib/ipc/capture-client';
+import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
+import { note, snapshot, workspaceClient } from '@/test/workspace-fixture';
+
+const nativeWindow = vi.hoisted(() => ({
+  enabled: false,
+  closeHandler: undefined as
+    | ((event: { preventDefault(): void }) => void | Promise<void>)
+    | undefined,
+  destroy: vi.fn().mockResolvedValue(undefined),
+  unlisten: vi.fn(),
+}));
+
+vi.mock('@/lib/platform', () => ({ isTauriRuntime: () => nativeWindow.enabled }));
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    destroy: nativeWindow.destroy,
+    onCloseRequested: async (
+      handler: (event: { preventDefault(): void }) => void | Promise<void>,
+    ) => {
+      nativeWindow.closeHandler = handler;
+      return nativeWindow.unlisten;
+    },
+  }),
+}));
+
+const nativeCapabilities: CaptureCapabilities = {
+  platform: 'macos',
+  standardShortcut: 'available',
+  inputMonitoring: 'denied',
+  accessibility: 'denied',
+  doubleShift: 'denied',
+  selectedText: 'denied',
+  activeShortcut: 'CmdOrCtrl+Shift+Space',
+};
+const captureClient: CaptureClient = {
+  capabilities: async () => nativeCapabilities,
+  open: async () => nativeCapabilities,
+  requestPermission: async () => nativeCapabilities,
+  composerReady: async () => undefined,
+  subscribeComposerFocus: async () => () => undefined,
+  subscribeStatus: async () => () => undefined,
+};
+const preferencesClient: NativePreferencesClient = {
+  read: async () => ({
+    schemaVersion: 1,
+    workspaceName: null,
+    hasRememberedWorkspace: false,
+    captureHintDismissed: false,
+  }),
+  update: async () => ({
+    schemaVersion: 1,
+    workspaceName: null,
+    hasRememberedWorkspace: false,
+    captureHintDismissed: false,
+  }),
+  reset: async () => ({
+    schemaVersion: 1,
+    workspaceName: null,
+    hasRememberedWorkspace: false,
+    captureHintDismissed: false,
+  }),
+};
 
 const current = note({
   id: 'note-1',
@@ -20,8 +83,10 @@ const current = note({
   ],
 });
 
-function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}) {
-  const props: React.ComponentProps<typeof NoteEditor> = {
+function editorProps(
+  overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {},
+): React.ComponentProps<typeof NoteEditor> {
+  return {
     note: current,
     allTags: ['Agent', 'Research'],
     onSave: vi.fn().mockResolvedValue(undefined),
@@ -33,6 +98,10 @@ function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}
     onClose: vi.fn(),
     ...overrides,
   };
+}
+
+function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}) {
+  const props = editorProps(overrides);
   render(
     <AppProviders>
       <NoteEditor {...props} />
@@ -42,6 +111,13 @@ function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}
 }
 
 describe('inline note editor', () => {
+  beforeEach(() => {
+    nativeWindow.enabled = false;
+    nativeWindow.closeHandler = undefined;
+    nativeWindow.destroy.mockClear();
+    nativeWindow.unlisten.mockClear();
+  });
+
   it('renders the current body on the first paint', () => {
     editor();
     expect(screen.getByRole('textbox', { name: 'Markdown body' })).toHaveProperty(
@@ -152,12 +228,103 @@ describe('inline note editor', () => {
 
   it('preserves a rejected Markdown draft', async () => {
     const user = userEvent.setup();
-    editor({ onSave: vi.fn().mockRejectedValue({ messageKey: 'note_editor_save_error' }) });
+    const onSave = vi
+      .fn()
+      .mockRejectedValueOnce({ messageKey: 'note_editor_save_error' })
+      .mockResolvedValue(undefined);
+    editor({ onSave });
     const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
     await user.clear(textarea);
     await user.type(textarea, 'Unsaved body');
     await user.tab();
     await screen.findByText(/draft is preserved/i);
     expect((textarea as HTMLTextAreaElement).value).toBe('Unsaved body');
+    expect(screen.getByText('Not saved')).toBeTruthy();
+    expect(screen.queryByText('Saved')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+  });
+
+  it('flushes one dirty draft when the editor unmounts before autosave', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const view = render(
+      <AppProviders>
+        <NoteEditor {...editorProps({ onSave })} />
+      </AppProviders>,
+    );
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Flush before debounce');
+    view.unmount();
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledWith('Flush before debounce');
+  });
+
+  it('flushes a dirty draft once before allowing the native window to close', async () => {
+    nativeWindow.enabled = true;
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const view = render(
+      <AppProviders
+        captureClient={captureClient}
+        preferencesClient={preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <NoteEditor {...editorProps({ onSave })} />
+      </AppProviders>,
+    );
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Close-safe draft');
+
+    const preventDefault = vi.fn();
+    await nativeWindow.closeHandler?.({ preventDefault });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('Close-safe draft');
+    expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+    await Promise.resolve();
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps native close protection until an unmount flush settles', async () => {
+    nativeWindow.enabled = true;
+    const user = userEvent.setup();
+    let releaseSave: (() => void) | undefined;
+    const blockedSave = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    const onSave = vi.fn().mockReturnValue(blockedSave);
+    const view = render(
+      <AppProviders
+        captureClient={captureClient}
+        preferencesClient={preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <NoteEditor {...editorProps({ onSave })} />
+      </AppProviders>,
+    );
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Pending unmount draft');
+    view.unmount();
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(nativeWindow.unlisten).not.toHaveBeenCalled();
+
+    const preventDefault = vi.fn();
+    const close = nativeWindow.closeHandler?.({ preventDefault });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    releaseSave?.();
+    await close;
+
+    expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(nativeWindow.unlisten).toHaveBeenCalledTimes(1));
+    expect(onSave).toHaveBeenCalledTimes(1);
   });
 });

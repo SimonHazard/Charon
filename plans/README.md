@@ -94,7 +94,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 023 | Make the desktop shelf honest and functional on every platform | AWAITING OPERATOR: physical macOS drag-strip check |
 | 024 | Configure Linux and Windows bundles | AWAITING OPERATOR: Linux/Windows install checks and review-builds run deferred until final pass |
 | 025 | Open unhealthy Workspaces with reported issues; guard the legacy archive; pass Copy errors | DONE |
-| 026 | Keep the composer focused, never lose a draft, report failed saves | TODO |
+| 026 | Keep the composer focused, never lose a draft, report failed saves | AWAITING OPERATOR: native close and external-edit focus refresh host checks |
 | 027 | Harden the webview, IPC, site, and CI boundaries | TODO after 023 |
 | 028 | Repair the verification gates and reconcile stale documentation | TODO |
 | 029 | Expose Note state to assistive tech, fix focus movement, meet 44px targets | TODO |

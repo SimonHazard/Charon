@@ -54,6 +54,7 @@ test('first launch and manual composer create exactly one Open Note', async ({ p
   await composer.fill('One new synthetic note');
   await composer.press('Enter');
   await expect(page.getByText('One new synthetic note')).toHaveCount(1);
+  await expect(composer).toBeFocused();
   await expect(page.locator('.status-segment')).toHaveCount(0);
 });
 

@@ -1,4 +1,5 @@
 import { IconFile, IconPaperclip, IconX } from '@tabler/icons-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { m as motion } from 'motion/react';
 import { forwardRef, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
@@ -21,11 +22,18 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { closedDraft, draftReducer, hasUnsavedDraft } from '@/features/notes/draft-controller';
+import {
+  closedDraft,
+  type DraftState,
+  draftReducer,
+  hasUnsavedDraft,
+} from '@/features/notes/draft-controller';
 import { NotePreview } from '@/features/notes/note-preview';
+import { isTauriRuntime } from '@/lib/platform';
 import { surfaceCollapsedScale, surfaceTransition } from '@/motion/system';
 
 const AUTOSAVE_DELAY_MS = 650;
+const AUTOSAVE_RETRY_DELAY_MS = 3_000;
 
 export function normalizeTagInput(value: string): string {
   return value.trim().replace(/^#/u, '').trim();
@@ -75,32 +83,32 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   const [removeTarget, setRemoveTarget] = useState<AttachmentDto | null>(null);
   const [removePending, setRemovePending] = useState(false);
   const [removeError, setRemoveError] = useState<'cleanup' | 'other' | null>(null);
-  const inFlight = useRef(false);
+  const inFlight = useRef<Promise<boolean> | null>(null);
+  const mountedRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const draftRef = useRef(draft);
-  draftRef.current = draft;
-
-  const dirty = hasUnsavedDraft(draft) || draft.status === 'saving';
-  const dirtyRef = useRef(false);
+  const onSaveRef = useRef(onSave);
+  const lastSavedBodyRef = useRef(note.body);
+  const automaticRetryUsedRef = useRef(false);
 
   useEffect(() => {
-    if (dirtyRef.current === dirty) return;
-    dirtyRef.current = dirty;
-    onDirtyChange(dirty);
-  }, [dirty, onDirtyChange]);
+    draftRef.current = draft;
+  }, [draft]);
 
-  useEffect(
-    () => () => {
-      if (!dirtyRef.current) return;
-      dirtyRef.current = false;
-      onDirtyChange(false);
-    },
-    [onDirtyChange],
-  );
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+
+  const dirty = hasUnsavedDraft(draft) || draft.status === 'saving';
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
 
   useEffect(() => {
     const current = draftRef.current;
     if (current.noteId !== note.id || (!hasUnsavedDraft(current) && current.value !== note.body)) {
+      lastSavedBodyRef.current = note.body;
       dispatch({ type: 'open', noteId: note.id, body: note.body });
     }
   }, [note.body, note.id]);
@@ -112,30 +120,85 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  const save = useCallback(async () => {
-    if (!hasUnsavedDraft(draft)) return true;
-    if (inFlight.current) return false;
-    inFlight.current = true;
-    dispatch({ type: 'saving' });
-    try {
-      await onSave(draft.value);
-      dispatch({ type: 'saved', body: draft.value });
-      return true;
-    } catch (error) {
-      const key =
-        error && typeof error === 'object' && 'messageKey' in error
-          ? String(error.messageKey)
-          : 'note_editor_save_error';
-      dispatch({ type: 'failed', errorKey: key });
-      return false;
-    } finally {
-      inFlight.current = false;
+  const save = useCallback((): Promise<boolean> => {
+    if (inFlight.current) return inFlight.current;
+    const current = draftRef.current;
+    if (!hasUnsavedDraft(current) || current.value === lastSavedBodyRef.current) {
+      return Promise.resolve(true);
     }
-  }, [draft, onSave]);
+
+    const body = current.value;
+    if (mountedRef.current) dispatch({ type: 'saving' });
+    const pending = (async () => {
+      try {
+        await onSaveRef.current(body);
+        lastSavedBodyRef.current = body;
+        automaticRetryUsedRef.current = false;
+        if (mountedRef.current) dispatch({ type: 'saved', body });
+        return true;
+      } catch (error) {
+        const key =
+          error && typeof error === 'object' && 'messageKey' in error
+            ? String(error.messageKey)
+            : 'note_editor_save_error';
+        if (mountedRef.current) dispatch({ type: 'failed', errorKey: key });
+        return false;
+      }
+    })();
+    inFlight.current = pending;
+    void pending.then(() => {
+      if (inFlight.current === pending) inFlight.current = null;
+    });
+    return pending;
+  }, []);
+
+  const flushDraft = useCallback(async () => {
+    while (draftRef.current.value !== lastSavedBodyRef.current) {
+      if (!(await save())) return false;
+    }
+    return true;
+  }, [save]);
 
   useEffect(() => {
-    if (draft.status !== 'dirty') return;
-    const timeout = window.setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      void flushDraft();
+    };
+  }, [flushDraft]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    const appWindow = getCurrentWindow();
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    let cleanupBarrier: Promise<void> | null = null;
+    void appWindow
+      .onCloseRequested(async (event) => {
+        if (draftRef.current.value === lastSavedBodyRef.current) return;
+        event.preventDefault();
+        if (await flushDraft()) await appWindow.destroy();
+      })
+      .then((stopListening) => {
+        if (active) unlisten = stopListening;
+        else void (cleanupBarrier ?? Promise.resolve()).finally(stopListening);
+      });
+    return () => {
+      active = false;
+      cleanupBarrier =
+        draftRef.current.value !== lastSavedBodyRef.current || inFlight.current
+          ? flushDraft().then(() => undefined)
+          : Promise.resolve();
+      if (unlisten) void cleanupBarrier.finally(unlisten);
+    };
+  }, [flushDraft]);
+
+  useEffect(() => {
+    if (draft.status !== 'dirty' && draft.status !== 'error') return;
+    if (draft.status === 'error' && automaticRetryUsedRef.current) return;
+    const delay = draft.status === 'error' ? AUTOSAVE_RETRY_DELAY_MS : AUTOSAVE_DELAY_MS;
+    if (draft.status === 'error') automaticRetryUsedRef.current = true;
+    const timeout = window.setTimeout(() => void save(), delay);
     return () => window.clearTimeout(timeout);
   }, [draft.status, save]);
 
@@ -190,7 +253,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   };
 
   const close = async () => {
-    if (hasUnsavedDraft(draft) && !(await save())) return;
+    if (!(await flushDraft())) return;
     onClose();
   };
 
@@ -198,12 +261,23 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     ? ((m as unknown as Record<string, () => string>)[draft.errorKey]?.() ??
       m.note_editor_save_error())
     : null;
-  const saveState =
-    draft.status === 'saving'
-      ? m.note_editor_saving()
-      : draft.status === 'dirty'
-        ? m.note_editor_dirty()
-        : m.note_editor_saved();
+  const saveStatus: DraftState['status'] = draft.status;
+  const saveState = (() => {
+    switch (saveStatus) {
+      case 'saving':
+        return m.note_editor_saving();
+      case 'dirty':
+        return m.note_editor_dirty();
+      case 'error':
+        return m.note_editor_save_failed();
+      case 'idle':
+        return m.note_editor_saved();
+      default: {
+        const unexpected: never = saveStatus;
+        return unexpected;
+      }
+    }
+  })();
   const attachmentAtLimit = note.attachments.length >= 20;
 
   return (
@@ -247,7 +321,12 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
               name="noteMarkdown"
               autoComplete="off"
               onBlur={() => void save()}
-              onChange={(event) => dispatch({ type: 'change', value: event.target.value })}
+              onChange={(event) => {
+                automaticRetryUsedRef.current = false;
+                const action = { type: 'change', value: event.target.value } as const;
+                draftRef.current = draftReducer(draftRef.current, action);
+                dispatch(action);
+              }}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -258,7 +337,21 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
               rows={12}
               value={draft.value}
             />
-            {bodyError ? <FieldError>{bodyError}</FieldError> : null}
+            {bodyError ? (
+              <div role="alert">
+                <FieldError>{bodyError}</FieldError>
+                <Button
+                  onClick={() => {
+                    automaticRetryUsedRef.current = true;
+                    void save();
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  {m.common_retry()}
+                </Button>
+              </div>
+            ) : null}
           </Field>
         </TabsContent>
         <TabsContent value="preview">

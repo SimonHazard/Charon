@@ -1,5 +1,6 @@
 import type {
   NoteDto,
+  WorkspaceChangedEvent,
   WorkspaceCommand,
   WorkspaceCommandResult,
   WorkspaceSnapshot,
@@ -32,11 +33,18 @@ export function snapshot(notes: NoteDto[] = []): WorkspaceSnapshot {
 export function workspaceClient(
   initial: WorkspaceSnapshot,
   onCommand?: (command: WorkspaceCommand) => void | Promise<void>,
-): WorkspaceClient {
+): WorkspaceClient & { emit(event: WorkspaceChangedEvent): void } {
   let current = initial;
+  let listener: ((event: WorkspaceChangedEvent) => void) | undefined;
   return {
     snapshot: async () => current,
-    subscribe: async () => () => undefined,
+    subscribe: async (nextListener) => {
+      listener = nextListener;
+      return () => {
+        if (listener === nextListener) listener = undefined;
+      };
+    },
+    emit: (event) => listener?.(event),
     execute: async (command): Promise<WorkspaceCommandResult> => {
       await onCommand?.(command);
       const nextRevision = current.revision + 1;
