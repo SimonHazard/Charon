@@ -54,7 +54,7 @@ export type WorkspaceCommand =
       type: 'importNoteAttachments';
       expectedRevision: number;
       noteId: string;
-      sourcePaths: Array<string>;
+      sourceTokens: Array<string>;
     }
   | {
       type: 'deleteNoteAttachments';

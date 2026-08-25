@@ -132,14 +132,14 @@ describe('single note shelf', () => {
     expect(screen.getByText('Alpha')).toBeTruthy();
   });
 
-  it('forwards transient picker paths only to the typed attachment command', async () => {
+  it('forwards only opaque picker tokens to the typed attachment command', async () => {
     const user = userEvent.setup();
     const commands: WorkspaceCommand[] = [];
     renderScreen({
       onCommand: (command) => {
         commands.push(command);
       },
-      pickAttachments: async () => ['/external/brief.pdf'],
+      pickAttachments: async () => ['opaque-token'],
     });
     await user.click(screen.getByRole('button', { name: 'Edit Alpha' }));
     await user.click(await screen.findByRole('button', { name: 'Add attachment' }));
@@ -150,9 +150,9 @@ describe('single note shelf', () => {
     expect(command).toMatchObject({
       type: 'importNoteAttachments',
       noteId: 'alpha',
-      sourcePaths: ['/external/brief.pdf'],
+      sourceTokens: ['opaque-token'],
     });
-    expect(document.body.textContent).not.toContain('/external/brief.pdf');
+    expect(document.body.textContent).not.toContain('opaque-token');
   });
 
   it('expands the same Note and focuses Attachments from its paperclip count', async () => {

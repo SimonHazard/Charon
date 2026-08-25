@@ -95,7 +95,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 024 | Configure Linux and Windows bundles | AWAITING OPERATOR: Linux/Windows install checks and review-builds run deferred until final pass |
 | 025 | Open unhealthy Workspaces with reported issues; guard the legacy archive; pass Copy errors | DONE |
 | 026 | Keep the composer focused, never lose a draft, report failed saves | AWAITING OPERATOR: native close and external-edit focus refresh host checks |
-| 027 | Harden the webview, IPC, site, and CI boundaries | TODO after 023 |
+| 027 | Harden the webview, IPC, site, and CI boundaries | AWAITING OPERATOR: physical native capability and Attachment picker smoke; rotate/delete repo-root `.env` token |
 | 028 | Repair the verification gates and reconcile stale documentation | TODO |
 | 029 | Expose Note state to assistive tech, fix focus movement, meet 44px targets | TODO |
 | 030 | Polish search matching, preview structure, motion, feedback, and copy | TODO after 029 |

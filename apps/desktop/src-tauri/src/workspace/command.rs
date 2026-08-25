@@ -33,7 +33,7 @@ pub enum WorkspaceCommand {
     ImportNoteAttachments {
         expected_revision: u64,
         note_id: String,
-        source_paths: Vec<String>,
+        source_tokens: Vec<String>,
     },
     DeleteNoteAttachments {
         expected_revision: u64,

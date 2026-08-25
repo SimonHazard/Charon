@@ -220,13 +220,14 @@ describe('theme token contract', () => {
     }
   });
 
-  it('allows only explicit window lifecycle, Attachment picker, and clipboard commands', () => {
+  it('allows only explicit event, window lifecycle, and clipboard commands', () => {
     expect(mainCapability.permissions).toEqual([
-      'core:default',
+      'core:event:allow-listen',
+      'core:event:allow-unlisten',
       'core:window:allow-destroy',
       'core:window:allow-start-dragging',
+      'core:window:allow-internal-toggle-maximize',
       'clipboard-manager:allow-write-text',
-      'dialog:allow-open',
     ]);
   });
 });

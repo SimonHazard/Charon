@@ -40,12 +40,14 @@ Charon reads or writes only the active Workspace and app-owned local preferences
 needed to remember settings. Preferences store a successfully validated folder
 choice and presentation choices, never Note content.
 
-Adding an Attachment is an explicit file-picker action. Rust accepts a bounded
-regular file, does not follow symlinks, copies it into
-`attachments/<note-id>/`, and persists only safe display metadata plus a
-generated managed relative path. The external source path is never persisted.
-Imported bytes remain local. Charon never executes them, previews arbitrary
-formats, uploads them, or maintains a cross-Note asset library.
+Adding an Attachment is an explicit file-picker action. The picker runs in Rust
+and gives the webview only short-lived opaque one-shot tokens, never source
+paths. Rust accepts a bounded regular file outside every Charon Workspace, does
+not follow symlinks, copies it into `attachments/<note-id>/`, and persists only
+safe display metadata plus a generated managed relative path. The external
+source path is never persisted. Imported bytes remain local. Charon never
+executes them, previews arbitrary formats, uploads them, or maintains a
+cross-Note asset library.
 
 Local logs and diagnostics exclude Note bodies, Tag values, Attachment bytes,
 clipboard payloads, selected text, and sensitive filesystem paths by default. A

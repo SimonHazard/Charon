@@ -15,6 +15,11 @@ for (const file of files) {
     const revision = reference.split('@')[1] ?? '';
     if (!sha.test(revision)) failures.push(`${file}: mutable action ${reference}`);
   }
+  const checkoutCount = text.match(/uses:\s+actions\/checkout@/gu)?.length ?? 0;
+  const nonPersistentCheckoutCount = text.match(/persist-credentials:\s+false/gu)?.length ?? 0;
+  if (checkoutCount !== nonPersistentCheckoutCount) {
+    failures.push(`${file}: every checkout must disable persisted credentials`);
+  }
   if (/permissions:\s*(?:write-all|read-all)/u.test(text))
     failures.push(`${file}: broad permissions`);
   if (/pull_request_target:/u.test(text))

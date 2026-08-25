@@ -128,7 +128,7 @@ fn attachment_import_rejects_unsafe_sources_atomically() {
     let duplicate = workspace.execute(WorkspaceCommand::ImportNoteAttachments {
         expected_revision: 1,
         note_id: note_id.clone(),
-        source_paths: vec![
+        source_tokens: vec![
             source.to_string_lossy().into_owned(),
             source.to_string_lossy().into_owned(),
         ],
@@ -141,14 +141,14 @@ fn attachment_import_rejects_unsafe_sources_atomically() {
         .execute(WorkspaceCommand::ImportNoteAttachments {
             expected_revision: 1,
             note_id: note_id.clone(),
-            source_paths: vec![inside.to_string_lossy().into_owned()]
+            source_tokens: vec![inside.to_string_lossy().into_owned()]
         })
         .is_err());
     assert!(workspace
         .execute(WorkspaceCommand::ImportNoteAttachments {
             expected_revision: 1,
             note_id,
-            source_paths: vec![source_root.path().to_string_lossy().into_owned()]
+            source_tokens: vec![source_root.path().to_string_lossy().into_owned()]
         })
         .is_err());
     assert_eq!(workspace.snapshot().expect("still unchanged").revision, 1);
@@ -159,7 +159,7 @@ fn attachment_import_rejects_unsafe_sources_atomically() {
         .execute(WorkspaceCommand::ImportNoteAttachments {
             expected_revision: 1,
             note_id,
-            source_paths: vec![
+            source_tokens: vec![
                 source.to_string_lossy().into_owned(),
                 missing.to_string_lossy().into_owned(),
             ],
@@ -198,7 +198,7 @@ fn same_name_attachments_are_distinct_and_external_deletion_is_a_health_issue() 
         .execute(WorkspaceCommand::ImportNoteAttachments {
             expected_revision: 1,
             note_id: created.snapshot.notes[0].id.clone(),
-            source_paths: vec![
+            source_tokens: vec![
                 first.to_string_lossy().into_owned(),
                 second.to_string_lossy().into_owned(),
             ],
@@ -241,7 +241,7 @@ fn permanent_note_delete_removes_body_attachment_and_transaction_sentinels() {
         .execute(WorkspaceCommand::ImportNoteAttachments {
             expected_revision: 1,
             note_id: note_id.clone(),
-            source_paths: vec![source.to_string_lossy().into_owned()],
+            source_tokens: vec![source.to_string_lossy().into_owned()],
         })
         .expect("import");
     let managed = imported.snapshot.notes[0].attachments[0]
@@ -304,7 +304,7 @@ fn every_real_filesystem_attachment_failure_is_atomic_and_recoverable() {
             .execute(WorkspaceCommand::ImportNoteAttachments {
                 expected_revision: 1,
                 note_id: note_id.clone(),
-                source_paths: vec![source.to_string_lossy().into_owned()],
+                source_tokens: vec![source.to_string_lossy().into_owned()],
             })
             .is_err());
         drop(failing);
@@ -392,7 +392,7 @@ fn attachment_import_never_follows_symlinks() {
         .execute(WorkspaceCommand::ImportNoteAttachments {
             expected_revision: 1,
             note_id: created.snapshot.notes[0].id.clone(),
-            source_paths: vec![link.to_string_lossy().into_owned()]
+            source_tokens: vec![link.to_string_lossy().into_owned()]
         })
         .is_err());
     assert!(workspace.snapshot().expect("unchanged").notes[0]
@@ -412,7 +412,7 @@ fn exercise_attachment_contract(workspace: &mut Workspace, source: String) {
         .execute(WorkspaceCommand::ImportNoteAttachments {
             expected_revision: created.snapshot.revision,
             note_id: note_id.clone(),
-            source_paths: vec![source],
+            source_tokens: vec![source],
         })
         .expect("import");
     let attachment = imported.snapshot.notes[0].attachments[0].clone();

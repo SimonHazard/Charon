@@ -16,6 +16,7 @@ export interface WorkspaceClient {
   bootstrap?(): Promise<WorkspaceSnapshot>;
   bootstrapDefault?(): Promise<WorkspaceSnapshot>;
   chooseDirectory?(): Promise<string | null>;
+  chooseAttachments?(): Promise<string[]>;
   openOrCreate?(path: string): Promise<WorkspaceSnapshot>;
   execute?(command: WorkspaceCommand): Promise<WorkspaceCommandResult>;
   subscribe(listener: WorkspaceListener): Promise<() => void>;
@@ -26,6 +27,7 @@ export const tauriWorkspaceClient: WorkspaceClient = {
   bootstrap: () => invoke<WorkspaceSnapshot>('workspace_bootstrap'),
   bootstrapDefault: () => invoke<WorkspaceSnapshot>('workspace_bootstrap_default'),
   chooseDirectory: () => invoke<string | null>('workspace_choose_directory'),
+  chooseAttachments: () => invoke<string[]>('workspace_choose_attachments'),
   openOrCreate: (path) => invoke<WorkspaceSnapshot>('workspace_open_or_create', { path }),
   execute: (command) => invoke<WorkspaceCommandResult>('workspace_execute', { command }),
   subscribe: async (listener) => {

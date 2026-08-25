@@ -1,12 +1,14 @@
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::workspace::{
-    Workspace, WorkspaceCommand, WorkspaceCommandResult, WorkspaceHealth, WorkspaceHealthIssue,
+    Workspace, WorkspaceCommand, WorkspaceCommandResult, WorkspaceHealthIssue,
     WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
 };
 
@@ -14,6 +16,30 @@ use crate::workspace::{
 pub struct WorkspaceRuntime {
     current: Mutex<Option<Workspace>>,
     switching: Mutex<()>,
+    attachment_sources: Mutex<HashMap<String, PendingAttachmentSource>>,
+}
+
+struct PendingAttachmentSource {
+    path: PathBuf,
+    expires_at: Instant,
+}
+
+const ATTACHMENT_SOURCE_TTL: Duration = Duration::from_secs(5 * 60);
+
+#[tauri::command]
+pub async fn workspace_choose_attachments(
+    app: AppHandle,
+) -> Result<Vec<String>, WorkspaceIpcError> {
+    let (sender, mut receiver) = tauri::async_runtime::channel(1);
+    app.dialog().file().pick_files(move |selection| {
+        let _ = sender.blocking_send(selection);
+    });
+    let paths = selected_attachment_paths(receiver.recv().await.flatten())?;
+    register_attachment_sources(
+        &app.state::<WorkspaceRuntime>(),
+        paths,
+        ATTACHMENT_SOURCE_TTL,
+    )
 }
 
 #[tauri::command]
@@ -43,16 +69,67 @@ fn selected_folder_path(
         .transpose()
 }
 
-#[tauri::command]
-pub fn workspace_create(
-    app: AppHandle,
-    path: String,
-    runtime: State<'_, WorkspaceRuntime>,
-) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    let path = PathBuf::from(path);
-    let snapshot = replace_workspace(&runtime, Workspace::create(&path)?)?;
-    remember_workspace(&app, &path)?;
-    Ok(snapshot)
+fn selected_attachment_paths(
+    selection: Option<Vec<tauri_plugin_dialog::FilePath>>,
+) -> Result<Vec<PathBuf>, WorkspaceIpcError> {
+    selection
+        .unwrap_or_default()
+        .into_iter()
+        .map(|path| {
+            path.into_path()
+                .map_err(|_| crate::workspace::WorkspaceError::InvalidPath.into())
+        })
+        .collect()
+}
+
+fn register_attachment_sources(
+    runtime: &WorkspaceRuntime,
+    paths: Vec<PathBuf>,
+    ttl: Duration,
+) -> Result<Vec<String>, WorkspaceIpcError> {
+    let now = Instant::now();
+    let mut sources = runtime
+        .attachment_sources
+        .lock()
+        .map_err(|_| runtime_lock_error())?;
+    sources.retain(|_, source| source.expires_at > now);
+    let expires_at = now + ttl;
+    let mut tokens = Vec::with_capacity(paths.len());
+    for path in paths {
+        let token = uuid::Uuid::new_v4().to_string();
+        sources.insert(token.clone(), PendingAttachmentSource { path, expires_at });
+        tokens.push(token);
+    }
+    Ok(tokens)
+}
+
+fn consume_attachment_sources(
+    runtime: &WorkspaceRuntime,
+    tokens: &[String],
+) -> Result<Vec<String>, WorkspaceIpcError> {
+    let now = Instant::now();
+    let mut sources = runtime
+        .attachment_sources
+        .lock()
+        .map_err(|_| runtime_lock_error())?;
+    sources.retain(|_, source| source.expires_at > now);
+    let unique = tokens.iter().collect::<HashSet<_>>();
+    if unique.len() != tokens.len() || tokens.iter().any(|token| !sources.contains_key(token)) {
+        return Err(crate::workspace::WorkspaceError::InvalidPath.into());
+    }
+    tokens
+        .iter()
+        .map(|token| {
+            let source = sources
+                .remove(token)
+                .ok_or(crate::workspace::WorkspaceError::InvalidPath)?;
+            source
+                .path
+                .into_os_string()
+                .into_string()
+                .map_err(|_| crate::workspace::WorkspaceError::InvalidPath.into())
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -107,18 +184,6 @@ pub fn workspace_bootstrap_default(
 }
 
 #[tauri::command]
-pub fn workspace_open(
-    app: AppHandle,
-    path: String,
-    runtime: State<'_, WorkspaceRuntime>,
-) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    let path = PathBuf::from(path);
-    let snapshot = replace_workspace(&runtime, Workspace::open(&path)?)?;
-    remember_workspace(&app, &path)?;
-    Ok(snapshot)
-}
-
-#[tauri::command]
 pub fn workspace_snapshot(
     app: AppHandle,
     runtime: State<'_, WorkspaceRuntime>,
@@ -136,38 +201,17 @@ pub fn workspace_execute(
     runtime: State<'_, WorkspaceRuntime>,
     command: WorkspaceCommand,
 ) -> Result<WorkspaceCommandResult, WorkspaceIpcError> {
+    let attachment_sources = match &command {
+        WorkspaceCommand::ImportNoteAttachments { source_tokens, .. } => {
+            Some(consume_attachment_sources(runtime.inner(), source_tokens)?)
+        }
+        _ => None,
+    };
     with_workspace(&runtime, |workspace| {
-        let result = workspace.execute(command)?;
+        let result = workspace.execute_with_attachment_sources(command, attachment_sources)?;
         emit_pending(&app, workspace);
         Ok(result)
     })
-}
-
-#[tauri::command]
-pub fn workspace_health(
-    app: AppHandle,
-    runtime: State<'_, WorkspaceRuntime>,
-) -> Result<WorkspaceHealth, WorkspaceIpcError> {
-    with_workspace(&runtime, |workspace| {
-        let health = workspace.health()?;
-        emit_pending(&app, workspace);
-        Ok(health)
-    })
-}
-
-#[tauri::command]
-pub fn workspace_close(runtime: State<'_, WorkspaceRuntime>) -> Result<(), WorkspaceIpcError> {
-    let mut current = runtime.current.lock().map_err(|_| WorkspaceIpcError {
-        code: "runtime_lock".to_owned(),
-        message_key: "workspace_error_runtime_lock".to_owned(),
-        expected_revision: None,
-        actual_revision: None,
-        recovery_location: None,
-    })?;
-    if let Some(mut workspace) = current.take() {
-        workspace.stop_watching();
-    }
-    Ok(())
 }
 
 fn replace_workspace(
@@ -254,7 +298,14 @@ fn runtime_lock_error() -> WorkspaceIpcError {
 fn open_or_create_workspace(path: &Path) -> Result<Workspace, crate::workspace::WorkspaceError> {
     match fs::symlink_metadata(path.join("charon.workspace.json")) {
         Ok(_) => Workspace::open(path),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Workspace::create(path),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if !default_candidate_is_safe(path)? {
+                return Err(crate::workspace::WorkspaceError::Validation(
+                    "target directory is not empty and is not a Workspace".to_owned(),
+                ));
+            }
+            Workspace::create(path)
+        }
         Err(error) => Err(error.into()),
     }
 }
@@ -354,10 +405,12 @@ fn emit_pending(app: &AppHandle, workspace: &mut Workspace) {
 mod tests {
     use std::fs;
     use std::future::Future;
+    use std::path::PathBuf;
 
     use super::{
-        execute_capture_note, open_or_create_workspace, resolve_default_workspace_path,
-        selected_folder_path, validate_candidate, workspace_choose_directory,
+        consume_attachment_sources, execute_capture_note, open_or_create_workspace,
+        register_attachment_sources, resolve_default_workspace_path, selected_attachment_paths,
+        selected_folder_path, validate_candidate, workspace_choose_directory, WorkspaceRuntime,
     };
     use crate::workspace::{
         Workspace, WorkspaceCommand, WorkspaceHealthIssueKind, WorkspaceIpcError,
@@ -405,6 +458,44 @@ mod tests {
     }
 
     #[test]
+    fn cancelled_attachment_picker_returns_no_tokens() {
+        assert!(selected_attachment_paths(None)
+            .expect("cancelled picker")
+            .is_empty());
+    }
+
+    #[test]
+    fn attachment_source_tokens_are_one_shot() {
+        let runtime = WorkspaceRuntime::default();
+        let path = PathBuf::from("/picked/brief.pdf");
+        let tokens = register_attachment_sources(
+            &runtime,
+            vec![path.clone()],
+            std::time::Duration::from_secs(60),
+        )
+        .expect("register token");
+
+        assert_eq!(
+            consume_attachment_sources(&runtime, &tokens).expect("consume token"),
+            vec![path.to_string_lossy().into_owned()]
+        );
+        assert!(consume_attachment_sources(&runtime, &tokens).is_err());
+    }
+
+    #[test]
+    fn attachment_source_tokens_expire() {
+        let runtime = WorkspaceRuntime::default();
+        let tokens = register_attachment_sources(
+            &runtime,
+            vec![PathBuf::from("/picked/expired.pdf")],
+            std::time::Duration::ZERO,
+        )
+        .expect("register token");
+
+        assert!(consume_attachment_sources(&runtime, &tokens).is_err());
+    }
+
+    #[test]
     fn default_workspace_uses_charon_for_a_fresh_documents_directory() {
         let documents = tempdir().expect("documents");
         assert_eq!(
@@ -428,6 +519,19 @@ mod tests {
             fs::read_to_string(primary.join("keep.txt")).expect("preserved contents"),
             "untouched"
         );
+    }
+
+    #[test]
+    fn open_or_create_preserves_an_unrelated_non_empty_directory() {
+        let root = tempdir().expect("target");
+        fs::write(root.path().join("keep.txt"), "untouched").expect("contents");
+
+        assert!(open_or_create_workspace(root.path()).is_err());
+        assert_eq!(
+            fs::read_to_string(root.path().join("keep.txt")).expect("preserved contents"),
+            "untouched"
+        );
+        assert!(!root.path().join("charon.workspace.json").exists());
     }
 
     #[test]
@@ -513,7 +617,7 @@ mod tests {
             .execute(WorkspaceCommand::ImportNoteAttachments {
                 expected_revision: created.snapshot.revision,
                 note_id: created.snapshot.notes[0].id.clone(),
-                source_paths: vec![source.to_string_lossy().into_owned()],
+                source_tokens: vec![source.to_string_lossy().into_owned()],
             })
             .expect("import Attachment");
         fs::remove_file(

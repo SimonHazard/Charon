@@ -91,6 +91,18 @@ for (const [index, html] of homes.entries()) {
   if ((footer.match(/<a\b/gu) ?? []).length !== 2) {
     failures.push(`localized home ${index + 1} footer must contain exactly two links`);
   }
+  if ((footer.match(/rel="noreferrer"/gu) ?? []).length !== 2) {
+    failures.push(`localized home ${index + 1} footer links must suppress referrers`);
+  }
+}
+
+const headers = await readFile(new URL('_headers', root), 'utf8');
+if (
+  !headers.includes(
+    "Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+  )
+) {
+  failures.push('_headers misses the exact static-site CSP');
 }
 
 const icons = [
