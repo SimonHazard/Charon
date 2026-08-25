@@ -1,4 +1,4 @@
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -62,10 +62,14 @@ impl PreferencesStorage {
             .root
             .join(format!(".preferences-{}.tmp", Uuid::new_v4()));
         let result = (|| {
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&temporary)?;
+            let mut options = OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = options.open(&temporary)?;
             file.write_all(&payload)?;
             file.write_all(b"\n")?;
             file.sync_all()?;
@@ -101,7 +105,10 @@ impl PreferencesStorage {
 }
 
 fn sync_directory(path: &Path) -> Result<(), PreferencesError> {
-    File::open(path)?.sync_all()?;
+    #[cfg(unix)]
+    std::fs::File::open(path)?.sync_all()?;
+    #[cfg(not(unix))]
+    let _ = path;
     Ok(())
 }
 
@@ -130,6 +137,24 @@ mod tests {
         };
         storage.write(&preferences).expect("write");
         assert_eq!(storage.read().expect("read"), preferences);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn preferences_file_is_private_on_unix() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().expect("root");
+        let storage = PreferencesStorage::new(root.path());
+        storage
+            .write(&PersistedPreferences::default())
+            .expect("write");
+        let mode = fs::metadata(root.path().join(FILE_NAME))
+            .expect("metadata")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600);
     }
 
     #[test]

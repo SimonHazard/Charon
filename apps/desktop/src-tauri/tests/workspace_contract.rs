@@ -68,6 +68,24 @@ fn memory_and_real_filesystem_share_the_flat_contract() {
 }
 
 #[test]
+fn real_workspace_reopens_and_round_trips_a_note_body() {
+    let root = tempdir().expect("temp Workspace");
+    let mut workspace = Workspace::create(root.path()).expect("create Workspace");
+    workspace
+        .execute(WorkspaceCommand::CreateNote {
+            expected_revision: 0,
+            body: "  portable body\n".to_owned(),
+        })
+        .expect("create Note");
+    drop(workspace);
+
+    let mut reopened = Workspace::open(root.path()).expect("reopen Workspace");
+    let snapshot = reopened.snapshot().expect("snapshot");
+    assert_eq!(snapshot.notes.len(), 1);
+    assert_eq!(snapshot.notes[0].body, "  portable body\n");
+}
+
+#[test]
 fn managed_attachments_have_memory_and_real_parity() {
     let mut memory = Workspace::in_memory_with_attachment_sources(vec![(
         "source-a".to_owned(),

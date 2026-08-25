@@ -85,10 +85,14 @@ pub fn workspace_bootstrap_default(
     app: AppHandle,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    let documents = app
-        .path()
-        .document_dir()
-        .map_err(|_| crate::workspace::WorkspaceError::InvalidPath)?;
+    let documents = match app.path().document_dir() {
+        Ok(path) => path,
+        Err(_) => app
+            .path()
+            .home_dir()
+            .map(|home| home.join("Documents"))
+            .map_err(|_| crate::workspace::WorkspaceError::DefaultLocationUnavailable)?,
+    };
     let path = resolve_default_workspace_path(&documents)?;
     let snapshot = replace_workspace(&runtime, open_or_create_workspace(&path)?)?;
     remember_workspace(&app, &path)?;

@@ -6,6 +6,8 @@ use ts_rs::TS;
 pub enum WorkspaceError {
     #[error("the Workspace path is invalid")]
     InvalidPath,
+    #[error("the default Workspace location is unavailable")]
+    DefaultLocationUnavailable,
     #[error("the Workspace manifest is invalid")]
     InvalidManifest,
     #[error("the Workspace schema version is unsupported: {0}")]
@@ -60,6 +62,10 @@ impl From<WorkspaceError> for WorkspaceIpcError {
                 result.code = "invalid_path".to_owned();
                 result.message_key = "workspace_error_invalid_path".to_owned();
             }
+            WorkspaceError::DefaultLocationUnavailable => {
+                result.code = "default_location_unavailable".to_owned();
+                result.message_key = "workspace_error_default_location_unavailable".to_owned();
+            }
             WorkspaceError::InvalidManifest => {
                 result.code = "invalid_manifest".to_owned();
                 result.message_key = "workspace_error_invalid_manifest".to_owned();
@@ -107,5 +113,21 @@ impl From<WorkspaceError> for WorkspaceIpcError {
         }
 
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{WorkspaceError, WorkspaceIpcError};
+
+    #[test]
+    fn default_location_error_has_a_specific_content_free_code() {
+        let error = WorkspaceIpcError::from(WorkspaceError::DefaultLocationUnavailable);
+        assert_eq!(error.code, "default_location_unavailable");
+        assert_eq!(
+            error.message_key,
+            "workspace_error_default_location_unavailable"
+        );
+        assert_eq!(error.recovery_location, None);
     }
 }

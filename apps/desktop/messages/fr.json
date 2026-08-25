@@ -67,6 +67,7 @@
   "clipboard_error_workspace_unavailable": "L’espace de travail actuel n’a pas pu être vérifié. Rouvrez-le puis réessayez.",
   "workspace_error_stale_revision": "L’espace de travail a changé hors de cette vue. La dernière version est chargée ; vérifiez-la puis réessayez.",
   "workspace_error_invalid_path": "Le chemin choisi est hors de l’espace de travail ou n’est pas un chemin local pris en charge.",
+  "workspace_error_default_location_unavailable": "Charon n’a pas trouvé de dossier Documents pour le dossier de notes par défaut. Choisissez un dossier pour continuer.",
   "workspace_error_invalid_manifest": "Le manifeste de l’espace de travail est invalide. Charon a conservé le dernier état valide sans écrire de modification.",
   "workspace_error_unsupported_schema": "Cet espace de travail utilise une version de schéma non prise en charge. Ouvrez-le avec une version compatible de Charon.",
   "workspace_error_validation": "La modification demandée enfreint une règle de l’espace de travail. Vérifiez la note puis réessayez.",

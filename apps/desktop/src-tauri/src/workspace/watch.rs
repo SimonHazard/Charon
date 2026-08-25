@@ -21,7 +21,8 @@ impl WorkspaceWatcher {
         let (batch_tx, batch_rx) = mpsc::channel();
         let (stop_tx, stop_rx) = mpsc::channel();
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
-        let watched_root = std::fs::canonicalize(root).map_err(WorkspaceError::from)?;
+        let watched_root =
+            super::storage::simplify_canonical(root).map_err(WorkspaceError::from)?;
         let worker = thread::Builder::new()
             .name("charon-workspace-watch".to_owned())
             .spawn(move || {
@@ -165,16 +166,25 @@ fn relevant(root: &Path, path: &Path) -> bool {
     let Ok(relative) = path.strip_prefix(root) else {
         return false;
     };
-    let relative = relative.to_string_lossy();
-    if relative.starts_with("backups/")
-        || relative
-            .split('/')
-            .any(|component| component.starts_with(".charon-"))
-    {
+    let parts: Vec<&str> = relative
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect();
+    relevant_components(&parts)
+}
+
+fn relevant_components(parts: &[&str]) -> bool {
+    if parts.first() == Some(&"backups") {
         return false;
     }
-    relative == "charon.workspace.json"
-        || (relative.starts_with("notes/") && relative.ends_with(".md"))
+    if parts.iter().any(|part| part.starts_with(".charon-")) {
+        return false;
+    }
+    match parts {
+        ["charon.workspace.json"] => true,
+        ["notes", rest @ ..] => rest.last().is_some_and(|leaf| leaf.ends_with(".md")),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -196,9 +206,20 @@ mod tests {
     }
 
     #[test]
+    fn filters_components_independently_of_platform_separators() {
+        assert!(relevant_components(&["notes", "x.md"]));
+        assert!(relevant_components(&["notes", "sub", "x.md"]));
+        assert!(!relevant_components(&["backups", "t", "m"]));
+        assert!(!relevant_components(&["notes", ".charon-x.md"]));
+        assert!(relevant_components(&["charon.workspace.json"]));
+        assert!(!relevant_components(&["attachments", "n", "a.png"]));
+    }
+
+    #[test]
     fn coalesces_external_bursts_and_observes_deletion() {
         let root = tempfile::tempdir().expect("tempdir");
-        let canonical_root = fs::canonicalize(root.path()).expect("canonical root");
+        let canonical_root =
+            crate::workspace::storage::simplify_canonical(root.path()).expect("canonical root");
         fs::create_dir(canonical_root.join("notes")).expect("notes");
         let note = canonical_root.join("notes/fef8abcc-7047-4a35-a070-b6d9f0eca026.md");
         fs::write(&note, "one").expect("initial note");
@@ -217,7 +238,8 @@ mod tests {
     #[test]
     fn ignores_transaction_paths() {
         let root = tempfile::tempdir().expect("tempdir");
-        let canonical_root = fs::canonicalize(root.path()).expect("canonical root");
+        let canonical_root =
+            crate::workspace::storage::simplify_canonical(root.path()).expect("canonical root");
         fs::create_dir(canonical_root.join("notes")).expect("notes");
         let note = canonical_root.join("notes/.charon-transaction.md");
         let mut watcher = WorkspaceWatcher::start(&canonical_root).expect("watcher");
