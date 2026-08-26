@@ -39,6 +39,10 @@
   "note_delete": "Supprimer {title}",
   "note_mark_open": "Marquer ouverte",
   "note_mark_done": "Marquer terminée",
+  "note_marked_open": "Note marquée comme ouverte.",
+  "note_marked_done": "Note marquée comme terminée.",
+  "note_status_open": "État : ouverte.",
+  "note_status_done": "État : terminée.",
   "note_list_label": "Notes",
   "note_metadata_no_tags": "Aucun tag",
   "note_metadata_summary": "Tags : {tags}. {attachments}.",
@@ -88,6 +92,7 @@
   "delete_external_boundary": "Les instantanés du système, sauvegardes externes et historiques synchronisés sont hors de la garantie de suppression de Charon.",
   "delete_confirm": "Supprimer définitivement",
   "delete_error": "La note n’a pas été supprimée. Rien n’a changé ; réessayez.",
+  "delete_done": "Note supprimée.",
   "delete_cleanup_required": "La note a été retirée, mais le nettoyage n’a pas pu être vérifié. Réessayez le nettoyage avant de considérer la suppression comme définitive.",
   "capture_input_label_flat": "Capturer une note",
   "capture_focus": "Écrire une note",
@@ -107,7 +112,16 @@
   "attachment_add": "Ajouter une pièce jointe",
   "attachment_importing": "Importation…",
   "attachment_empty": "Aucune pièce jointe",
-  "attachment_count": "{count} pièces jointes",
+  "attachment_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} pièce jointe",
+        "countPlural=other": "{count} pièces jointes"
+      }
+    }
+  ],
   "attachment_focus": "Afficher {count} dans cette note",
   "attachment_limit_reached": "Limite de pièces jointes atteinte : 20 sur 20.",
   "attachment_remove": "Retirer {file}",

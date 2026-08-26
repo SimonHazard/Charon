@@ -57,6 +57,9 @@ describe('single note shelf', () => {
     expect(document.querySelector('[data-note-id="done"]')?.getAttribute('data-status')).toBe(
       'done',
     );
+    expect(screen.getByRole('button', { name: 'Mark open' }).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
     expect(document.querySelector('.status-segment')).toBeNull();
     const search = screen.getByRole('textbox', { name: 'Search notes' });
     await user.type(search, 'brief.pdf');
@@ -75,12 +78,13 @@ describe('single note shelf', () => {
 
     expect(shelf?.className).toBe('note-screen');
     expect(Array.from(shelf?.children ?? []).map((child) => child.className)).toEqual([
+      'sr-only',
       'note-workbar',
       'note-context',
       'note-list',
       'composer-dock',
     ]);
-    const workbar = shelf?.firstElementChild;
+    const workbar = shelf?.querySelector('.note-workbar');
     expect(workbar?.firstElementChild?.className).toBe('note-search');
     expect(workbar?.children).toHaveLength(1);
     const search = workbar?.firstElementChild;
@@ -115,7 +119,7 @@ describe('single note shelf', () => {
     await waitFor(() =>
       expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteId: 'alpha' }),
     );
-    expect(await screen.findByRole('status')).toHaveProperty('textContent', 'Copied');
+    expect((await screen.findByText('Copied')).getAttribute('role')).toBe('status');
     expect(screen.queryByText(/\/Users\//)).toBeNull();
   });
 
@@ -158,7 +162,7 @@ describe('single note shelf', () => {
   it('expands the same Note and focuses Attachments from its paperclip count', async () => {
     const user = userEvent.setup();
     renderScreen();
-    await user.click(screen.getByRole('button', { name: 'Show 1 attachments in this note' }));
+    await user.click(screen.getByRole('button', { name: 'Show 1 attachment in this note' }));
     const heading = await screen.findByRole('heading', { name: 'Attachments' });
     await waitFor(() => expect(document.activeElement).toBe(heading));
     expect(document.querySelector('[data-note-editor="file"]')).toBeTruthy();
@@ -183,6 +187,16 @@ describe('single note shelf', () => {
     );
     expect(screen.queryByText('Trash')).toBeNull();
     expect(screen.queryByText('Undo')).toBeNull();
+  });
+
+  it('keeps one polite shelf announcement region and announces a status change', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    const liveRegion = document.querySelector<HTMLElement>('.note-screen > [aria-live="polite"]');
+    expect(liveRegion?.getAttribute('role')).toBe('status');
+    expect(liveRegion?.textContent).toBe('');
+    await user.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
+    await waitFor(() => expect(liveRegion?.textContent).toBe('Note marked done.'));
   });
 
   it('reports cleanup-required without claiming success and retries through snapshot recovery', async () => {

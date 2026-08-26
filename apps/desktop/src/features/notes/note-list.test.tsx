@@ -42,6 +42,9 @@ describe('virtual note list', () => {
       expect(document.querySelectorAll('[data-note-id]').length).toBeGreaterThan(0),
     );
     expect(document.querySelectorAll('[data-note-id]').length).toBeLessThan(150);
+    const firstItem = screen.getAllByRole('listitem')[0];
+    expect(firstItem?.getAttribute('aria-setsize')).toBe('20000');
+    expect(firstItem?.getAttribute('aria-posinset')).toBe('1');
   });
 
   it('exposes tags, attachments, status, copy, edit, and delete to keyboard users', async () => {
@@ -75,17 +78,25 @@ describe('virtual note list', () => {
     expect(screen.queryByRole('button', { name: 'Local' })).toBeNull();
     expect(screen.getByText('+1')).toBeTruthy();
     expect(
-      screen.getByText(/Tags: Agent, Research, Local\. 1 attachments\. Files: brief\.pdf\./),
+      screen.getByText(/Status: Open\. Tags: Agent, Research, Local\. 1 attachment\. Files/),
     ).toBeTruthy();
     expect(screen.getByText('One restrained preview line')).toBeTruthy();
     expect(document.querySelector('.note-row-main')?.children).toHaveLength(3);
-    expect(screen.getByRole('button', { name: 'Mark done' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Copy Alpha as Markdown' }));
+    expect(screen.getByRole('button', { name: 'Mark done' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    const copyButton = screen.getByRole('button', { name: 'Copy Alpha as Markdown' });
+    const descriptionId = copyButton.getAttribute('aria-describedby');
+    expect(descriptionId).toBeTruthy();
+    expect(document.getElementById(descriptionId ?? '')?.textContent).toMatch(
+      /managed local Attachment paths enter the clipboard/i,
+    );
+    await user.click(copyButton);
     expect(callbacks.onCopy).toHaveBeenCalledWith('note-a');
     expect(screen.getByRole('button', { name: 'Edit Alpha' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Delete Alpha' }));
     expect(callbacks.onDelete).toHaveBeenCalledWith('note-a');
-    await user.click(screen.getByRole('button', { name: 'Show 1 attachments in this note' }));
+    await user.click(screen.getByRole('button', { name: 'Show 1 attachment in this note' }));
     expect(callbacks.onFocusAttachments).toHaveBeenCalledWith('note-a');
   });
 
@@ -109,6 +120,29 @@ describe('virtual note list', () => {
     await waitFor(() => expect(document.activeElement).toBe(beta));
     await user.keyboard('{Delete}');
     expect(callbacks.onDelete).toHaveBeenCalledWith('note-b');
+  });
+
+  it('keeps Arrow-key focus on a row through 30 rapid moves', async () => {
+    const user = userEvent.setup();
+    const notes = Array.from({ length: 100 }, (_, index) =>
+      note({ id: `note-${index}`, body: `Note ${index}` }),
+    );
+    render(
+      <AppProviders>
+        <NoteList {...callbacks} allTags={[]} copyState={null} expandedId={null} notes={notes} />
+      </AppProviders>,
+    );
+    screen.getByRole('button', { name: 'Note 0' }).focus();
+    let index = 0;
+    for (let step = 1; step <= 30; step += 1) {
+      const direction = step <= 10 || step > 20 ? 'ArrowDown' : 'ArrowUp';
+      index += direction === 'ArrowDown' ? 1 : -1;
+      await user.keyboard(`{${direction}}`);
+      await waitFor(() =>
+        expect(document.activeElement?.getAttribute('data-note-focus')).toBe(`note-${index}`),
+      );
+    }
+    expect(document.activeElement).not.toBe(document.body);
   });
 
   it('flushes the expanded draft when virtualization unmounts its row', async () => {

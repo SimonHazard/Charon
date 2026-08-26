@@ -15,6 +15,13 @@ const mainCapability = JSON.parse(
   readFileSync(resolve(process.cwd(), 'src-tauri/capabilities/main.json'), 'utf8'),
 );
 const cargoManifest = readFileSync(resolve(process.cwd(), 'src-tauri/Cargo.toml'), 'utf8');
+const appCss = readFileSync(resolve(process.cwd(), 'src/styles/app.css'), 'utf8');
+const buttonSource = readFileSync(resolve(process.cwd(), 'src/components/ui/button.tsx'), 'utf8');
+const inputSource = readFileSync(resolve(process.cwd(), 'src/components/ui/input.tsx'), 'utf8');
+const textareaSource = readFileSync(
+  resolve(process.cwd(), 'src/components/ui/textarea.tsx'),
+  'utf8',
+);
 
 const generatedNativeIcons = [
   '32x32.png',
@@ -70,6 +77,8 @@ const requiredSemanticTokens = [
   '--success-surface',
   '--material-transient',
   '--material-transient-solid',
+  '--material-scrim',
+  '--material-scrim-solid',
   '--font-system',
   '--font-monospace',
   '--radius-surface',
@@ -196,6 +205,18 @@ describe('theme token contract', () => {
       ).toBeGreaterThanOrEqual(3);
     }
   });
+
+  it.each(['light', 'dark'] as const)(
+    '%s uses an undiluted focus ring with at least 3:1 canvas contrast',
+    (theme) => {
+      const token = readTheme(theme);
+      expect(contrast(token('--focus'), token('--canvas'))).toBeGreaterThanOrEqual(3);
+      expect(buttonSource).toContain('focus-visible:ring-ring ');
+      expect(inputSource).toContain('focus-visible:ring-ring ');
+      expect(textareaSource).toContain('focus-visible:ring-ring ');
+      expect(appCss).toContain('var(--focus) 90%');
+    },
+  );
 
   it('keeps every copied canonical asset byte-identical', () => {
     for (const [path, expected] of Object.entries(approvedChecksums)) {

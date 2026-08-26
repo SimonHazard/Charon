@@ -1,3 +1,4 @@
+// biome-ignore-all lint/a11y/noRedundantRoles: WebKit drops list semantics when CSS removes markers.
 import { IconFile, IconPaperclip, IconX } from '@tabler/icons-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { m as motion } from 'motion/react';
@@ -369,6 +370,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
                   {tag}
                   <button
                     aria-label={m.tag_remove({ tag })}
+                    className="tag-remove-button"
                     onClick={() => void removeTag(tag)}
                     type="button"
                   >
@@ -425,7 +427,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
             </Button>
           </div>
           {note.attachments.length ? (
-            <ul className="attachment-list">
+            <ul className="attachment-list" role="list">
               {note.attachments.map((attachment) => (
                 <li key={attachment.id}>
                   <IconFile aria-hidden="true" />

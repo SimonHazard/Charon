@@ -70,6 +70,9 @@ test('search, exact Tag filter, and visible status stay coherent', async ({ page
   await page.getByRole('button', { name: 'Clear tag filter Privacy' }).click();
   await expect(page.getByText('Capture contract')).toBeVisible();
   await expect(page.locator('[data-note-id="done-note"]')).toHaveAttribute('data-status', 'done');
+  await expect(
+    page.locator('[data-note-id="done-note"]').getByRole('button', { name: 'Mark open' }),
+  ).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('[data-note-id="done-note"] .note-row-title')).toHaveCSS(
     'text-decoration-line',
     'line-through',
@@ -80,7 +83,7 @@ test('direct copy and irreversible Delete keep one-Note scope explicit', async (
   await page.setViewportSize({ width: 400, height: 480 });
   await page.goto(desktop);
   await page.getByRole('button', { name: 'Copy Agent handoff as Markdown' }).click();
-  await expect(page.getByRole('status')).toContainText('Copied');
+  await expect(page.getByText('Copied')).toHaveAttribute('role', 'status');
   const deleteButton = page.getByRole('button', { name: 'Delete Agent handoff' });
   await deleteButton.click();
   const dialog = page.getByRole('alertdialog');
@@ -91,6 +94,45 @@ test('direct copy and irreversible Delete keep one-Note scope explicit', async (
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(deleteButton).toBeFocused();
   await expect(page.getByText('Agent handoff')).toBeVisible();
+});
+
+test('row padding activates the Note while direct controls keep their own action', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 400, height: 480 });
+  await page.goto(desktop);
+  const rowMain = page.locator('[data-note-id="capture-note"] .note-row-main');
+  const box = await rowMain.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 3);
+  await expect(page.locator('[data-note-editor="capture-note"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.getByRole('button', { name: 'Mark done' }).first().click();
+  await expect(page.locator('[data-note-id="capture-note"]')).toHaveAttribute(
+    'data-status',
+    'done',
+  );
+});
+
+test('Delete announces completion and focuses the nearest surviving row', async ({ page }) => {
+  await page.goto(`${desktop}&notes=2`);
+  await page.getByRole('button', { name: 'Delete Capture contract' }).click();
+  await page.getByRole('button', { name: 'Delete permanently' }).click();
+  await expect(page.locator('[data-note-id="done-note"]')).toHaveCount(0);
+  await expect(page.locator('[data-note-focus="bulk-0"]')).toBeFocused();
+  await expect(page.locator('.note-screen > [role="status"]')).toHaveText('Note deleted.');
+});
+
+test('Arrow keys retain row focus through virtualized mounts', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 480 });
+  await page.goto(`${desktop}&notes=100`);
+  await page.locator('[data-note-focus="capture-note"]').focus();
+  for (let index = 0; index < 30; index += 1) {
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('[data-note-focus]:focus')).toHaveCount(1);
+  }
+  await expect(page.locator('[data-note-focus="bulk-27"]')).toBeFocused();
 });
 
 test('row editor supports Write, Preview, Tags and managed Attachment metadata', async ({
@@ -151,7 +193,7 @@ test('Attachment count opens the same Note and focuses metadata without preview'
 }) => {
   await page.setViewportSize({ width: 400, height: 480 });
   await page.goto(desktop);
-  await page.getByRole('button', { name: 'Show 1 attachments in this note' }).click();
+  await page.getByRole('button', { name: 'Show 1 attachment in this note' }).click();
   await expect(page.getByRole('heading', { name: 'Attachments' })).toBeFocused();
   await expect(
     page.locator('.attachment-name').filter({ hasText: 'release-brief.pdf' }),
@@ -191,6 +233,47 @@ test('compact Preferences applies themes and locale without leaving the shelf', 
   );
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Réglages' })).toBeFocused();
+});
+
+test('French document language is restored before interaction after reload', async ({ page }) => {
+  await page.goto(desktop);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'French' }).click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
+  await expect(page.getByRole('textbox', { name: 'Rechercher des notes' })).toBeVisible();
+});
+
+test('compact icon controls expose at least 44px CSS hit areas', async ({ page }) => {
+  await page.setViewportSize({ width: 400, height: 480 });
+  await page.goto(desktop);
+  const hitArea = async (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const pseudo = getComputedStyle(element, '::after');
+        const top = Number.parseFloat(pseudo.top) || 0;
+        const right = Number.parseFloat(pseudo.right) || 0;
+        const bottom = Number.parseFloat(pseudo.bottom) || 0;
+        const left = Number.parseFloat(pseudo.left) || 0;
+        return { width: rect.width - left - right, height: rect.height - top - bottom };
+      });
+
+  await page.getByRole('textbox', { name: 'Search notes' }).fill('Agent');
+  const composer = page.getByPlaceholder('Add a note…');
+  await composer.fill('Ready');
+  for (const selector of ['.shelf-action-button', '.note-search-clear', '.capture-submit-button']) {
+    const area = await hitArea(selector);
+    expect(area.width).toBeGreaterThanOrEqual(44);
+    expect(area.height).toBeGreaterThanOrEqual(44);
+  }
+  await page.getByRole('button', { name: 'Edit Agent handoff' }).click();
+  const tagArea = await hitArea('.tag-remove-button');
+  expect(tagArea.width).toBeGreaterThanOrEqual(44);
+  expect(tagArea.height).toBeGreaterThanOrEqual(44);
 });
 
 test('compact shelf geometry holds at minimum, default, capped, and restored sizes', async ({
@@ -285,6 +368,16 @@ test('desktop remains usable at effective 360 pixels and reduced preferences', a
     await page.getByRole('button', { name: /Keyboard shortcuts|Raccourcis clavier/ }).click();
     await expect(page.locator('.help-popover')).toHaveCSS('backdrop-filter', 'none');
     await expect(page.locator('.note-row').first()).toHaveCSS('border-top-color', /rgb/);
+    await page.keyboard.press('Escape');
+    await page
+      .getByRole('button', { name: /Supprimer|Delete/ })
+      .first()
+      .click();
+    await expect(page.locator('[data-slot="alert-dialog-overlay"]')).toHaveCSS(
+      'backdrop-filter',
+      'none',
+    );
+    await expect(page.getByRole('alertdialog')).toHaveCSS('border-top-style', 'solid');
   }
 });
 

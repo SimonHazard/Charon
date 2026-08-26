@@ -1,5 +1,13 @@
 import { IconSearch, IconX } from '@tabler/icons-react';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useComposerFocus } from '@/app/composer-focus-context';
 import { useMessages } from '@/app/providers';
@@ -65,8 +73,11 @@ export function NoteScreen({
     status: 'copied' | 'error';
     message: string;
   } | null>(null);
+  const [announcement, setAnnouncement] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<CaptureInputHandle>(null);
+  const announcementTimerRef = useRef<number | null>(null);
+  const pendingDeleteFocusRef = useRef<{ deletedId: string; index: number } | null>(null);
 
   const indexRef = useRef<NoteIndex | null>(null);
   indexRef.current ??= createNoteIndex();
@@ -78,6 +89,42 @@ export function NoteScreen({
     [deferredQuery, index, snapshot.notes, tag],
   );
   const allTags = useMemo(() => index.tags(snapshot.notes), [index, snapshot.notes]);
+  const announce = useCallback((text: string) => {
+    if (announcementTimerRef.current !== null) {
+      window.clearTimeout(announcementTimerRef.current);
+    }
+    setAnnouncement(text);
+    announcementTimerRef.current = window.setTimeout(() => {
+      setAnnouncement('');
+      announcementTimerRef.current = null;
+    }, 3_000);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (announcementTimerRef.current !== null) {
+        window.clearTimeout(announcementTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  useLayoutEffect(() => {
+    const pending = pendingDeleteFocusRef.current;
+    if (!pending || deleteTargetId || notes.some((note) => note.id === pending.deletedId)) return;
+    const next = notes[Math.min(pending.index, notes.length - 1)];
+    const frame = window.requestAnimationFrame(() => {
+      if (next) {
+        document
+          .querySelector<HTMLElement>(`[data-note-focus="${next.id}"]`)
+          ?.focus({ preventScroll: true });
+      } else {
+        captureRef.current?.focus();
+      }
+      pendingDeleteFocusRef.current = null;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [deleteTargetId, notes]);
   useEffect(() => {
     if (!composerFocus.request) return;
     captureRef.current?.focus();
@@ -172,20 +219,21 @@ export function NoteScreen({
     setDeletePending(true);
     setDeleteError(null);
     try {
+      const deletedIndex = notes.findIndex((note) => note.id === deleteTargetId);
       await executeWorkspaceCommand({ type: 'deleteNote', noteId: deleteTargetId });
+      pendingDeleteFocusRef.current = {
+        deletedId: deleteTargetId,
+        index: Math.max(0, deletedIndex),
+      };
       setDeleteTargetId(null);
-      window.requestAnimationFrame(() => {
-        const next = document.querySelector<HTMLElement>('[data-note-focus]');
-        if (next) next.focus();
-        else captureRef.current?.focus();
-      });
+      announce(m.delete_done());
     } catch (error) {
       const code = error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
       setDeleteError(code === 'deletion_cleanup_required' ? 'cleanup' : 'other');
     } finally {
       setDeletePending(false);
     }
-  }, [deletePending, deleteTargetId, executeWorkspaceCommand]);
+  }, [announce, deletePending, deleteTargetId, executeWorkspaceCommand, m, notes]);
 
   const retryDeletionCleanup = useCallback(async () => {
     if (deletePending) return;
@@ -231,13 +279,16 @@ export function NoteScreen({
   );
   const filterByTag = useCallback((value: string) => setTag(value), []);
   const toggleNoteStatus = useCallback(
-    (note: NoteDto) =>
-      executeWorkspaceCommand({
+    async (note: NoteDto) => {
+      const status = note.status === 'open' ? 'done' : 'open';
+      await executeWorkspaceCommand({
         type: 'setNoteStatus',
         noteId: note.id,
-        status: note.status === 'open' ? 'done' : 'open',
-      }).then(() => undefined),
-    [executeWorkspaceCommand],
+        status,
+      });
+      announce(status === 'done' ? m.note_marked_done() : m.note_marked_open());
+    },
+    [announce, executeWorkspaceCommand, m],
   );
 
   const clearSearch = () => {
@@ -251,6 +302,9 @@ export function NoteScreen({
     query || tag ? m.note_empty_search_description_flat() : m.note_empty_all_description();
   return (
     <section className="note-screen">
+      <div aria-live="polite" className="sr-only" role="status">
+        {announcement}
+      </div>
       <div className="note-workbar">
         <div className="note-search">
           <IconSearch aria-hidden="true" />
@@ -266,6 +320,7 @@ export function NoteScreen({
           {query || tag ? (
             <Button
               aria-label={m.note_search_clear()}
+              className="note-search-clear"
               onClick={clearSearch}
               size="icon-sm"
               variant="ghost"

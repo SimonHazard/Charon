@@ -16,7 +16,7 @@ function AlertDialogOverlay({ className, ...props }: AlertDialogPrimitive.Backdr
     <AlertDialogPrimitive.Backdrop
       data-slot="alert-dialog-overlay"
       className={cn(
-        'fixed inset-0 isolate z-50 bg-black/10 opacity-100 supports-backdrop-filter:backdrop-blur-xs transition-opacity [transition-duration:var(--motion-duration-transient)] [transition-timing-function:var(--motion-easing-transient)] data-starting-style:opacity-0 data-ending-style:opacity-0',
+        'fixed inset-0 isolate z-50 bg-[var(--material-scrim)] opacity-100 backdrop-blur-[var(--material-blur)] transition-opacity [transition-duration:var(--motion-duration-transient)] [transition-timing-function:var(--motion-easing-transient)] data-starting-style:opacity-0 data-ending-style:opacity-0',
         className,
       )}
       {...props}

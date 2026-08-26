@@ -1,5 +1,6 @@
+// biome-ignore-all lint/a11y/noRedundantRoles: WebKit drops list semantics when CSS removes markers.
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
@@ -46,6 +47,7 @@ export function NoteList({
 }) {
   const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
+  const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
   const virtualizer = useVirtualizer({
     count: notes.length,
     estimateSize: () => ROW_HEIGHT,
@@ -55,15 +57,21 @@ export function NoteList({
     overscan: 10,
   });
 
+  useLayoutEffect(() => {
+    if (!pendingFocusId) return;
+    const next = document.querySelector<HTMLElement>(`[data-note-focus="${pendingFocusId}"]`);
+    if (!next) return;
+    next.focus({ preventScroll: true });
+    setPendingFocusId(null);
+  });
+
   const moveFocus = useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
       const target = event.target instanceof HTMLElement ? event.target : null;
-      const active = target?.closest<HTMLElement>('[data-note-focus]');
-      const noteId = active?.dataset.noteFocus;
-      if (!noteId) return;
-      const currentIndex = notes.findIndex((note) => note.id === noteId);
-      if (currentIndex < 0) return;
+      const activeRow = target?.closest<HTMLElement>('[data-index]');
+      const currentIndex = Number(activeRow?.dataset.index);
+      if (!Number.isInteger(currentIndex)) return;
       event.preventDefault();
       const nextIndex = Math.max(
         0,
@@ -71,12 +79,13 @@ export function NoteList({
       );
       const nextId = notes[nextIndex]?.id;
       if (!nextId) return;
+      setPendingFocusId(nextId);
       virtualizer.scrollToIndex(nextIndex, { align: 'auto' });
-      window.requestAnimationFrame(() => {
-        document
-          .querySelector<HTMLElement>(`[data-note-focus="${nextId}"]`)
-          ?.focus({ preventScroll: true });
-      });
+      const mounted = document.querySelector<HTMLElement>(`[data-note-focus="${nextId}"]`);
+      if (mounted) {
+        mounted.focus({ preventScroll: true });
+        setPendingFocusId(null);
+      }
     },
     [notes, virtualizer],
   );
@@ -87,6 +96,7 @@ export function NoteList({
         aria-label={m.note_list_label()}
         className="note-list-inner"
         onKeyDown={moveFocus}
+        role="list"
         style={{ height: virtualizer.getTotalSize() }}
       >
         {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -94,10 +104,13 @@ export function NoteList({
           if (!note) return null;
           return (
             <li
+              aria-posinset={virtualRow.index + 1}
+              aria-setsize={notes.length}
               className="note-virtual-row"
               data-index={virtualRow.index}
               key={note.id}
               ref={virtualizer.measureElement}
+              role="listitem"
               style={{ transform: `translateY(${virtualRow.start}px)` }}
               tabIndex={-1}
             >

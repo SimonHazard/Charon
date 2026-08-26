@@ -39,6 +39,10 @@
   "note_delete": "Delete {title}",
   "note_mark_open": "Mark open",
   "note_mark_done": "Mark done",
+  "note_marked_open": "Note marked open.",
+  "note_marked_done": "Note marked done.",
+  "note_status_open": "Status: Open.",
+  "note_status_done": "Status: Done.",
   "note_list_label": "Notes",
   "note_metadata_no_tags": "No tags",
   "note_metadata_summary": "Tags: {tags}. {attachments}.",
@@ -88,6 +92,7 @@
   "delete_external_boundary": "Operating-system snapshots, external backups, and synced histories are outside Charon’s deletion guarantee.",
   "delete_confirm": "Delete permanently",
   "delete_error": "The note was not deleted. Nothing changed; retry.",
+  "delete_done": "Note deleted.",
   "delete_cleanup_required": "The note was removed, but cleanup could not be verified. Retry cleanup before relying on permanent deletion.",
   "capture_input_label_flat": "Capture a note",
   "capture_focus": "Write a note",
@@ -107,7 +112,16 @@
   "attachment_add": "Add attachment",
   "attachment_importing": "Importing…",
   "attachment_empty": "No attachments",
-  "attachment_count": "{count} attachments",
+  "attachment_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} attachment",
+        "countPlural=other": "{count} attachments"
+      }
+    }
+  ],
   "attachment_focus": "Show {count} in this note",
   "attachment_limit_reached": "Attachment limit reached: 20 of 20.",
   "attachment_remove": "Remove {file}",

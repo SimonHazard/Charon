@@ -59,6 +59,10 @@ export function AppProviders({
     [locale, setLocale, setTheme, theme],
   );
 
+  useEffect(() => {
+    applyLocale(readLocale());
+  }, []);
+
   return (
     <PreferencesContext.Provider value={preferences}>
       <MotionSystem>
