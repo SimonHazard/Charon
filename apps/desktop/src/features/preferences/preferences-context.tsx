@@ -22,7 +22,6 @@ const defaultPreferences: PreferencesSnapshot = {
   schemaVersion: 1,
   workspaceName: null,
   hasRememberedWorkspace: false,
-  captureHintDismissed: false,
 };
 
 type NativePreferencesValue = {
@@ -33,7 +32,6 @@ type NativePreferencesValue = {
   errorKey: string | null;
   refresh(): Promise<void>;
   requestPermission(permission: CapturePermissionKind): Promise<void>;
-  dismissCaptureHint(): Promise<void>;
 };
 
 const NativePreferencesContext = createContext<NativePreferencesValue | null>(null);
@@ -114,15 +112,6 @@ export function NativePreferencesProvider({
     [captureClient],
   );
 
-  const dismissCaptureHint = useCallback(async () => {
-    setErrorKey(null);
-    try {
-      setPreferences(await preferencesClient.update({ captureHintDismissed: true }));
-    } catch (error) {
-      setErrorKey(asPreferencesError(error).messageKey);
-    }
-  }, [preferencesClient]);
-
   return (
     <NativePreferencesContext.Provider
       value={{
@@ -133,7 +122,6 @@ export function NativePreferencesProvider({
         errorKey,
         refresh,
         requestPermission,
-        dismissCaptureHint,
       }}
     >
       {children}

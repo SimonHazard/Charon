@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -119,8 +119,27 @@ describe('single note shelf', () => {
     await waitFor(() =>
       expect(composeAndWrite).toHaveBeenCalledWith({ expectedRevision: 1, noteId: 'alpha' }),
     );
-    expect((await screen.findByText('Copied')).getAttribute('role')).toBe('status');
+    expect(
+      (await screen.findAllByText('Copied')).every(
+        (item) => item.getAttribute('role') === 'status',
+      ),
+    ).toBe(true);
     expect(screen.queryByText(/\/Users\//)).toBeNull();
+  });
+
+  it('clears copied row feedback after its transient window', async () => {
+    vi.useFakeTimers();
+    const composeAndWrite = vi
+      .fn()
+      .mockResolvedValue({ tagCount: 1, attachmentCount: 0, byteCount: 24 });
+    renderScreen({ clipboardClient: { composeAndWrite } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Alpha as Markdown' }));
+    await act(async () => Promise.resolve());
+    expect(document.querySelector('.note-copy-state')?.textContent).toBe('Copied');
+    act(() => vi.advanceTimersByTime(2_500));
+    expect(document.querySelector('.note-copy-state')).toBeNull();
+    vi.useRealTimers();
   });
 
   it('keeps a failed per-Note copy contextual without changing the Note', async () => {
@@ -181,6 +200,12 @@ describe('single note shelf', () => {
     expect(within(dialog).getByText('Delete this note permanently?')).toBeTruthy();
     expect(within(dialog).getByText(/cannot be undone/i)).toBeTruthy();
     expect(within(dialog).getByText(/external backups/i)).toBeTruthy();
+    within(dialog).getByRole('button', { name: 'Cancel' }).focus();
+    const focusedBeforeSearchShortcut = document.activeElement;
+    fireEvent.keyDown(window, { key: 'f', metaKey: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(focusedBeforeSearchShortcut);
+    expect(document.querySelector('[name="noteSearch"]')).not.toBe(document.activeElement);
     await user.click(within(dialog).getByRole('button', { name: 'Delete permanently' }));
     await waitFor(() =>
       expect(commands.some((command) => command.type === 'deleteNote')).toBe(true),
@@ -197,6 +222,9 @@ describe('single note shelf', () => {
     expect(liveRegion?.textContent).toBe('');
     await user.click(screen.getAllByRole('button', { name: 'Mark done' })[0]);
     await waitFor(() => expect(liveRegion?.textContent).toBe('Note marked done.'));
+    await user.type(screen.getByRole('textbox', { name: 'Capture a note' }), 'New local note');
+    await user.click(screen.getByRole('button', { name: 'Add note' }));
+    await waitFor(() => expect(liveRegion?.textContent).toBe('Note added.'));
   });
 
   it('reports cleanup-required without claiming success and retries through snapshot recovery', async () => {

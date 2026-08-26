@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NoteEditor } from '@/features/notes/note-editor';
-import { surfaceTransition } from '@/motion/system';
 
 const lineBreak = /\r?\n/u;
 const headingMarker = /^#{1,6}\s*/u;
@@ -90,8 +89,6 @@ export const NoteRow = memo(function NoteRow({
       data-expanded={expanded}
       data-note-id={note.id}
       data-status={note.status}
-      layout="size"
-      transition={{ layout: surfaceTransition }}
     >
       <div className="note-row-main">
         <div className="note-row-leading">
@@ -123,7 +120,9 @@ export const NoteRow = memo(function NoteRow({
             }}
             type="button"
           >
-            <span className="note-row-title">{title}</span>
+            <span className="note-row-title" title={title}>
+              {title}
+            </span>
             {remainingLines ? <span className="note-row-snippet">{remainingLines}</span> : null}
           </button>
           <div className="note-row-metadata" data-note-metadata>
@@ -146,14 +145,16 @@ export const NoteRow = memo(function NoteRow({
               </Tooltip>
             ) : null}
             {note.tags.slice(0, 2).map((tag) => (
-              <button
-                className="tag-filter-chip"
-                key={tag}
-                onClick={() => onTagFilter(tag)}
-                type="button"
-              >
-                {tag}
-              </button>
+              <Tooltip key={tag}>
+                <TooltipTrigger
+                  className="tag-filter-chip"
+                  onClick={() => onTagFilter(tag)}
+                  render={<button type="button" />}
+                >
+                  {tag}
+                </TooltipTrigger>
+                <TooltipContent>{tag}</TooltipContent>
+              </Tooltip>
             ))}
             {note.tags.length > 2 ? (
               <Badge className="tag-overflow">+{note.tags.length - 2}</Badge>

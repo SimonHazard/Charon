@@ -431,7 +431,12 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
               {note.attachments.map((attachment) => (
                 <li key={attachment.id}>
                   <IconFile aria-hidden="true" />
-                  <span className="attachment-name">{attachment.fileName}</span>
+                  <Tooltip>
+                    <TooltipTrigger className="attachment-name" render={<button type="button" />}>
+                      {attachment.fileName}
+                    </TooltipTrigger>
+                    <TooltipContent>{attachment.fileName}</TooltipContent>
+                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger
                       aria-label={m.attachment_remove({ file: attachment.fileName })}

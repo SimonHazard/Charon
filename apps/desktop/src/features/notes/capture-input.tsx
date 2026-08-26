@@ -51,7 +51,7 @@ export const CaptureInput = forwardRef<
           <Input
             className="capture-field-input"
             aria-invalid={failed}
-            aria-label={m.capture_input_label_flat()}
+            aria-label={m.capture_input_label()}
             aria-busy={pending}
             autoComplete="off"
             name="captureBody"

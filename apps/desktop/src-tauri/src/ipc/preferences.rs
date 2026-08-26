@@ -2,9 +2,7 @@ use std::path::Path;
 
 use tauri::{AppHandle, Manager};
 
-use crate::preferences::{
-    PreferencesIpcError, PreferencesSnapshot, PreferencesStorage, PreferencesUpdate,
-};
+use crate::preferences::{PreferencesIpcError, PreferencesSnapshot, PreferencesStorage};
 
 fn storage(app: &AppHandle) -> Result<PreferencesStorage, PreferencesIpcError> {
     let root = app
@@ -34,18 +32,6 @@ pub(crate) fn remember_workspace(
 #[tauri::command]
 pub fn preferences_read(app: AppHandle) -> Result<PreferencesSnapshot, PreferencesIpcError> {
     Ok(storage(&app)?.read()?.snapshot())
-}
-
-#[tauri::command]
-pub fn preferences_update(
-    app: AppHandle,
-    update: PreferencesUpdate,
-) -> Result<PreferencesSnapshot, PreferencesIpcError> {
-    let storage = storage(&app)?;
-    let mut preferences = storage.read()?;
-    preferences.capture_hint_dismissed = update.capture_hint_dismissed;
-    storage.write(&preferences)?;
-    Ok(preferences.snapshot())
 }
 
 #[tauri::command]

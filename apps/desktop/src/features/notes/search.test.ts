@@ -41,6 +41,28 @@ describe('flat note search', () => {
     ]);
     expect(filterNotes(notes, { query: '', tag: 'age' })).toEqual([]);
   });
+
+  it('folds French diacritics in either direction for body and exact Tag matching', () => {
+    const accented = [note({ id: 'accented', body: 'Café résumé', tags: ['Café'] })];
+
+    expect(filterNotes(accented, { query: 'cafe resume', tag: null })).toEqual(accented);
+    expect(
+      filterNotes([note({ id: 'plain', body: 'cafe resume' })], { query: 'café', tag: null }),
+    ).toHaveLength(1);
+    expect(filterNotes(accented, { query: '', tag: 'cafe' })).toEqual(accented);
+  });
+
+  it('matches every token in a multi-token query', () => {
+    const corpus = [note({ id: 'brief', body: 'Agent ready\nLocal brief' })];
+
+    expect(filterNotes(corpus, { query: 'agent brief', tag: null })).toEqual(corpus);
+  });
+
+  it('normalizes CJK full-width compatibility forms', () => {
+    const corpus = [note({ id: 'cjk', body: 'ＡＩ エージェント' })];
+
+    expect(filterNotes(corpus, { query: 'AI', tag: null })).toEqual(corpus);
+  });
 });
 
 describe('incremental note index', () => {
@@ -69,7 +91,7 @@ describe('incremental note index', () => {
     normalize.mockRestore();
 
     expect(results.map((item) => item.id)).toEqual(['body']);
-    expect(calls).toBe(2);
+    expect(calls).toBe(3);
   });
 
   it('drops Notes that left the Workspace', () => {

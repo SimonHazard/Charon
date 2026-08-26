@@ -7,10 +7,15 @@ export type NoteFilter = {
 
 const whitespace = /\s+/gu;
 
+function foldSearchText(value: string): string {
+  // Charon supports English and French. Their case rules match Unicode's
+  // locale-independent lowercase, while NFKD both decomposes accents for the
+  // fold and normalizes compatibility forms such as full-width CJK text.
+  return value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
 export function normalizeSearchText(value: string): string {
-  // Charon supports English and French; Unicode's locale-independent lowercase
-  // is correct for both and avoids the substantially slower host-locale path.
-  return value.normalize('NFKC').toLowerCase().replace(whitespace, ' ').trim();
+  return foldSearchText(value).replace(whitespace, ' ').trim();
 }
 
 type IndexEntry = {
@@ -33,7 +38,7 @@ function haystackOf(entry: IndexEntry): string {
     let raw = entry.note.body;
     for (const tag of entry.note.tags) raw += ` ${tag}`;
     for (const attachment of entry.note.attachments) raw += ` ${attachment.fileName}`;
-    entry.haystack = raw.normalize('NFKC').toLowerCase();
+    entry.haystack = foldSearchText(raw);
   }
   return entry.haystack;
 }
@@ -49,7 +54,6 @@ export function createNoteIndex(): NoteIndex {
   let syncedNotes: readonly NoteDto[] | null = null;
   let tagSource: readonly NoteDto[] | null = null;
   let tagList: readonly string[] = [];
-
   const sync = (notes: readonly NoteDto[]) => {
     if (syncedNotes === notes) return;
     const next = new Map<string, IndexEntry>();
@@ -62,7 +66,7 @@ export function createNoteIndex(): NoteIndex {
           : {
               note,
               haystack: null,
-              tagKeys: note.tags.map((tag) => tag.toLowerCase()),
+              tagKeys: note.tags.map(normalizeSearchText),
             },
       );
     }
@@ -74,7 +78,7 @@ export function createNoteIndex(): NoteIndex {
     filter(notes, filter) {
       sync(notes);
       const tokens = normalizeSearchText(filter.query).split(' ').filter(Boolean);
-      const exactTag = filter.tag?.toLowerCase() ?? null;
+      const exactTag = filter.tag ? normalizeSearchText(filter.tag) : null;
       if (!tokens.length && !exactTag) return notes;
       return notes.filter((note) => {
         const entry = entries.get(note.id);

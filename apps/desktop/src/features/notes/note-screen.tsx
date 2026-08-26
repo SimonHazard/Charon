@@ -77,6 +77,7 @@ export function NoteScreen({
   const searchRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<CaptureInputHandle>(null);
   const announcementTimerRef = useRef<number | null>(null);
+  const copyTimerRef = useRef<number | null>(null);
   const pendingDeleteFocusRef = useRef<{ deletedId: string; index: number } | null>(null);
 
   const indexRef = useRef<NoteIndex | null>(null);
@@ -104,6 +105,9 @@ export function NoteScreen({
     () => () => {
       if (announcementTimerRef.current !== null) {
         window.clearTimeout(announcementTimerRef.current);
+      }
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
       }
     },
     [],
@@ -134,6 +138,7 @@ export function NoteScreen({
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'f') {
+        if (document.querySelector('[role="alertdialog"][data-open]')) return;
         event.preventDefault();
         searchRef.current?.focus();
       }
@@ -144,12 +149,24 @@ export function NoteScreen({
 
   const copyNote = useCallback(
     async (noteId: string) => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = null;
+      }
       try {
         await clipboardClient.composeAndWrite({
           expectedRevision: snapshot.revision,
           noteId,
         });
-        setCopyState({ noteId, status: 'copied', message: m.copy_inline_copied() });
+        const message = m.copy_inline_copied();
+        setCopyState({ noteId, status: 'copied', message });
+        announce(message);
+        copyTimerRef.current = window.setTimeout(() => {
+          setCopyState((current) =>
+            current?.noteId === noteId && current.status === 'copied' ? null : current,
+          );
+          copyTimerRef.current = null;
+        }, 2_500);
       } catch (error) {
         const clipboardError = asClipboardError(error);
         if (clipboardError.code === 'stale_revision') {
@@ -174,7 +191,7 @@ export function NoteScreen({
         setCopyState({ noteId, status: 'error', message });
       }
     },
-    [clipboardClient, m, refreshWorkspace, snapshot.revision],
+    [announce, clipboardClient, m, refreshWorkspace, snapshot.revision],
   );
 
   const expandNote = useCallback((noteId: string) => {
@@ -299,7 +316,7 @@ export function NoteScreen({
 
   const emptyTitle = query || tag ? m.note_empty_search_title() : m.note_empty_all_title();
   const emptyDescription =
-    query || tag ? m.note_empty_search_description_flat() : m.note_empty_all_description();
+    query || tag ? m.note_empty_search_description() : m.note_empty_all_description();
   return (
     <section className="note-screen">
       <div aria-live="polite" className="sr-only" role="status">
@@ -313,7 +330,7 @@ export function NoteScreen({
             autoComplete="off"
             name="noteSearch"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={m.note_search_placeholder_flat()}
+            placeholder={m.note_search_placeholder()}
             ref={searchRef}
             value={query}
           />
@@ -392,6 +409,7 @@ export function NoteScreen({
         <CaptureInput
           onCreate={async (body) => {
             await executeWorkspaceCommand({ type: 'createNote', body });
+            announce(m.capture_created());
           }}
           ref={captureRef}
         />
