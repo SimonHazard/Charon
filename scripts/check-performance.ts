@@ -21,7 +21,7 @@ const query = 'brief handoff';
 function buildNotes(revision: number): NoteDto[] {
   return Array.from({ length: size }, (_, index) => ({
     id: `note-${index}`,
-    body: `# Réunion ${index}\nAgent handoff ${index} — vérifier l'état vide avant d'ajouter un contrôle, puis relire le brief complet du Workspace local.`,
+    body: `# Réunion ${index}\nAgent handoff ${index} — vérifier l'état vide avant d'ajouter un contrôle, puis relire le brief complet du Workspace local. Cette note réaliste conserve les décisions, les contraintes de confidentialité et les prochaines étapes pour la livraison.`,
     status: 'open',
     createdAt: '2026-08-05T10:00:00.000Z',
     updatedAt:

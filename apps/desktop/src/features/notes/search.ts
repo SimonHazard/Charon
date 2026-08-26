@@ -8,7 +8,9 @@ export type NoteFilter = {
 const whitespace = /\s+/gu;
 
 export function normalizeSearchText(value: string): string {
-  return value.normalize('NFKC').toLocaleLowerCase().replace(whitespace, ' ').trim();
+  // Charon supports English and French; Unicode's locale-independent lowercase
+  // is correct for both and avoids the substantially slower host-locale path.
+  return value.normalize('NFKC').toLowerCase().replace(whitespace, ' ').trim();
 }
 
 type IndexEntry = {
@@ -31,7 +33,7 @@ function haystackOf(entry: IndexEntry): string {
     let raw = entry.note.body;
     for (const tag of entry.note.tags) raw += ` ${tag}`;
     for (const attachment of entry.note.attachments) raw += ` ${attachment.fileName}`;
-    entry.haystack = raw.normalize('NFKC').toLocaleLowerCase();
+    entry.haystack = raw.normalize('NFKC').toLowerCase();
   }
   return entry.haystack;
 }
@@ -60,7 +62,7 @@ export function createNoteIndex(): NoteIndex {
           : {
               note,
               haystack: null,
-              tagKeys: note.tags.map((tag) => tag.toLocaleLowerCase()),
+              tagKeys: note.tags.map((tag) => tag.toLowerCase()),
             },
       );
     }
@@ -72,7 +74,7 @@ export function createNoteIndex(): NoteIndex {
     filter(notes, filter) {
       sync(notes);
       const tokens = normalizeSearchText(filter.query).split(' ').filter(Boolean);
-      const exactTag = filter.tag?.toLocaleLowerCase() ?? null;
+      const exactTag = filter.tag?.toLowerCase() ?? null;
       if (!tokens.length && !exactTag) return notes;
       return notes.filter((note) => {
         const entry = entries.get(note.id);
