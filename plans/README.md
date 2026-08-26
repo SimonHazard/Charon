@@ -99,7 +99,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 028 | Repair the verification gates and reconcile stale documentation | DONE |
 | 029 | Expose Note state to assistive tech, fix focus movement, meet 44px targets | DONE |
 | 030 | Polish search matching, preview structure, motion, feedback, and copy | TODO after 029 |
-| 031 | Make search and rendering cheap at 20k Notes; benchmark the real search | TODO |
+| 031 | Make search and rendering cheap at 20k Notes; benchmark the real search | DONE |
 | 032 | Scope transactions to what changed; move IPC work off the main thread | TODO after 025 |
 | 033 | Spike: Linux/Windows selected-text capture adapters (ADR 0014 draft) | TODO after 021, 022, 023 |
 | 014 | Close exact-candidate quality gaps | TODO after 020 and the 021-024 portability plans |

@@ -60,6 +60,9 @@ The current browser matrix covers:
 
 `bun run test:perf` enforces the desktop JavaScript gzip cap and cold-search and
 warm-snapshot median budgets over 20,000 Notes using the shipped Note index. The
+Plan 031 reference run measured 16.42 ms cold and 8.96 ms warm with realistic
+200-plus-character bodies and the multi-token `brief handoff` query; the hard
+ceilings remain 50 ms cold and 20 ms warm. The
 desktop unit suite enforces fewer than 150 rendered virtual rows in
 `note-list.test.tsx`. LCP below 2.5 seconds, INP below 200 milliseconds, and CLS
 below 0.1 remain design targets, not automated gates.
