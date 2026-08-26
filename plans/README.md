@@ -97,7 +97,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 026 | Keep the composer focused, never lose a draft, report failed saves | AWAITING OPERATOR: native close and external-edit focus refresh host checks |
 | 027 | Harden the webview, IPC, site, and CI boundaries | AWAITING OPERATOR: physical native capability and Attachment picker smoke; rotate/delete repo-root `.env` token |
 | 028 | Repair the verification gates and reconcile stale documentation | DONE |
-| 029 | Expose Note state to assistive tech, fix focus movement, meet 44px targets | TODO |
+| 029 | Expose Note state to assistive tech, fix focus movement, meet 44px targets | DONE |
 | 030 | Polish search matching, preview structure, motion, feedback, and copy | TODO after 029 |
 | 031 | Make search and rendering cheap at 20k Notes; benchmark the real search | TODO |
 | 032 | Scope transactions to what changed; move IPC work off the main thread | TODO after 025 |

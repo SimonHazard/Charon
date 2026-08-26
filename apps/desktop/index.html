@@ -11,8 +11,13 @@
           const value = localStorage.getItem('charon:theme:v1');
           const theme = ['light', 'dark'].includes(value) ? value : 'light';
           document.documentElement.dataset.theme = theme;
+          const storedLocale = localStorage.getItem('PARAGLIDE_LOCALE');
+          document.documentElement.lang = ['en', 'fr'].includes(storedLocale)
+            ? storedLocale
+            : 'en';
         } catch {
           document.documentElement.dataset.theme = 'light';
+          document.documentElement.lang = 'en';
         }
       })();
     </script>

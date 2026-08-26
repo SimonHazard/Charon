@@ -50,6 +50,8 @@
   --success-surface: #ddefe3;
   --material-transient: rgb(255 255 255 / 88%);
   --material-transient-solid: var(--surface-elevated);
+  --material-scrim: rgb(23 18 33 / 14%);
+  --material-scrim-solid: rgb(23 18 33 / 32%);
 }
 
 [data-theme="dark"] {
@@ -87,6 +89,8 @@
   --success-surface: #193b29;
   --material-transient: rgb(42 34 54 / 90%);
   --material-transient-solid: var(--surface-elevated);
+  --material-scrim: rgb(0 0 0 / 32%);
+  --material-scrim-solid: rgb(0 0 0 / 52%);
 }
 
 :root {

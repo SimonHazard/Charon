@@ -80,6 +80,9 @@ export const NoteRow = memo(function NoteRow({
       })
     : attachmentSummary;
   const tagSummary = note.tags.length ? note.tags.join(', ') : m.note_metadata_no_tags();
+  const statusSummary = note.status === 'done' ? m.note_status_done() : m.note_status_open();
+  const copyDisclosureId = `copy-disclosure-${note.id}`;
+  const noteSummaryId = `note-summary-${note.id}`;
 
   return (
     <motion.article
@@ -94,6 +97,7 @@ export const NoteRow = memo(function NoteRow({
         <div className="note-row-leading">
           <Button
             aria-label={note.status === 'done' ? m.note_mark_open() : m.note_mark_done()}
+            aria-pressed={note.status === 'done'}
             className="note-status-button"
             onClick={() => void onToggleStatus(note)}
             size="icon-sm"
@@ -106,6 +110,7 @@ export const NoteRow = memo(function NoteRow({
         </div>
         <div className="note-row-content">
           <button
+            aria-describedby={noteSummaryId}
             className="note-row-activation"
             data-note-focus={note.id}
             onClick={() => onExpand(note.id)}
@@ -122,7 +127,8 @@ export const NoteRow = memo(function NoteRow({
             {remainingLines ? <span className="note-row-snippet">{remainingLines}</span> : null}
           </button>
           <div className="note-row-metadata" data-note-metadata>
-            <span className="sr-only">
+            <span className="sr-only" id={noteSummaryId}>
+              {statusSummary}{' '}
               {m.note_metadata_summary({ tags: tagSummary, attachments: attachmentDetails })}
             </span>
             {note.attachments.length ? (
@@ -157,7 +163,7 @@ export const NoteRow = memo(function NoteRow({
         <div className="note-row-actions">
           <Tooltip>
             <TooltipTrigger
-              aria-description={m.copy_local_paths_disclosure()}
+              aria-describedby={copyDisclosureId}
               aria-label={m.copy_note_as_markdown({ title })}
               className="note-copy-button"
               onClick={() => void onCopy(note.id)}
@@ -170,6 +176,9 @@ export const NoteRow = memo(function NoteRow({
               <span className="copy-disclosure">{m.copy_local_paths_disclosure()}</span>
             </TooltipContent>
           </Tooltip>
+          <span className="sr-only" id={copyDisclosureId}>
+            {m.copy_local_paths_disclosure()}
+          </span>
           <Button
             aria-label={m.note_edit({ title })}
             className="note-edit-button"

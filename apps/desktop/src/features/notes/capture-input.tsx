@@ -66,6 +66,7 @@ export const CaptureInput = forwardRef<
           />
           <Button
             aria-label={pending ? m.capture_input_saving() : m.capture_input_submit()}
+            className="capture-submit-button"
             disabled={!body || pending}
             size="icon-xs"
             type="submit"

@@ -70,6 +70,7 @@ export function PreferencesPanel() {
         <Tooltip>
           <TooltipTrigger
             aria-label={detailsLabel}
+            className="preferences-info-button"
             render={<Button size="icon-xs" variant="ghost" />}
           >
             <IconInfoCircle aria-hidden="true" />
@@ -100,6 +101,7 @@ export function PreferencesPanel() {
           render={
             <PopoverTrigger
               aria-label={m.navigation_settings()}
+              className="shelf-action-button"
               onKeyDown={press.onKeyDown}
               onKeyUp={press.onKeyUp}
               onPointerCancel={press.onPointerCancel}
@@ -214,6 +216,7 @@ export function PreferencesPanel() {
                   <Tooltip>
                     <TooltipTrigger
                       aria-label={m.preferences_portable_details()}
+                      className="preferences-info-button"
                       render={<Button size="icon-xs" variant="ghost" />}
                     >
                       <IconInfoCircle aria-hidden="true" />

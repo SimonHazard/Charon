@@ -78,8 +78,14 @@
   padding-left: 0.1rem;
 }
 .shelf-actions button {
+  position: relative;
   width: 2.25rem;
   height: 2.25rem;
+}
+.shelf-action-button::after {
+  content: "";
+  position: absolute;
+  inset: -0.25rem;
 }
 
 .help-popover {
@@ -463,6 +469,7 @@
   background: var(--surface-pressed);
 }
 .note-row-main {
+  position: relative;
   display: grid;
   min-height: 4.75rem;
   grid-template-columns: 2.75rem minmax(0, 1fr) auto;
@@ -493,6 +500,17 @@
   background: transparent;
   color: inherit;
   text-align: left;
+}
+.note-row-activation::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.note-row-leading,
+.note-row-metadata,
+.note-row-actions {
+  position: relative;
+  z-index: 1;
 }
 .note-row-activation:focus-visible {
   border-radius: var(--radius-control);
@@ -738,13 +756,19 @@
   line-height: 1.25;
 }
 .tag-editor-chips [data-slot="badge"] button {
+  position: relative;
   display: inline-grid;
-  width: 1rem;
-  height: 1rem;
+  width: 1.25rem;
+  height: 1.25rem;
   place-items: center;
   border: 0;
   background: transparent;
   color: inherit;
+}
+.tag-remove-button::after {
+  content: "";
+  position: absolute;
+  inset: -0.8rem;
 }
 .tag-editor-chips [data-slot="badge"] svg {
   width: 0.75rem;
@@ -847,7 +871,7 @@
 }
 .capture-field:focus-within {
   border-color: var(--focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 35%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 90%, transparent);
 }
 .capture-field-input {
   flex: 1;
@@ -858,6 +882,22 @@
 .capture-field-input:focus-visible {
   border: 0;
   box-shadow: none;
+}
+.capture-submit-button,
+.note-search-clear,
+.preferences-info-button {
+  position: relative;
+}
+.capture-submit-button::after,
+.preferences-info-button::after {
+  content: "";
+  position: absolute;
+  inset: -0.625rem;
+}
+.note-search-clear::after {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
 }
 
 @media (hover: none), (pointer: coarse) {
@@ -922,8 +962,16 @@
 
 @media (prefers-reduced-transparency: reduce) {
   .help-popover,
-  .preferences-popover {
+  .preferences-popover,
+  [data-slot="alert-dialog-content"],
+  [data-slot="tooltip-content"],
+  [data-slot="toast"] {
     background: var(--material-transient-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  [data-slot="alert-dialog-overlay"] {
+    background: var(--material-scrim-solid);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -942,5 +990,11 @@
   .help-popover {
     border-color: currentColor;
     background: var(--material-transient-solid);
+  }
+  [data-slot="alert-dialog-overlay"],
+  [data-slot="alert-dialog-content"],
+  [data-slot="tooltip-content"],
+  [data-slot="toast"] {
+    border: 1px solid currentColor;
   }
 }
