@@ -1,8 +1,6 @@
 use std::path::Path;
 
-use charon_desktop_lib::preferences::{
-    PreferencesIpcError, PreferencesSnapshot, PreferencesUpdate,
-};
+use charon_desktop_lib::preferences::{PreferencesIpcError, PreferencesSnapshot};
 use ts_rs::{Config, TS};
 
 #[test]
@@ -13,7 +11,6 @@ fn export_preferences_bindings() {
     let config = Config::default();
     let declarations = [
         PreferencesSnapshot::decl(&config),
-        PreferencesUpdate::decl(&config),
         PreferencesIpcError::decl(&config),
     ]
     .map(|declaration| format!("export {declaration}"))

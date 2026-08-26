@@ -47,7 +47,6 @@ pub fn run() {
             ipc::capture::capture_request_permission,
             ipc::capture::capture_composer_ready,
             ipc::preferences::preferences_read,
-            ipc::preferences::preferences_update,
             ipc::preferences::preferences_reset,
         ])
         .setup(|app| {

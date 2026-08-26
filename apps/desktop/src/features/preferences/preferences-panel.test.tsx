@@ -37,9 +37,7 @@ function clients(overrides: Partial<CaptureCapabilities> = {}) {
       schemaVersion: 1,
       workspaceName: 'Charon Notes',
       hasRememberedWorkspace: true,
-      captureHintDismissed: false,
     }),
-    update: vi.fn(),
     reset: vi.fn(),
   };
   return { captureClient, preferencesClient, requestPermission };

@@ -53,19 +53,11 @@ const preferencesClient: NativePreferencesClient = {
     schemaVersion: 1,
     workspaceName: null,
     hasRememberedWorkspace: false,
-    captureHintDismissed: false,
-  }),
-  update: async () => ({
-    schemaVersion: 1,
-    workspaceName: null,
-    hasRememberedWorkspace: false,
-    captureHintDismissed: false,
   }),
   reset: async () => ({
     schemaVersion: 1,
     workspaceName: null,
     hasRememberedWorkspace: false,
-    captureHintDismissed: false,
   }),
 };
 

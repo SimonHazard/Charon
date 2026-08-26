@@ -295,10 +295,11 @@ current presentation value. Input is never locked while motion settles.
 The allowed motion foundation is exact and intentionally small: existing
 button/icon press feedback at scale `.98`; origin-aware opacity plus scale
 `.98-.985` for Tooltips, menus, and Popovers over 120-180ms with symmetric
-exit; the existing critically damped nested row/editor transform-and-opacity
-transition. The editor expansion begins from the live row, carries its current
-presentation value, uses the same path to expand and collapse, remains reversible
-at every point, and returns to the current row target if the list changes.
+exit; and the editor content's critically damped transform-and-opacity
+transition. The row height changes instantaneously by design so frequent
+pointer and keyboard expansion never waits on layout motion. Editor content
+uses the same path to expand and collapse, remains reversible at every point,
+and reduced motion replaces its scale with a crossfade or static swap.
 
 Reject list entrance and search-result motion, status-filter chrome, row
 lift, hover shadow, parallax, bounce, gradients, grain, composer-focus

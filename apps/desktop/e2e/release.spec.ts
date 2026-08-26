@@ -83,7 +83,7 @@ test('direct copy and irreversible Delete keep one-Note scope explicit', async (
   await page.setViewportSize({ width: 400, height: 480 });
   await page.goto(desktop);
   await page.getByRole('button', { name: 'Copy Agent handoff as Markdown' }).click();
-  await expect(page.getByText('Copied')).toHaveAttribute('role', 'status');
+  await expect(page.locator('.note-copy-state')).toHaveAttribute('role', 'status');
   const deleteButton = page.getByRole('button', { name: 'Delete Agent handoff' });
   await deleteButton.click();
   const dialog = page.getByRole('alertdialog');
@@ -91,6 +91,11 @@ test('direct copy and irreversible Delete keep one-Note scope explicit', async (
   await expect(dialog).toContainText('cannot be undone');
   await expect(dialog).toContainText('external backups');
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  const focusedDialogControl = dialog.locator(':focus');
+  await expect(focusedDialogControl).toHaveCount(1);
+  await page.keyboard.press('ControlOrMeta+f');
+  await expect(focusedDialogControl).toHaveCount(1);
+  await expect(page.locator('[name="noteSearch"]')).not.toBeFocused();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(deleteButton).toBeFocused();
   await expect(page.getByText('Agent handoff')).toBeVisible();

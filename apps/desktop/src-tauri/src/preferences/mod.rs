@@ -5,7 +5,7 @@ mod storage;
 use std::path::{Path, PathBuf};
 
 pub use error::{PreferencesError, PreferencesIpcError};
-pub use model::{PersistedPreferences, PreferencesSnapshot, PreferencesUpdate};
+pub use model::{PersistedPreferences, PreferencesSnapshot};
 pub use storage::PreferencesStorage;
 
 pub fn read(root: impl Into<PathBuf>) -> Result<PersistedPreferences, PreferencesError> {
