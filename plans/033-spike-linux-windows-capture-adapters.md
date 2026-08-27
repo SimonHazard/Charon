@@ -70,7 +70,7 @@ support, under the same privacy ceiling as ADR 0009/0010, and evidence.
 ## Scope
 
 **In scope**:
-- `docs/adr/0014-linux-windows-capture-adapters.md` (draft, status *Proposed*)
+- `docs/adr/0015-linux-windows-capture-adapters.md` (draft, status *Proposed*)
 - `docs/platform-support.md` (evidence table rows for the spike results)
 - A scratch branch `spike/033-capture-adapters` with throwaway prototypes under
   `apps/desktop/src-tauri/spikes/` (never merged)
@@ -147,9 +147,9 @@ passive double-Shift path exists without privileged input access.
 
 **Verify**: matrix filled; Wayland row states plainly which gesture is possible.
 
-### Step 4: Draft ADR 0014 and update the ledger
+### Step 4: Draft ADR 0015 and update the ledger
 
-ADR 0014 (Proposed) must decide, per OS: gesture supported (double-Shift /
+ADR 0015 (Proposed) must decide, per OS: gesture supported (double-Shift /
 shortcut-only / none), acquisition ladder order (accessibility first; PRIMARY
 or bounded Copy fallback), permission/disclosure text, what remains
 `Unsupported`, and the physical matrix required before any claim. Include
@@ -159,7 +159,7 @@ requirements). Update `docs/platform-support.md` with a "Spike 033 evidence"
 section (dates, hosts, results). Propose the follow-up build plans (one per
 OS) with effort estimates.
 
-**Verify**: ADR file exists with status Proposed; `plans/README.md` status row updated to `AWAITING OPERATOR: accept/reject ADR 0014`.
+**Verify**: ADR file exists with status Proposed; `plans/README.md` status row updated to `AWAITING OPERATOR: Windows and Linux X11/Wayland hosts for physical spike evidence and ADR 0015 decision`.
 
 ## Test plan
 
@@ -168,7 +168,7 @@ OS) with effort estimates.
 
 ## Done criteria
 
-- [ ] `docs/adr/0014-linux-windows-capture-adapters.md` drafted with per-OS options, decision proposal, and open questions
+- [ ] `docs/adr/0015-linux-windows-capture-adapters.md` drafted with per-OS options, decision proposal, and open questions
 - [ ] Evidence matrices for Windows and Linux (X11 + Wayland) recorded, or the row states which host was unavailable
 - [ ] `docs/platform-support.md` updated with spike evidence, no support claim
 - [ ] Prototype code lives only on the scratch branch
@@ -186,7 +186,7 @@ OS) with effort estimates.
 
 ## Maintenance notes
 
-- If ADR 0014 is accepted, each OS becomes its own build plan following the
+- If ADR 0015 is accepted, each OS becomes its own build plan following the
   macOS pattern (adapter behind `PlatformCapturePort`, contract tests, physical
   matrix, `docs/platform-support.md` promotion, Help copy from Plan 023).
 - Keep the double-Shift gesture machine platform-neutral; adapters only feed

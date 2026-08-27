@@ -1,7 +1,7 @@
 # Platform capture support
 
 This document is the evidence ledger for ADRs 0002, 0006, 0008, 0009, 0010,
-0011, and 0014. A capability is `supported` only after the exact final build
+0011, and 0014, plus proposed ADR 0015. A capability is `supported` only after the exact final build
 passes its complete physical matrix. Runtime capability reporting remains
 authoritative.
 
@@ -146,11 +146,33 @@ grant, before macOS capture is advertised as release-supported. Under ADR 0014
 that artifact is ad-hoc signed; its recorded SHA-256, not a Developer ID
 signature, identifies the build the evidence belongs to.
 
+## Spike 033 evidence — 2026-08-27
+
+Plan 033 completed primary-source desk research and proposed
+[ADR 0015](adr/0015-linux-windows-capture-adapters.md). The required physical
+hosts were not available, so no prototype branch was created and no capability
+was promoted.
+
+| Platform/session | Required host | Evidence result | Support effect |
+| --- | --- | --- | --- |
+| Windows 11 | Native Windows host capable of running the exact unsigned release-configuration artifact | Host unavailable — hook, UIA, clipboard, elevation, IME, and application-family matrix not run | None; modifier capture and selected-text acquisition remain `Unsupported` |
+| Linux X11 | Native Linux X11 session capable of running the exact release-configuration artifact | Host unavailable — XI2/XRecord, AT-SPI, `PRIMARY`, IME, and toolkit matrix not run | None; modifier capture and selected-text acquisition remain `Unsupported` |
+| Linux Wayland — GNOME | Current native GNOME Wayland session with its portal backend | Host unavailable — portal consent/activation and AT-SPI matrix not run | None; double Shift and selected-text acquisition remain `Unsupported` |
+| Linux Wayland — KDE Plasma | Current native KDE Plasma Wayland session with its portal backend | Host unavailable — portal consent/activation and AT-SPI matrix not run | None; double Shift and selected-text acquisition remain `Unsupported` |
+| Linux Wayland — wlroots | Current native wlroots compositor session with a configured portal backend | Host unavailable — backend availability and focused-input boundary not physically confirmed | None; double Shift and selected-text acquisition remain `Unsupported` |
+
+The desk-research candidates are Windows UIA-first capture behind a passive
+low-level hook, Linux X11 AT-SPI then `PRIMARY` behind an XI2/XRecord listener,
+and Wayland shortcut-only behavior through the GlobalShortcuts portal. These are
+design proposals only. ADR 0015 contains the official-source citations,
+rejected privileged paths, exact matrices, and follow-up build-plan estimates.
+
 ## References
 
 - [ADR 0010](adr/0010-bounded-copy-selection-fallback.md)
 - [ADR 0011](adr/0011-rapid-capture-product.md)
 - [ADR 0014](adr/0014-unsigned-distribution.md)
+- [ADR 0015 (Proposed)](adr/0015-linux-windows-capture-adapters.md)
 - [Tin SelectionCapture.swift](https://github.com/enzofrasca/tin/blob/main/Tin/Services/SelectionCapture.swift)
 - [Apple DTS Input Monitoring request guidance](https://developer.apple.com/forums/thread/828052)
 - [Apple Accessibility trust API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)

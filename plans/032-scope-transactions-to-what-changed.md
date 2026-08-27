@@ -276,28 +276,3 @@ guard. Adjust `test/workspace-fixture.ts`/tests accordingly.
 - Plan 021's Windows retry-around-rename concern shrinks a lot once commits
   touch only changed files; revisit a bounded retry only if Windows evidence
   shows sharing violations.
-
-## Journal d’exécution — 2026-08-27
-
-- Les six tests de caractérisation watcher/commande passent. Une bascule de
-  statut sur un Workspace de trois Notes et deux Attachments ne conserve plus
-  que deux manifestes et le record de transaction dans le staging.
-- Les commandes IPC synchrones sont déportées par `command(async)` sans garder
-  de `MutexGuard` au-delà d’un point d’attente. Les événements sont bornés au
-  plus récent, les lots watcher à 10 000 chemins, et seuls les événements
-  externes traversent `workspace://changed`.
-- L’import d’Attachment est copié en flux vers des fichiers temporaires bornés,
-  avec un budget agrégé de 512 Mio par commande. Les jetons opaques du picker
-  de Plan 027 restent inchangés.
-- Les transactions écrivent et rejouent uniquement leur change set. La matrice
-  de récupération couvre statut, Tags, corps, ajout/retrait d’Attachment et
-  suppression, chacun aux quatre phases d’interruption (24 cas). Deux cas
-  supplémentaires prouvent le rollback et la finalisation des anciens records
-  dépourvus de `changeSet`. Après une suppression validée, corps, Attachment et
-  sauvegarde de transaction sont absents.
-- Vérifications vertes : `bun run bindings:check`, `bun run check`, 42 tests
-  Playwright Chromium/WebKit, tests Cargo complets, `cargo fmt --check` et
-  Clippy avec avertissements interdits.
-- Reste opérateur : sur l’application Tauri native, importer un fichier
-  d’environ 50 Mio tout en déplaçant la fenêtre et confirmer que son rendu reste
-  fluide. Le fixture navigateur ne peut pas établir cette propriété native.
