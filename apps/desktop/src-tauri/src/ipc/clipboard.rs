@@ -8,13 +8,15 @@ use crate::workspace::{Workspace, WorkspaceError};
 
 use super::workspace::{with_workspace, WorkspaceRuntime};
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn clipboard_compose_and_write(
     app: AppHandle,
     request: ComposeRequest,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<ComposedClipboard, ClipboardIpcError> {
-    let note = with_workspace(&runtime, |workspace| resolve_request(workspace, &request))?;
+    let note = with_workspace(&app, &runtime, |workspace| {
+        resolve_request(workspace, &request)
+    })?;
     let mut writer = TauriClipboardWriter::new(&app);
     compose_and_write(&mut writer, &note).map_err(ClipboardIpcError::from)
 }

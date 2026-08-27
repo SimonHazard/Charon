@@ -122,12 +122,21 @@ describe('workspace command queue', () => {
 
     client.emit({
       revision: 0,
+      origin: 'external',
       snapshot: { ...initial, revision: 0, notes: [note({ id: 'note', body: 'older' })] },
     });
     expect(screen.getByText('1:initial')).toBeTruthy();
 
     client.emit({
+      revision: 3,
+      origin: 'command',
+      snapshot: { ...initial, revision: 3, notes: [note({ id: 'note', body: 'duplicate' })] },
+    });
+    expect(screen.getByText('1:initial')).toBeTruthy();
+
+    client.emit({
       revision: 2,
+      origin: 'external',
       snapshot: { ...initial, revision: 2, notes: [note({ id: 'note', body: 'newer' })] },
     });
     expect(await screen.findByText('2:newer')).toBeTruthy();
@@ -157,6 +166,7 @@ describe('workspace command queue', () => {
     await user.click(screen.getByRole('button', { name: 'refresh' }));
     fixture.emit({
       revision: 2,
+      origin: 'external',
       snapshot: { ...initial, revision: 2, notes: [note({ id: 'note', body: 'event' })] },
     });
     expect(await screen.findByText('2:event')).toBeTruthy();

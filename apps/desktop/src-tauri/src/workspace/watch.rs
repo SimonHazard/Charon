@@ -1,5 +1,8 @@
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -9,8 +12,16 @@ use uuid::Uuid;
 use super::error::WorkspaceError;
 
 const DEBOUNCE: Duration = Duration::from_millis(75);
+const MAX_PENDING_PATHS: usize = 10_000;
+
+pub(crate) struct WatchDrain {
+    pub paths: Vec<PathBuf>,
+    pub full_reload: bool,
+}
+
 pub(crate) struct WorkspaceWatcher {
-    batches: Receiver<Vec<PathBuf>>,
+    pending: Arc<Mutex<BTreeSet<PathBuf>>>,
+    overflow: Arc<AtomicBool>,
     stop: Sender<()>,
     worker: Option<JoinHandle<()>>,
 }
@@ -18,7 +29,10 @@ pub(crate) struct WorkspaceWatcher {
 impl WorkspaceWatcher {
     pub(crate) fn start(root: &Path) -> Result<Self, WorkspaceError> {
         let (raw_tx, raw_rx) = mpsc::channel::<PathBuf>();
-        let (batch_tx, batch_rx) = mpsc::channel();
+        let pending = Arc::new(Mutex::new(BTreeSet::new()));
+        let overflow = Arc::new(AtomicBool::new(false));
+        let worker_pending = Arc::clone(&pending);
+        let worker_overflow = Arc::clone(&overflow);
         let (stop_tx, stop_rx) = mpsc::channel();
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
         let watched_root =
@@ -116,15 +130,25 @@ impl WorkspaceWatcher {
                     paths.retain(|path| relevant(&watched_root, path));
                     paths.sort();
                     paths.dedup();
-                    if !paths.is_empty() && batch_tx.send(paths).is_err() {
-                        break;
+                    if !paths.is_empty() {
+                        let Ok(mut queued) = worker_pending.lock() else {
+                            worker_overflow.store(true, Ordering::Release);
+                            continue;
+                        };
+                        if queued.len().saturating_add(paths.len()) > MAX_PENDING_PATHS {
+                            queued.clear();
+                            worker_overflow.store(true, Ordering::Release);
+                        } else if !worker_overflow.load(Ordering::Acquire) {
+                            queued.extend(paths);
+                        }
                     }
                 }
             })?;
 
         match ready_rx.recv_timeout(Duration::from_secs(2)) {
             Ok(true) => Ok(Self {
-                batches: batch_rx,
+                pending,
+                overflow,
                 stop: stop_tx,
                 worker: Some(worker),
             }),
@@ -138,14 +162,14 @@ impl WorkspaceWatcher {
         }
     }
 
-    pub(crate) fn drain(&self) -> Vec<PathBuf> {
-        let mut paths = Vec::new();
-        while let Ok(mut batch) = self.batches.try_recv() {
-            paths.append(&mut batch);
-        }
-        paths.sort();
-        paths.dedup();
-        paths
+    pub(crate) fn drain(&self) -> WatchDrain {
+        let full_reload = self.overflow.swap(false, Ordering::AcqRel);
+        let paths = self
+            .pending
+            .lock()
+            .map(|mut pending| std::mem::take(&mut *pending).into_iter().collect())
+            .unwrap_or_default();
+        WatchDrain { paths, full_reload }
     }
 
     pub(crate) fn stop(&mut self) {
@@ -197,9 +221,9 @@ mod tests {
     fn poll(watcher: &WorkspaceWatcher) -> Vec<PathBuf> {
         let deadline = Instant::now() + Duration::from_secs(2);
         loop {
-            let paths = watcher.drain();
-            if !paths.is_empty() || Instant::now() >= deadline {
-                return paths;
+            let drained = watcher.drain();
+            if !drained.paths.is_empty() || Instant::now() >= deadline {
+                return drained.paths;
             }
             thread::sleep(Duration::from_millis(20));
         }
@@ -245,7 +269,27 @@ mod tests {
         let mut watcher = WorkspaceWatcher::start(&canonical_root).expect("watcher");
         fs::write(&note, "self write").expect("write");
         thread::sleep(DEBOUNCE + Duration::from_millis(100));
-        assert!(watcher.drain().is_empty());
+        assert!(watcher.drain().paths.is_empty());
         watcher.stop();
+    }
+
+    #[test]
+    fn overflow_requests_one_full_reload_and_clears_the_queue() {
+        let watcher = WorkspaceWatcher {
+            pending: Arc::new(Mutex::new(
+                (0..MAX_PENDING_PATHS)
+                    .map(|index| PathBuf::from(format!("notes/{index}.md")))
+                    .collect(),
+            )),
+            overflow: Arc::new(AtomicBool::new(true)),
+            stop: mpsc::channel().0,
+            worker: None,
+        };
+        let first = watcher.drain();
+        assert!(first.full_reload);
+        assert_eq!(first.paths.len(), MAX_PENDING_PATHS);
+        let second = watcher.drain();
+        assert!(!second.full_reload);
+        assert!(second.paths.is_empty());
     }
 }

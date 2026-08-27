@@ -208,21 +208,21 @@ pub fn handle_main_focus(app: &AppHandle) {
     let _ = emit_pending_status(app);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn capture_capabilities(
     runtime: State<'_, CaptureRuntime>,
 ) -> Result<CaptureCapabilities, CaptureIpcError> {
     with_coordinator(&runtime, CaptureCoordinator::refresh_capabilities)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn capture_open(app: AppHandle) -> Result<CaptureCapabilities, CaptureIpcError> {
     trigger(&app, CaptureTrigger::InApp)?;
     let runtime = app.state::<CaptureRuntime>();
     with_coordinator(&runtime, |coordinator| Ok(coordinator.capabilities()))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn capture_request_permission(
     permission: CapturePermissionKind,
     runtime: State<'_, CaptureRuntime>,
@@ -232,7 +232,7 @@ pub fn capture_request_permission(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn capture_composer_ready(app: AppHandle) -> Result<(), CaptureIpcError> {
     let runtime = app.state::<CaptureRuntime>();
     *runtime

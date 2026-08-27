@@ -156,9 +156,18 @@ pub struct WorkspaceHealth {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
+pub enum WorkspaceEventOrigin {
+    Command,
+    External,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
 pub struct WorkspaceChangedEvent {
     pub revision: u64,
     pub snapshot: WorkspaceSnapshot,
+    pub origin: WorkspaceEventOrigin,
 }
 
 impl PersistedManifest {

@@ -260,7 +260,7 @@ export function WorkspaceProvider({
 
       try {
         unsubscribe = await client.subscribe((event) => {
-          if (!active) return;
+          if (!active || event.origin !== 'external') return;
           const current = snapshotRef.current;
           if (
             current &&

@@ -14,6 +14,8 @@ pub enum WorkspaceError {
     UnsupportedSchema(u32),
     #[error("Workspace validation failed: {0}")]
     Validation(String),
+    #[error("the attachment import batch exceeds the bounded size limit")]
+    AttachmentBatchTooLarge,
     #[error("the Workspace revision is stale (expected {expected}, actual {actual})")]
     StaleRevision { expected: u64, actual: u64 },
     #[error("a Workspace I/O operation failed")]
@@ -76,6 +78,10 @@ impl From<WorkspaceError> for WorkspaceIpcError {
             }
             WorkspaceError::Validation(_) => {
                 result.code = "validation".to_owned();
+                result.message_key = "workspace_error_validation".to_owned();
+            }
+            WorkspaceError::AttachmentBatchTooLarge => {
+                result.code = "attachment_batch_too_large".to_owned();
                 result.message_key = "workspace_error_validation".to_owned();
             }
             WorkspaceError::StaleRevision { expected, actual } => {

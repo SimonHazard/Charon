@@ -16,8 +16,8 @@ pub use error::{WorkspaceError, WorkspaceIpcError};
 #[doc(hidden)]
 pub use migration::MigrationFailure;
 pub use model::{
-    AttachmentDto, NoteDto, NoteStatus, WorkspaceChangedEvent, WorkspaceHealth,
-    WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceSnapshot,
+    AttachmentDto, NoteDto, NoteStatus, WorkspaceChangedEvent, WorkspaceEventOrigin,
+    WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceSnapshot,
 };
 
 use command::{apply_command, find_note, find_note_mut, validate_ids, AppliedCommand};
@@ -26,13 +26,16 @@ use model::{
     WorkspaceHealthIssueKind::ImportCandidate, MAX_ATTACHMENTS_PER_NOTE, MAX_NOTE_BYTES,
 };
 use recovery::{
-    commit, commit_with_new_attachments, read_manifest, recover_incomplete, replace_manifest,
+    commit, commit_with_new_attachments, manifest_bytes, read_manifest, recover_incomplete,
+    replace_manifest,
 };
 use storage::MemoryWorkspaceStorage;
 #[doc(hidden)]
 pub use storage::StorageFailure;
 use storage::{FailingWorkspaceStorage, RealWorkspaceStorage, WorkspaceStorage};
 use watch::WorkspaceWatcher;
+
+const MAX_IMPORT_BATCH_BYTES: u64 = 512 * 1024 * 1024;
 
 pub struct Workspace {
     storage: Box<dyn WorkspaceStorage>,
@@ -43,6 +46,7 @@ pub struct Workspace {
     watcher: Option<WorkspaceWatcher>,
     events: Vec<WorkspaceChangedEvent>,
     blocked_cleanup: Option<String>,
+    last_manifest_bytes: Vec<u8>,
 }
 
 struct LoadedState {
@@ -167,6 +171,7 @@ impl Workspace {
             Err(error @ WorkspaceError::DeletionCleanupRequired { .. }) => {
                 self.manifest = applied.manifest;
                 self.bodies = applied.bodies;
+                self.last_manifest_bytes = manifest_bytes(&self.manifest)?;
                 self.quarantined
                     .retain(|id| self.manifest.notes.iter().any(|note| note.id == *id));
                 if let WorkspaceError::DeletionCleanupRequired { transaction_id } = &error {
@@ -178,15 +183,18 @@ impl Workspace {
         };
         self.manifest = applied.manifest;
         self.bodies = applied.bodies;
+        self.last_manifest_bytes = manifest_bytes(&self.manifest)?;
         self.quarantined
             .retain(|id| self.manifest.notes.iter().any(|note| note.id == *id));
         self.health = self.scan_health();
         let snapshot = self
             .manifest
             .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)?;
+        self.events.clear();
         self.events.push(WorkspaceChangedEvent {
             revision: snapshot.revision,
             snapshot: snapshot.clone(),
+            origin: WorkspaceEventOrigin::Command,
         });
         Ok(WorkspaceCommandResult {
             snapshot,
@@ -238,6 +246,7 @@ impl Workspace {
         let bodies = HashMap::new();
         manifest.validate(&bodies)?;
         replace_manifest(storage.as_ref(), &Uuid::new_v4().to_string(), &manifest)?;
+        let last_manifest_bytes = manifest_bytes(&manifest)?;
         Ok(Self {
             storage,
             manifest,
@@ -250,6 +259,7 @@ impl Workspace {
             watcher: None,
             events: Vec::new(),
             blocked_cleanup: None,
+            last_manifest_bytes,
         })
     }
 
@@ -269,6 +279,7 @@ impl Workspace {
             health,
             quarantined,
         } = load_state(storage.as_ref())?;
+        let last_manifest_bytes = manifest_bytes(&manifest)?;
         Ok(Self {
             storage,
             manifest,
@@ -278,6 +289,7 @@ impl Workspace {
             watcher: None,
             events: Vec::new(),
             blocked_cleanup: None,
+            last_manifest_bytes,
         })
     }
 
@@ -300,6 +312,7 @@ impl Workspace {
             health,
             quarantined,
         } = load_state(storage.as_ref())?;
+        let last_manifest_bytes = manifest_bytes(&manifest)?;
         Ok(Self {
             storage,
             manifest,
@@ -309,6 +322,7 @@ impl Workspace {
             watcher: None,
             events: Vec::new(),
             blocked_cleanup: None,
+            last_manifest_bytes,
         })
     }
 
@@ -316,17 +330,27 @@ impl Workspace {
         let Some(watcher) = &self.watcher else {
             return Ok(());
         };
-        let paths = watcher.drain();
-        if paths.is_empty() {
+        let drained = watcher.drain();
+        if drained.paths.is_empty() && !drained.full_reload {
             return Ok(());
         }
         let root = self.storage.root().ok_or(WorkspaceError::InvalidPath)?;
-        let relative_paths = paths
+        let mut relative_paths = drained
+            .paths
             .iter()
             .filter_map(|path| path.strip_prefix(root).ok())
             .map(|path| path.to_string_lossy().replace('\\', "/"))
             .collect::<HashSet<_>>();
+        if drained.full_reload {
+            relative_paths.insert("charon.workspace.json".to_owned());
+        }
 
+        if relative_paths.len() == 1
+            && relative_paths.contains("charon.workspace.json")
+            && self.storage.read("charon.workspace.json")? == self.last_manifest_bytes
+        {
+            return Ok(());
+        }
         if relative_paths.contains("charon.workspace.json") {
             match load_state(self.storage.as_ref()) {
                 Ok(LoadedState {
@@ -358,6 +382,7 @@ impl Workspace {
                     )?;
                     self.manifest = manifest;
                     self.bodies = bodies;
+                    self.last_manifest_bytes = manifest_bytes(&self.manifest)?;
                     self.health = health;
                     self.quarantined.clear();
                     self.push_external_event()?;
@@ -470,6 +495,7 @@ impl Workspace {
         )?;
         self.manifest = next_manifest;
         self.bodies = next_bodies;
+        self.last_manifest_bytes = manifest_bytes(&self.manifest)?;
         self.health = self.scan_health();
         self.push_external_event()?;
         Ok(())
@@ -479,9 +505,11 @@ impl Workspace {
         let snapshot = self
             .manifest
             .snapshot(&self.bodies, self.storage.exists("legacy-trash-v1")?)?;
+        self.events.clear();
         self.events.push(WorkspaceChangedEvent {
             revision: snapshot.revision,
             snapshot,
+            origin: WorkspaceEventOrigin::External,
         });
         Ok(())
     }
@@ -526,6 +554,7 @@ impl Workspace {
         })?;
         self.manifest = manifest;
         self.bodies = bodies;
+        self.last_manifest_bytes = manifest_bytes(&self.manifest)?;
         self.health = health;
         self.quarantined = quarantined;
         self.blocked_cleanup = None;
@@ -547,11 +576,11 @@ impl Workspace {
     }
 
     fn prepare_attachment_import(
-        &self,
+        &mut self,
         expected_revision: u64,
         note_id: &str,
         source_paths: &[String],
-    ) -> Result<(AppliedCommand, HashMap<String, Vec<u8>>), WorkspaceError> {
+    ) -> Result<(AppliedCommand, HashMap<String, String>), WorkspaceError> {
         if expected_revision != self.manifest.revision {
             return Err(WorkspaceError::StaleRevision {
                 expected: expected_revision,
@@ -570,22 +599,47 @@ impl Workspace {
                 "too many attachments".to_owned(),
             ));
         }
+        self.storage
+            .create_dir_all(&format!("attachments/{note_id}"))?;
+        let import_id = Uuid::new_v4().to_string();
         let mut sources = Vec::with_capacity(source_paths.len());
+        let mut staged_attempts = Vec::with_capacity(source_paths.len());
         let mut identities = HashSet::new();
-        for path in source_paths {
-            let source = self.storage.read_external_regular(path)?;
-            if !identities.insert(source.identity.clone()) {
-                return Err(WorkspaceError::Validation(
-                    "duplicate attachment source".to_owned(),
-                ));
+        let mut total_size = 0_u64;
+        let prepared = (|| {
+            for (index, path) in source_paths.iter().enumerate() {
+                let staged = format!("attachments/{note_id}/.charon-{import_id}-{index}.tmp");
+                staged_attempts.push(staged.clone());
+                let source = self.storage.copy_external_regular(path, &staged)?;
+                if !identities.insert(source.identity.clone()) {
+                    return Err(WorkspaceError::Validation(
+                        "duplicate attachment source".to_owned(),
+                    ));
+                }
+                total_size = total_size
+                    .checked_add(source.size)
+                    .ok_or(WorkspaceError::AttachmentBatchTooLarge)?;
+                if total_size > MAX_IMPORT_BATCH_BYTES {
+                    return Err(WorkspaceError::AttachmentBatchTooLarge);
+                }
+                sources.push((source, staged));
             }
-            sources.push(source);
+            Ok(())
+        })();
+        if let Err(error) = prepared {
+            for staged in &staged_attempts {
+                let _ = self.storage.remove_file(staged);
+            }
+            let _ = self
+                .storage
+                .remove_dir_if_empty(&format!("attachments/{note_id}"));
+            return Err(error);
         }
         let timestamp = now_utc();
         let mut next = self.manifest.clone();
         let target = find_note_mut(&mut next, note_id)?;
-        let mut bytes = HashMap::new();
-        for source in sources {
+        let mut staged_paths = HashMap::new();
+        for (source, staged) in sources {
             let id = Uuid::new_v4().to_string();
             let suffix = source
                 .extension
@@ -593,7 +647,7 @@ impl Workspace {
                 .map(|value| format!(".{value}"))
                 .unwrap_or_default();
             let relative_path = format!("attachments/{note_id}/{id}{suffix}");
-            bytes.insert(relative_path.clone(), source.bytes);
+            staged_paths.insert(relative_path.clone(), staged);
             target.attachments.push(PersistedAttachment {
                 id,
                 file_name: source.file_name,
@@ -614,7 +668,7 @@ impl Workspace {
                 manifest: next,
                 bodies: self.bodies.clone(),
             },
-            bytes,
+            staged_paths,
         ))
     }
 
