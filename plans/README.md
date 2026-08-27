@@ -63,7 +63,7 @@ these; 015 must reuse 022's matrix and 024's bundle config.
 | 030 | Polish: accent-insensitive search, valid Markdown preview structure, French non-breaking spaces, auto-clearing "Copied", press feedback under reduced motion, stable scrollbar gutters, decide the inert row layout animation, delete dead messages. |
 | 031 | Make search cheap at 20k Notes (incremental index, memoized contexts, stable Note identity) and make the perf gate benchmark the real `filterNotes`. |
 | 032 | Stop rewriting and double-backing-up the whole Workspace on every command; run IPC commands off the main thread; bound attachment-import memory; emit events on error paths. Design-first with characterization tests. |
-| 033 | Spike (not a build): what selected-text capture can honestly look like on Windows, Linux X11, and Wayland; produces ADR 0014 and evidence, then the operator decides. |
+| 033 | Spike (not a build): what selected-text capture can honestly look like on Windows, Linux X11, and Wayland; produces ADR 0015 and evidence, then the operator decides. |
 
 See [LAUNCH.md](./LAUNCH.md) for development commands.
 
@@ -101,7 +101,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 030 | Polish search matching, preview structure, motion, feedback, and copy | DONE |
 | 031 | Make search and rendering cheap at 20k Notes; benchmark the real search | DONE |
 | 032 | Scope transactions to what changed; move IPC work off the main thread | AWAITING OPERATOR: vérifier la réactivité native pendant l’import d’une pièce jointe de 50 Mio |
-| 033 | Spike: Linux/Windows selected-text capture adapters (ADR 0014 draft) | TODO after 021, 022, 023 |
+| 033 | Spike: Linux/Windows selected-text capture adapters (ADR 0015 draft) | AWAITING OPERATOR: Windows and Linux X11/Wayland hosts for physical spike evidence and ADR 0015 decision |
 | 014 | Close exact-candidate quality gaps | TODO after 020 and the 021-024 portability plans |
 | 015 | Publish protected GitHub Releases and optional updates | TODO after 014 (reuse 022's matrix and 024's bundle config) |
 
