@@ -14,7 +14,7 @@ pub(crate) struct ExternalFile {
     pub identity: String,
     pub file_name: String,
     pub extension: Option<String>,
-    pub bytes: Vec<u8>,
+    pub size: u64,
 }
 
 pub(crate) trait WorkspaceStorage: Send + Sync {
@@ -29,7 +29,12 @@ pub(crate) trait WorkspaceStorage: Send + Sync {
     fn exists(&self, relative: &str) -> Result<bool, WorkspaceError>;
     fn list(&self, relative: &str) -> Result<Vec<String>, WorkspaceError>;
     fn sync_dir(&self, relative: &str) -> Result<(), WorkspaceError>;
-    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError>;
+    fn copy_external_regular(
+        &self,
+        source: &str,
+        relative_target: &str,
+    ) -> Result<ExternalFile, WorkspaceError>;
+    fn copy_file(&self, from: &str, to: &str) -> Result<(), WorkspaceError>;
     fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError>;
 }
 
@@ -280,7 +285,11 @@ impl WorkspaceStorage for RealWorkspaceStorage {
         Ok(())
     }
 
-    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError> {
+    fn copy_external_regular(
+        &self,
+        source: &str,
+        relative_target: &str,
+    ) -> Result<ExternalFile, WorkspaceError> {
         let source = Path::new(source);
         let symlink = fs::symlink_metadata(source)?;
         if symlink.file_type().is_symlink() || !symlink.is_file() {
@@ -310,14 +319,25 @@ impl WorkspaceStorage for RealWorkspaceStorage {
             .to_owned();
         validate_file_name(&file_name)?;
         let extension = safe_extension(&file_name);
-        let mut file = File::open(&canonical)?;
-        let mut bytes = Vec::with_capacity(usize::try_from(before.len()).unwrap_or_default());
-        std::io::Read::by_ref(&mut file)
-            .take(MAX_ATTACHMENT_BYTES + 1)
-            .read_to_end(&mut bytes)?;
-        let after = file.metadata()?;
-        if bytes.len() as u64 != before.len()
-            || bytes.len() as u64 > MAX_ATTACHMENT_BYTES
+        let mut source_file = File::open(&canonical)?;
+        let target = self.resolve(relative_target, true)?;
+        let mut options = OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut target_file = options.open(target)?;
+        let copied = std::io::copy(
+            &mut std::io::Read::by_ref(&mut source_file).take(MAX_ATTACHMENT_BYTES + 1),
+            &mut target_file,
+        )?;
+        target_file.flush()?;
+        target_file.sync_all()?;
+        let after = source_file.metadata()?;
+        if copied != before.len()
+            || copied > MAX_ATTACHMENT_BYTES
             || after.len() != before.len()
             || after.modified().ok() != before.modified().ok()
         {
@@ -329,8 +349,26 @@ impl WorkspaceStorage for RealWorkspaceStorage {
             identity: canonical.to_string_lossy().into_owned(),
             file_name,
             extension,
-            bytes,
+            size: copied,
         })
+    }
+
+    fn copy_file(&self, from: &str, to: &str) -> Result<(), WorkspaceError> {
+        let from = self.resolve(from, false)?;
+        let to = self.resolve(to, true)?;
+        let mut source = File::open(from)?;
+        let mut options = OpenOptions::new();
+        options.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut target = options.open(to)?;
+        std::io::copy(&mut source, &mut target)?;
+        target.flush()?;
+        target.sync_all()?;
+        Ok(())
     }
 
     fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
@@ -410,14 +448,25 @@ impl WorkspaceStorage for FailingWorkspaceStorage {
         self.inner.sync_dir(relative)
     }
 
-    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError> {
+    fn copy_external_regular(
+        &self,
+        source: &str,
+        relative_target: &str,
+    ) -> Result<ExternalFile, WorkspaceError> {
         self.fail_once(matches!(
             self.failure,
             StorageFailure::AttachmentOpen
                 | StorageFailure::AttachmentRead
                 | StorageFailure::ShortCopy
         ))?;
-        self.inner.read_external_regular(source)
+        self.inner.copy_external_regular(source, relative_target)
+    }
+
+    fn copy_file(&self, from: &str, to: &str) -> Result<(), WorkspaceError> {
+        self.fail_once(
+            self.failure == StorageFailure::AttachmentWrite && to.contains("/next/attachments/"),
+        )?;
+        self.inner.copy_file(from, to)
     }
 
     fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
@@ -592,24 +641,52 @@ impl WorkspaceStorage for MemoryWorkspaceStorage {
         Ok(())
     }
 
-    fn read_external_regular(&self, source: &str) -> Result<ExternalFile, WorkspaceError> {
-        let state = self.inner.lock().expect("memory storage lock");
+    fn copy_external_regular(
+        &self,
+        source: &str,
+        relative_target: &str,
+    ) -> Result<ExternalFile, WorkspaceError> {
+        let mut state = self.inner.lock().expect("memory storage lock");
         let (file_name, bytes) = state
             .external_files
             .get(source)
+            .cloned()
             .ok_or(WorkspaceError::InvalidPath)?;
         if bytes.len() as u64 > MAX_ATTACHMENT_BYTES {
             return Err(WorkspaceError::Validation(
                 "attachment source is too large".to_owned(),
             ));
         }
-        validate_file_name(file_name)?;
-        Ok(ExternalFile {
+        validate_file_name(&file_name)?;
+        let result = ExternalFile {
             identity: source.to_owned(),
-            file_name: file_name.clone(),
-            extension: safe_extension(file_name),
-            bytes: bytes.clone(),
-        })
+            extension: safe_extension(&file_name),
+            file_name,
+            size: bytes.len() as u64,
+        };
+        let parent = split_relative_leaf(relative_target)?.0.unwrap_or_default();
+        if !state.directories.contains(parent) {
+            return Err(WorkspaceError::Io(std::io::ErrorKind::NotFound.into()));
+        }
+        state.files.insert(relative_target.to_owned(), bytes);
+        Ok(result)
+    }
+
+    fn copy_file(&self, from: &str, to: &str) -> Result<(), WorkspaceError> {
+        validate_relative(from)?;
+        validate_relative(to)?;
+        let mut state = self.inner.lock().expect("memory storage lock");
+        let bytes = state
+            .files
+            .get(from)
+            .cloned()
+            .ok_or_else(|| WorkspaceError::Io(std::io::ErrorKind::NotFound.into()))?;
+        let parent = split_relative_leaf(to)?.0.unwrap_or_default();
+        if !state.directories.contains(parent) {
+            return Err(WorkspaceError::Io(std::io::ErrorKind::NotFound.into()));
+        }
+        state.files.insert(to.to_owned(), bytes);
+        Ok(())
     }
 
     fn canonical_managed_path(&self, relative: &str) -> Result<String, WorkspaceError> {
@@ -744,7 +821,10 @@ mod tests {
         let storage = RealWorkspaceStorage::create(active.path()).expect("storage");
 
         assert!(matches!(
-            storage.read_external_regular(&other.path().join("source.txt").to_string_lossy()),
+            storage.copy_external_regular(
+                &other.path().join("source.txt").to_string_lossy(),
+                "attachments/source.tmp",
+            ),
             Err(WorkspaceError::InvalidPath)
         ));
     }

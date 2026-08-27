@@ -29,12 +29,12 @@ pub(crate) fn remember_workspace(
     crate::preferences::remember_workspace(root, path).map_err(PreferencesIpcError::from)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn preferences_read(app: AppHandle) -> Result<PreferencesSnapshot, PreferencesIpcError> {
     Ok(storage(&app)?.read()?.snapshot())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn preferences_reset(app: AppHandle) -> Result<PreferencesSnapshot, PreferencesIpcError> {
     Ok(storage(&app)?.reset()?.snapshot())
 }

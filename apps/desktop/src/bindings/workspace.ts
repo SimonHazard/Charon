@@ -44,7 +44,13 @@ export type WorkspaceHealthIssue = {
 
 export type WorkspaceHealth = { isHealthy: boolean; issues: Array<WorkspaceHealthIssue> };
 
-export type WorkspaceChangedEvent = { revision: number; snapshot: WorkspaceSnapshot };
+export type WorkspaceEventOrigin = 'command' | 'external';
+
+export type WorkspaceChangedEvent = {
+  revision: number;
+  snapshot: WorkspaceSnapshot;
+  origin: WorkspaceEventOrigin;
+};
 
 export type WorkspaceCommand =
   | { type: 'createNote'; expectedRevision: number; body: string }

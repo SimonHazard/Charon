@@ -267,6 +267,7 @@ fn stage_original(
     for (id, body) in bodies {
         storage.write_synced(&format!("{MIGRATION_DIR}/notes/{id}.md"), body.as_bytes())?;
     }
+    storage.sync_dir(&format!("{MIGRATION_DIR}/notes"))?;
     write_migration_record(storage, false)?;
     storage.sync_dir(MIGRATION_DIR)
 }

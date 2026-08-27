@@ -76,10 +76,15 @@ active schema v2 collection.
 
 Every replacement write uses a uniquely named temporary file in the same
 directory as its destination, flushes as required by the platform, and performs
-an atomic rename. A multi-file command is one Workspace transaction with enough
-recovery information to finish or roll back after interruption. Charon preserves
-the last valid state and reports conflicts instead of silently selecting a
-winner.
+an atomic rename. A multi-file command is one Workspace transaction whose
+versioned recovery record names the exact changed bodies, added or removed
+Attachments, and removed Notes. Staging stores both manifest revisions but only
+the changed file versions; applying or recovering touches only that recorded
+change set, with the manifest rename remaining the single commit point. Records
+from older Charon builds that do not contain a change set retain the full-state
+recovery path. Completed permanent deletion still removes the bounded previous
+copies with the transaction directory. Charon preserves the last valid state
+and reports conflicts instead of silently selecting a winner.
 
 Schema limits are explicit constants with deterministic boundary tests. A Note
 has at most 16 Tags of 1-48 Unicode scalar values after trimming, with no
@@ -88,9 +93,10 @@ control or line-break character and case-insensitive uniqueness. It has at most
 returns only short-lived opaque one-shot tokens to React; the webview never
 handles source paths. Adding one accepts only an explicitly selected regular
 non-symlink file outside every Charon Workspace. Rust never persists the source
-path, copies into the Note-owned directory, derives a validated display basename
-and generated UUID relative path, and commits bytes plus manifest metadata
-atomically.
+path, streams into a same-directory staged file with a bounded aggregate import
+budget, derives a validated display basename and generated UUID relative path,
+and commits bytes plus manifest metadata atomically without retaining the full
+Attachment batch in memory.
 
 Removing an Attachment follows the same permanent cleanup rules as deleting its
 Note.
@@ -103,8 +109,9 @@ finishes or rolls back the transaction and removes that record. This rule does
 not claim deletion from operating-system snapshots, external backups, or synced
 folder histories.
 
-Filesystem notifications are hints rather than authority. The watcher
-coalesces bursts, ignores transaction-internal paths, and asks `Workspace` to
+Filesystem notifications are hints rather than authority. The watcher keeps a
+bounded coalesced path set, folds overflow into one full reload marker, ignores
+transaction-internal paths, and asks `Workspace` to
 re-read and validate changed content. Identical self-writes do not advance the
 revision. Invalid or deleted known files leave the last valid snapshot in place
 and create a contextual health issue; unknown Markdown remains an explicit

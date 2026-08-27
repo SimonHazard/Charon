@@ -8,8 +8,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 
 use crate::workspace::{
-    Workspace, WorkspaceCommand, WorkspaceCommandResult, WorkspaceHealthIssue,
-    WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
+    Workspace, WorkspaceCommand, WorkspaceCommandResult, WorkspaceEventOrigin,
+    WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
 };
 
 #[derive(Default)]
@@ -132,7 +132,7 @@ fn consume_attachment_sources(
         .collect()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn workspace_open_or_create(
     app: AppHandle,
     path: String,
@@ -144,7 +144,7 @@ pub fn workspace_open_or_create(
     Ok(snapshot)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn workspace_bootstrap(
     app: AppHandle,
     runtime: State<'_, WorkspaceRuntime>,
@@ -164,7 +164,7 @@ pub fn workspace_bootstrap(
     workspace_bootstrap_default(app, runtime)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn workspace_bootstrap_default(
     app: AppHandle,
     runtime: State<'_, WorkspaceRuntime>,
@@ -183,19 +183,15 @@ pub fn workspace_bootstrap_default(
     Ok(snapshot)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn workspace_snapshot(
     app: AppHandle,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    with_workspace(&runtime, |workspace| {
-        let snapshot = workspace.snapshot()?;
-        emit_pending(&app, workspace);
-        Ok(snapshot)
-    })
+    with_workspace(&app, &runtime, Workspace::snapshot)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn workspace_execute(
     app: AppHandle,
     runtime: State<'_, WorkspaceRuntime>,
@@ -207,10 +203,8 @@ pub fn workspace_execute(
         }
         _ => None,
     };
-    with_workspace(&runtime, |workspace| {
-        let result = workspace.execute_with_attachment_sources(command, attachment_sources)?;
-        emit_pending(&app, workspace);
-        Ok(result)
+    with_workspace(&app, &runtime, |workspace| {
+        workspace.execute_with_attachment_sources(command, attachment_sources)
     })
 }
 
@@ -342,6 +336,7 @@ fn default_candidate_is_safe(path: &Path) -> Result<bool, crate::workspace::Work
 }
 
 pub(crate) fn with_workspace<T>(
+    app: &AppHandle,
     runtime: &State<'_, WorkspaceRuntime>,
     operation: impl FnOnce(&mut Workspace) -> Result<T, crate::workspace::WorkspaceError>,
 ) -> Result<T, WorkspaceIpcError> {
@@ -355,7 +350,9 @@ pub(crate) fn with_workspace<T>(
     let workspace = current
         .as_mut()
         .ok_or(crate::workspace::WorkspaceError::NotOpen)?;
-    operation(workspace).map_err(WorkspaceIpcError::from)
+    let result = operation(workspace).map_err(WorkspaceIpcError::from);
+    emit_pending(app, workspace);
+    result
 }
 
 pub(crate) fn create_capture_note(
@@ -373,11 +370,9 @@ pub(crate) fn create_capture_note(
     let Some(workspace) = current.as_mut() else {
         return Ok(false);
     };
-    let created = execute_capture_note(workspace, body)?;
-    if created {
-        emit_pending(app, workspace);
-    }
-    Ok(created)
+    let result = execute_capture_note(workspace, body).map_err(WorkspaceIpcError::from);
+    emit_pending(app, workspace);
+    result
 }
 
 fn execute_capture_note(
@@ -397,7 +392,9 @@ fn execute_capture_note(
 
 fn emit_pending(app: &AppHandle, workspace: &mut Workspace) {
     for event in workspace.take_events() {
-        let _ = app.emit("workspace://changed", event);
+        if event.origin == WorkspaceEventOrigin::External {
+            let _ = app.emit("workspace://changed", event);
+        }
     }
 }
 
