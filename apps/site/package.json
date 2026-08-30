@@ -21,14 +21,14 @@
   "dependencies": {
     "@astrojs/sitemap": "3.7.3",
     "@charon/theme": "workspace:*",
-    "astro": "7.1.6"
+    "astro": "7.2.8"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.10",
     "@tailwindcss/vite": "4.3.3",
     "tailwindcss": "4.3.3",
-    "typescript": "6.0.3",
-    "wrangler": "4.122.0"
+    "typescript": "7.0.2",
+    "wrangler": "4.126.0"
   },
   "charon": {
     "typescriptCompatibility": "Astro Check 0.9.10 supports TypeScript 5 and 6; keep 6.0.3 isolated to this workspace."
