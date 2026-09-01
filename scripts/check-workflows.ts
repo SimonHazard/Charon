@@ -9,6 +9,12 @@ const sha = /^[0-9a-f]{40}$/u;
 
 for (const file of files) {
   const text = await Bun.file(`${directory}/${file}`).text();
+  if (!/^\s*workflow_dispatch:/mu.test(text)) {
+    failures.push(`${file}: every workflow must be manually dispatched`);
+  }
+  if (/^ {2}(?:pull_request|push|schedule):/mu.test(text)) {
+    failures.push(`${file}: automatic triggers are disabled`);
+  }
   for (const match of text.matchAll(/^\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/gmu)) {
     const reference = match[1];
     if (reference.startsWith('./')) continue;
@@ -38,8 +44,6 @@ if (!files.includes(qualityWorkflowName)) {
 } else {
   const qualityWorkflow = await Bun.file(`${directory}/${qualityWorkflowName}`).text();
   const requiredFragments = [
-    'pull_request:\n    paths:',
-    'push:\n    branches: [main]\n    paths:',
     'workflow_dispatch:',
     'permissions:\n  contents: read',
     'cancel-in-progress: true',
@@ -55,20 +59,6 @@ if (!files.includes(qualityWorkflowName)) {
   for (const fragment of requiredFragments) {
     if (!qualityWorkflow.includes(fragment)) {
       failures.push(`${qualityWorkflowName}: missing bounded desktop contract ${fragment}`);
-    }
-  }
-  for (const path of [
-    "      - '.github/workflows/**'",
-    "      - 'apps/desktop/**'",
-    "      - 'packages/theme/**'",
-    "      - 'scripts/**'",
-    "      - 'package.json'",
-    "      - 'bun.lock'",
-    "      - 'biome.json'",
-  ]) {
-    const occurrences = qualityWorkflow.split(path).length - 1;
-    if (occurrences !== 2) {
-      failures.push(`${qualityWorkflowName}: expected PR/main path twice ${path}`);
     }
   }
   const runnerCount = qualityWorkflow.match(/^\s+runs-on:/gmu)?.length ?? 0;
@@ -136,7 +126,7 @@ if (!files.includes(securityWorkflowName)) {
 } else {
   const securityWorkflow = await Bun.file(`${directory}/${securityWorkflowName}`).text();
   for (const fragment of [
-    'schedule:',
+    'workflow_dispatch:',
     'permissions:\n  contents: read',
     'timeout-minutes: 15',
     'bun run build',
@@ -154,12 +144,7 @@ if (!files.includes(siteWorkflowName)) {
 } else {
   const siteWorkflow = await Bun.file(`${directory}/${siteWorkflowName}`).text();
   const requiredFragments = [
-    'on:\n  push:\n    branches: [main]\n    paths:',
-    "      - '.github/workflows/site-deploy.yml'",
-    "      - 'apps/site/**'",
-    "      - 'packages/theme/**'",
-    "      - 'package.json'",
-    "      - 'bun.lock'",
+    'on:\n  workflow_dispatch:',
     'permissions:\n  contents: read',
     'group: site-production',
     'environment: site-production',
@@ -176,7 +161,8 @@ if (!files.includes(siteWorkflowName)) {
   }
   for (const forbidden of [
     'pull_request:',
-    'workflow_dispatch:',
+    'push:',
+    'schedule:',
     'wrangler versions upload',
     'preview',
   ]) {

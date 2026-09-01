@@ -22,9 +22,10 @@ Rust tests.
 `bun run test:a11y` is a local convenience for running only the Axe-clean
 Playwright journeys while iterating on accessibility changes.
 
-CI additionally runs that Rust formatting, Clippy, and test suite on macOS and
-Windows through `Portability`; the routine `Quality` workflow supplies the Linux
-leg. This automated coverage is not physical platform or release evidence.
+The manually dispatched `Portability` workflow can run that Rust formatting,
+Clippy, and test suite on macOS and Windows; the manually dispatched `Quality`
+workflow supplies the Linux leg. This coverage is not physical platform or
+release evidence, and no workflow starts automatically.
 
 ## Deterministic browser fixture
 

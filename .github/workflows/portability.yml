@@ -1,15 +1,6 @@
 name: Portability
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/portability.yml'
-      - 'apps/desktop/src-tauri/**'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/portability.yml'
-      - 'apps/desktop/src-tauri/**'
   workflow_dispatch:
 
 permissions:

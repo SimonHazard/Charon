@@ -1,14 +1,7 @@
 name: Deploy site
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/site-deploy.yml'
-      - 'apps/site/**'
-      - 'packages/theme/**'
-      - 'package.json'
-      - 'bun.lock'
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -1,25 +1,6 @@
 name: Quality
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/**'
-      - 'apps/desktop/**'
-      - 'packages/theme/**'
-      - 'scripts/**'
-      - 'package.json'
-      - 'bun.lock'
-      - 'biome.json'
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/**'
-      - 'apps/desktop/**'
-      - 'packages/theme/**'
-      - 'scripts/**'
-      - 'package.json'
-      - 'bun.lock'
-      - 'biome.json'
   workflow_dispatch:
 
 permissions:
