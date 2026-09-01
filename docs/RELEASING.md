@@ -30,16 +30,16 @@ GitHub Releases is the desktop distribution destination. Releases are created as
 drafts and promoted only by a human. Unsigned macOS, Linux, and Windows review
 bundles are available through the manual review workflow. The static site is
 deployed separately through the checked Cloudflare Workers Static Assets
-configuration from Plan 018. A push to `main` deploys it only when
-site-affecting paths changed.
+configuration from Plan 018. Every GitHub workflow is manually dispatched by
+the operator; no push, pull request, or scheduled event starts one.
 
-The path-filtered quality workflow consolidates routine desktop validation on
-one bounded Ubuntu job. It covers lint, types, unit tests, the production build,
-privacy, Rust formatting/Clippy/tests, generated bindings, and Chromium desktop
-journeys. It does not build platform bundles or constitute macOS, Windows, or
-release evidence. The secret-free manual review workflow remains the place to
-produce short-lived macOS, Linux, and Windows artifacts when an exact candidate
-is actually needed.
+The manually dispatched quality workflow consolidates routine desktop validation
+on one bounded Ubuntu job. It covers lint, types, unit tests, the production
+build, privacy, Rust formatting/Clippy/tests, generated bindings, and Chromium
+desktop journeys. It does not build platform bundles or constitute macOS,
+Windows, or release evidence. The secret-free manual review workflow remains
+the place to produce short-lived macOS, Linux, and Windows artifacts when an
+exact candidate is actually needed.
 
 On each supported build host, `bun run tauri:build` now produces the native
 unsigned review installers selected by `tauri.conf.json`: `.app` and `.dmg` on
@@ -49,15 +49,15 @@ offline when the WebView2 runtime is already present, as it is by default on
 Windows 11. These artifacts carry no signed-publisher, trusted, verified, or
 notarized claim.
 
-The separate `Portability` workflow runs Rust formatting, Clippy, and tests on
-macOS and Windows whenever `src-tauri` changes; `Quality` runs the same Rust
-gate on Linux. These compile-and-test results do not constitute physical or
-release evidence for any platform.
+The manually dispatched `Portability` workflow runs Rust formatting, Clippy,
+and tests on macOS and Windows; `Quality` runs the same Rust gate on Linux.
+These compile-and-test results do not constitute physical or release evidence
+for any platform.
 
-The separate site workflow typechecks, tests, builds, validates Wrangler, and
-deploys production from `main`; the full local release gate continues to cover
-both desktop and site as well as Chromium and WebKit. It never runs on pull
-requests and creates no preview deployment.
+The manually dispatched site workflow typechecks, tests, builds, validates
+Wrangler, and deploys production; the full local release gate continues to
+cover both desktop and site as well as Chromium and WebKit. It creates no
+preview deployment.
 The timing-sensitive performance budget remains in `bun run verify:release`
 rather than PR CI, where shared-runner contention makes the 20k-search benchmark
 non-deterministic.
@@ -109,11 +109,10 @@ release attempt a signature that cannot exist.
 The procedure needs no credential beyond ordinary GitHub write access, so it
 runs locally on the operator's machine. It does not depend on Actions.
 
-Two equivalent paths produce the same draft. Pushing a `vX.Y.Z` tag runs
-`release.yml`, which gates on `verify:release`, builds the ad-hoc bundles,
-creates the draft, and uploads `SHA256SUMS.txt`; steps 3, 4, and 6 below are
-then already done. Without Actions, run every step by hand. Either way a human
-performs steps 7 and 8.
+The release workflow is manually dispatched with its `dry_run` input set to
+`false`; it gates on `verify:release`, builds the ad-hoc bundles, creates the
+draft, and uploads `SHA256SUMS.txt`. Without Actions, run every step by hand.
+Either way a human performs steps 7 and 8.
 
 1. Bump Cargo and Tauri versions to the same semver and update the localized
    changelog with facts that will ship. `scripts/check-release-version.ts`
@@ -149,10 +148,10 @@ performs steps 7 and 8.
 
 - Site publication uses `apps/site/wrangler.jsonc` as source of truth. GitHub's
   `site-production` environment stores only `CLOUDFLARE_ACCOUNT_ID` and a scoped
-  `CLOUDFLARE_API_TOKEN`; neither value enters source or logs. Each matching
-  push to `main` validates and deploys the exact static build. Use Wrangler
-  deployment rollback when needed. Do not add a runtime redirect service or a
-  preview deployment.
+  `CLOUDFLARE_API_TOKEN`; neither value enters source or logs. The operator
+  manually dispatches the site workflow to validate and deploy the exact static
+  build. Use Wrangler deployment rollback when needed. Do not add a runtime
+  redirect service or a preview deployment.
 - To yank a release, mark it prerelease or draft, remove any public site link if
   one was later introduced, and state the reason. Never replace an asset under
   the same tag.

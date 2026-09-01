@@ -52,7 +52,7 @@ these; 015 must reuse 022's matrix and 024's bundle config.
 | Plan | In plain words |
 | --- | --- |
 | 021 | Make the Rust file layer actually work on Windows (verbatim `\\?\` paths, `/` joins, watcher filter, in-memory test double, preferences fsync) and fall back safely on Linux when there is no Documents folder. |
-| 022 | Bring back a CI job that compiles and tests the Rust core on Windows and macOS on every change, pin the Rust toolchain, and document Linux/Windows prerequisites. Also asks the operator to look at why `Quality` on `main` is currently red. |
+| 022 | Historical proposal for a three-OS Rust gate; superseded by the operator decision to keep all GitHub Actions manually dispatched. |
 | 023 | Stop the Help popover from advertising macOS-only double-Shift capture everywhere; show ⌘ or Ctrl correctly; show when the global shortcut failed to register (Wayland/conflicts); make a second launch focus the running window; make the drag strip actually drag. |
 | 024 | Configure `tauri.conf.json` so `tauri build` produces `.deb`/AppImage/`.rpm` on Linux and NSIS/MSI on Windows (with an offline-friendly WebView2 install mode), and drop mobile leftovers. |
 | 025 | Stop refusing to open a Workspace just because one stray `.md` or a missing attachment/note file exists; report the issue instead. Also: never let migration delete a pre-existing `legacy-trash-v1/`, and let Copy report a real `stale_revision`. |
@@ -90,7 +90,7 @@ See [LAUNCH.md](./LAUNCH.md) for development commands.
 | 019 | Simplify the unified Note shelf | REJECTED: Selection interaction replaced by ADR 0013 and Plan 020 |
 | 020 | Remove Note Selection | AWAITING OPERATOR: Playwright sandbox approval, native Attachment picker, and packaged motion feel |
 | 021 | Make Workspace and preferences persistence portable to Windows and Linux | DONE |
-| 022 | Restore an automatic three-OS Rust verification gate | AWAITING OPERATOR: first Portability run deferred until final CI pass |
+| 022 | Restore an automatic three-OS Rust verification gate | REJECTED: operator decision keeps all GitHub Actions manual-only |
 | 023 | Make the desktop shelf honest and functional on every platform | AWAITING OPERATOR: physical macOS drag-strip check |
 | 024 | Configure Linux and Windows bundles | AWAITING OPERATOR: Linux/Windows install checks and review-builds run deferred until final pass |
 | 025 | Open unhealthy Workspaces with reported issues; guard the legacy archive; pass Copy errors | DONE |
