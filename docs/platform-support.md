@@ -1,182 +1,71 @@
 # Platform capture support
 
-This document is the evidence ledger for ADRs 0002, 0006, 0008, 0009, 0010,
-0011, and 0014, plus proposed ADR 0015. A capability is `supported` only after the exact final build
-passes its complete physical matrix. Runtime capability reporting remains
-authoritative.
+Runtime capability reporting is authoritative. Charon never turns a successful
+build into a selected-text support claim. Under ADR 0016, physical application
+matrices are optional troubleshooting tools rather than release gates.
 
-ADR 0014 replaced the signed-build promotion gate. Charon ships unsigned, so
-promotion now requires the complete physical matrix against the exact
-release-configuration artifact that will be published, identified by its
-SHA-256. Ad-hoc identity does not block promotion; missing physical evidence
-still does.
+## Current state
 
-## Current support state
-
-Help shows selected-text capture only when the runtime reports it available or
-identifies macOS, where Preferences explains the permission path. Preferences
-also displays a failed or unsupported standard-shortcut registration instead of
-presenting the accelerator as silently available.
-
-| Platform | Portable composer focus | Modifier capture | Selected-text acquisition | Product status |
+| Platform | Composer | Double Shift | Selected-text capture | Status |
 | --- | --- | --- | --- | --- |
-| macOS 14+ | `CmdOrCtrl+Shift+Space` global activation passed in Plan 007; ADR 0011 retargets it to the bottom composer and requires regression evidence after implementation | Native passive unmodified double-Shift listener passed the final physical gesture and false-positive matrix | AX-first hybrid adapter with ADR 0010's bounded Copy fallback passed the final physical matrix | Development capture support is proved. Plan 012 repeats the refactored physical matrix; Plan 015 repeats it on the ad-hoc release-configuration artifact, from a fresh permission grant, before release advertising. |
-| Linux X11 | The Rust core and its tests are gated in CI by `Quality`; physical global-activation evidence remains required | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. |
-| Linux Wayland | Compositor and portal dependent; no local global-activation evidence | No universal modifier-only protocol accepted | Not implemented | Visible bottom composer only; no modifier-only claim. |
-| Windows | The `Portability` CI gate builds and tests the Rust core; its first run remains deferred, and there is no physical Windows evidence | Not implemented | Not implemented | Visible bottom composer is supported by the product contract; global and modifier-only claims remain unproved. Artifacts are unsigned and show SmartScreen. |
+| macOS 14+ | visible composer; `Cmd+Shift+Space` fallback | implemented | public Accessibility ladder, then ADR 0010 bounded Copy | implemented; unsigned releases require first-launch bypass and permission regrant |
+| Windows | visible composer; `Alt+Shift+Space` target | not yet implemented | not yet implemented | unsupported until the accepted ADR 0015 adapter ships, then experimental |
+| Linux X11 | visible composer; `Alt+Shift+Space` target | not yet implemented | not yet implemented | unsupported until the accepted ADR 0015 adapter ships, then experimental |
+| Linux Wayland | visible composer; `Alt+Shift+Space` portal target | unavailable by design | no double-Shift acquisition | composer fallback only; portal availability depends on the desktop |
 
-Workspace and preferences persistence, path containment, the filesystem watcher
-filter, and managed paths emitted by `Copy as Markdown` are separator- and
-Windows-verbatim-prefix-agnostic by construction. Runtime Windows and Linux
-evidence remains gated by the applicable physical matrices. Plan 022 configures
-the three-OS CI, but the first remote `Portability` run remains deferred until
-the final CI pass.
+Workspace persistence, path containment, managed Attachment storage, and
+`Copy as Markdown` path composition are separator- and Windows-verbatim-prefix-
+agnostic. Build portability does not imply native capture support.
 
-The macOS fallback does not create a Linux or Windows support claim. Each target
-needs its own accessibility, input, clipboard, focus, and permission evidence
-against its own release-configuration artifact before promotion.
+## macOS evidence and limits
 
-Because the bundle is ad-hoc signed, the designated requirement changes on every
-rebuild, so TCC treats each released version as a different application. Input
-Monitoring and Accessibility grants do not carry across an update. Every matrix
-run must therefore start from a fresh grant rather than an inherited one, and the
-recurring regrant is a disclosed product cost under ADR 0014 rather than a
-defect.
+Development testing established the following behavior on the macOS adapter:
 
-The current bundle identity is `dev.simonhazard.charon`. It replaces the
-pre-release `dev.charon.app` identifier because Tauri 2 warns against bundle
-identifiers ending in `.app`. The Plan 007 evidence below remains historical
-development evidence only; its TCC grants do not transfer to the new identity.
+- Input Monitoring gates the passive double-Shift listener; Accessibility
+  separately gates selected-text acquisition.
+- Direct Accessibility selection worked in native text controls and editable
+  Chromium fields.
+- Static Chromium/Electron content required ADR 0010's bounded Copy fallback.
+- The fallback snapshots the clipboard, posts exactly one Copy to the unchanged
+  foreground application, accepts only newly produced text before timeout, and
+  restores only while the transaction still owns the clipboard.
+- Empty, secure, canvas-only, protected, timed-out, denied, or concurrently
+  changed input creates no Note.
+- Charon never posts Paste, reads clipboard history, logs selected content, or
+  steals focus.
 
-## macOS evidence collected during Plan 007
+Because macOS releases use an ad-hoc identity, each build can appear as a new
+application to TCC. Users may need to grant Input Monitoring and Accessibility
+again after every update. This is a disclosed cost of unsigned distribution.
 
-Environment first recorded on 2026-07-31 and finally accepted on 2026-08-04:
+## Accepted Windows direction
 
-- macOS 26.5 (25F71), arm64;
-- Tauri CLI 2.11.4 and Rust crate 2.11.5;
-- bundle identifier `dev.charon.app`;
-- final executable SHA-256
-  `e8eb9b9ff4ad2b1d21078bb5544f2e434202ab19f27ade0af3d9b416afc8e5ce`;
-- ad-hoc hardened-runtime signature, designated requirement
-  `cdhash H"c5466d22ef54932d38a6ba5a9792559f32b9c3f0"`;
-- `codesign --verify --deep --strict` passed for the final debug bundle;
-- the build output was copied byte-for-byte to `/Applications/Charon.app` for
-  TCC testing; the installed executable retained the same SHA-256, designated
-  requirement, and valid signature.
+ADR 0015 accepts a passive `WH_KEYBOARD_LL` double-Shift listener and bounded UI
+Automation selection. Charon does not request UIAccess or elevation. Elevated,
+protected, missing, empty, and timed-out sources are no-ops.
 
-### Permission and gesture findings
+A Ctrl+C fallback may ship only if it preserves the complete bounded clipboard
+transaction defined by ADR 0010. Otherwise Windows remains UIA-only. Normal user
+reports determine application coverage after release without weakening the
+privacy boundary.
 
-- ADR 0008 keeps the product capabilities separate:
-  `CGPreflightListenEventAccess` gates the passive listener, while
-  `AXIsProcessTrusted`/`AXIsProcessTrustedWithOptions` separately gate selected-
-  text acquisition.
-- The explicit Input Monitoring action uses the public
-  `IOHIDRequestAccess(kIOHIDRequestTypeListenEvent)` API. This symbol and request
-  type were verified in the installed macOS 26 SDK after
-  `CGRequestListenEventAccess` failed to register the ad-hoc bundle reliably.
-- Each ad-hoc rebuild changed the designated requirement. Only the exact
-  `Accessibility` and `ListenEvent` decisions for `dev.charon.app` were reset
-  after those identity changes; no broad TCC reset was used. On this macOS 26.5
-  host, the final Input Monitoring grant still required the documented manual
-  `+` flow for the byte-identical app installed in `/Applications`.
-- TCC and Charon's localized permission state both confirmed Input Monitoring
-  and Accessibility before the final matrix. Charon was restarted once after
-  the grant so the passive listener could register.
-- Direct AX acquisition physically worked in TextEdit/AppKit and the editable
-  Chrome URL field.
-- Static selected text in a Chrome page and selected Codex conversation text did
-  not create a note through the public AX ladder. Increasing the parent walk
-  from 32 to 128 and adding pointer hit-testing did not make those cases pass.
-- The accepted response is ADR 0010's bounded synthetic source Copy transaction,
-  not a deeper tree scan, a private API, another TCC permission, Electron, or a
-  privileged helper.
+## Accepted Linux direction
 
-### Accepted acquisition implementation
+On X11, ADR 0015 accepts XI2 raw Shift events, bounded AT-SPI selection, then a
+bounded `PRIMARY` request. The first version has no synthetic Copy and no
+privileged input access.
 
-The accepted macOS adapter:
+On Wayland, an ordinary unfocused client cannot observe a portable global
+modifier-only sequence. Charon therefore never advertises double Shift there.
+It uses `Alt+Shift+Space` through the available GlobalShortcuts portal to reveal
+and focus the composer; portal absence leaves the visible composer functional.
 
-1. try ADR 0009's bounded public Accessibility ladder first;
-2. only after a no-selection result, snapshot the complete current pasteboard
-   within Plan 007's bounds;
-3. post one public Command-C to the unchanged foreground application;
-4. read only a newly produced text value within the bounded timeout;
-5. restore the snapshot only while the pasteboard still has the transaction-
-   owned change count;
-6. skip restoration rather than overwrite a concurrent clipboard write;
-7. never post Paste, monitor clipboard history, log content, or steal focus.
+## Reporting compatibility problems
 
-The transient clipboard value may be visible to an installed clipboard manager.
-That limitation is disclosed in `docs/PRIVACY.md` and is part of the release
-acceptance, not something the implementation can guarantee away.
+Useful reports contain the Charon version, OS and desktop/session version,
+source application, expected and actual behavior, and whether focus or clipboard
+state changed. Never include selected text, clipboard contents, Note content, or
+Workspace paths.
 
-## Final macOS acceptance matrix
-
-Every row passed physically on 2026-08-04 against the one final debug
-executable identified above. The tester reported every required case as
-`PASS`. Charon exposes no acquisition-path diagnostic, by design, so paths are
-recorded only where prior direct evidence plus the AX-first invariant proves
-them; the remaining application-family rows record the accepted hybrid result
-without adding content instrumentation.
-
-| Case | Final result | Acquisition or observation |
-| --- | --- | --- |
-| Fresh launch opens or safely creates the visible default Workspace | Passed | Visible default Workspace opened safely |
-| Portable accelerator activates Charon from another app | Passed for the Plan 007 surface | ADR 0011 now requires reveal plus bottom-composer focus; Plan 012 must verify that refactored target |
-| False-positive gestures do not trigger | Passed | Shift+letter, repeat, hold, mixed Shift, Command change, and three taps were no-ops |
-| Empty selection creates nothing | Passed | No note and no Charon surface |
-| TextEdit/AppKit selection creates one note and leaves clipboard unchanged | Passed | Direct AX, proved before the hybrid fallback and preserved by AX-first ordering |
-| Chrome URL field creates one note | Passed | Direct AX, proved before the hybrid fallback and preserved by AX-first ordering |
-| Static Chrome page selection creates one note, preserves focus, and restores text clipboard | Passed | Bounded Copy; the direct AX ladder was previously proved to return no selection |
-| Codex conversation selection creates one note, preserves focus, and restores clipboard | Passed | Bounded Copy; the direct AX ladder was previously proved to return no selection |
-| Safari/WebKit static text | Passed | AX-first hybrid path; exact branch intentionally not surfaced |
-| VS Code/Cursor editor text when installed | Passed | AX-first hybrid path; exact branch intentionally not surfaced |
-| Preview PDF text | Passed | AX-first hybrid path; exact branch intentionally not surfaced |
-| Rich/multi-item pasteboard restores exactly | Passed | Complete item/type snapshot restored |
-| Concurrent clipboard write is never overwritten | Passed | Concurrent marker remained authoritative |
-| Unchanged, blocked, or slow Copy creates nothing safely | Passed | Bounded no-op |
-| Secure field and canvas-only source create nothing | Passed | Secure/inaccessible no-op |
-| Clipboard-manager disclosure matches observed behavior | Passed | Transient selection may be observed; Charon retains no history |
-| Manual capture input creates one note and preserves failure text | Passed for the Plan 007 surface | One versioned Workspace command; Plan 012 must repeat against the bottom composer |
-| Restart registers one listener, worker, and accelerator | Passed | One action per gesture after restart |
-
-Debug-configuration evidence is development-only. Plan 012 must repeat the matrix
-after the single-shelf refactor, and Plan 015 must repeat it on the exact
-release-configuration artifact, from a fresh Input Monitoring and Accessibility
-grant, before macOS capture is advertised as release-supported. Under ADR 0014
-that artifact is ad-hoc signed; its recorded SHA-256, not a Developer ID
-signature, identifies the build the evidence belongs to.
-
-## Spike 033 evidence — 2026-08-27
-
-Plan 033 completed primary-source desk research and proposed
-[ADR 0015](adr/0015-linux-windows-capture-adapters.md). The required physical
-hosts were not available, so no prototype branch was created and no capability
-was promoted.
-
-| Platform/session | Required host | Evidence result | Support effect |
-| --- | --- | --- | --- |
-| Windows 11 | Native Windows host capable of running the exact unsigned release-configuration artifact | Host unavailable — hook, UIA, clipboard, elevation, IME, and application-family matrix not run | None; modifier capture and selected-text acquisition remain `Unsupported` |
-| Linux X11 | Native Linux X11 session capable of running the exact release-configuration artifact | Host unavailable — XI2/XRecord, AT-SPI, `PRIMARY`, IME, and toolkit matrix not run | None; modifier capture and selected-text acquisition remain `Unsupported` |
-| Linux Wayland — GNOME | Current native GNOME Wayland session with its portal backend | Host unavailable — portal consent/activation and AT-SPI matrix not run | None; double Shift and selected-text acquisition remain `Unsupported` |
-| Linux Wayland — KDE Plasma | Current native KDE Plasma Wayland session with its portal backend | Host unavailable — portal consent/activation and AT-SPI matrix not run | None; double Shift and selected-text acquisition remain `Unsupported` |
-| Linux Wayland — wlroots | Current native wlroots compositor session with a configured portal backend | Host unavailable — backend availability and focused-input boundary not physically confirmed | None; double Shift and selected-text acquisition remain `Unsupported` |
-
-The desk-research candidates are Windows UIA-first capture behind a passive
-low-level hook, Linux X11 AT-SPI then `PRIMARY` behind an XI2/XRecord listener,
-and Wayland shortcut-only behavior through the GlobalShortcuts portal. These are
-design proposals only. ADR 0015 contains the official-source citations,
-rejected privileged paths, exact matrices, and follow-up build-plan estimates.
-
-## References
-
-- [ADR 0010](adr/0010-bounded-copy-selection-fallback.md)
-- [ADR 0011](adr/0011-rapid-capture-product.md)
-- [ADR 0014](adr/0014-unsigned-distribution.md)
-- [ADR 0015 (Proposed)](adr/0015-linux-windows-capture-adapters.md)
-- [Tin SelectionCapture.swift](https://github.com/enzofrasca/tin/blob/main/Tin/Services/SelectionCapture.swift)
-- [Apple DTS Input Monitoring request guidance](https://developer.apple.com/forums/thread/828052)
-- [Apple Accessibility trust API](https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions)
-- [Apple NSPasteboard changeCount](https://developer.apple.com/documentation/appkit/nspasteboard/changecount)
-- [Apple CGEvent posting](https://developer.apple.com/documentation/coregraphics/cgevent/post(tap:))
-- [Tauri global shortcut plugin](https://v2.tauri.app/plugin/global-shortcut/)
-- [Tauri macOS code signing](https://v2.tauri.app/distribute/sign/macos/)
+The architecture decision is [ADR 0015](adr/0015-linux-windows-capture-adapters.md).
+Release policy is [ADR 0016](adr/0016-pragmatic-side-project-delivery.md).

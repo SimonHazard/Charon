@@ -1,24 +1,19 @@
 # Charon release checklist
 
-Fill every evidence field against the exact candidate artifact. An empty row is
-not a pass.
+This is a short operator reminder, not a certification matrix.
 
-| Gate | Owner | Artifact / date | Evidence | Result |
-|---|---|---|---|---|
-| `bun run verify:release` twice from clean processes | Release operator |  |  | Pending |
-| VoiceOver macOS protocol | Accessibility reviewer |  |  | Pending |
-| Orca Linux standard-flow protocol | Accessibility reviewer |  |  | Pending |
-| macOS AppKit, WebKit, Chromium/Electron capture matrix | Native reviewer |  |  | Pending |
-| macOS PDF, secure, blocked, canvas and editor no-op matrix | Native reviewer |  |  | Pending |
-| Rich clipboard, timeout, concurrent write and restoration matrix | Privacy reviewer |  |  | Pending |
-| 0.25x motion response and reversal review | Design reviewer |  |  | Pending |
-| Reduced motion, transparency and increased contrast | Design reviewer |  |  | Pending |
-| True 200% WebView zoom | Accessibility reviewer |  |  | Pending |
-| Unsigned macOS first-launch bypass performed as a user, install and restart | Release operator |  |  | Pending |
-| Installed bytes match the published SHA-256 for every artifact | Release operator |  |  | Pending |
-| Input Monitoring and Accessibility regrant after the version change, then capture works | Release operator |  |  | Pending |
-| Install the Linux review artifact, launch, create/open a Workspace, then test the standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
-| Install the Windows review artifact, clear SmartScreen, launch, create/open a Workspace, then test the standard shortcut and manual workflow | Platform reviewer |  |  | Pending |
-| Release notes state the first-launch bypass, SmartScreen warning and permission regrant | Release operator |  |  | Pending |
-| Site EN/FR, no-JS, media and link review | Web reviewer |  |  | Pending |
-| Desktop Light/Graphite review | Design reviewer |  |  | Pending |
+- [ ] All four manifest versions equal the annotated `vX.Y.Z` tag.
+- [ ] Release notes describe only behavior that actually ships.
+- [ ] The repository is public before the first updater-enabled release.
+- [ ] The `release` environment contains the backed-up updater key and password.
+- [ ] macOS, Linux, and Windows build jobs all succeed.
+- [ ] The final job finds every expected installer, updater bundle, and `.sig`.
+- [ ] `latest.json` contains the published version, public URLs, and matching
+  signature contents.
+- [ ] `SHA256SUMS.txt` covers every published artifact.
+- [ ] Release notes disclose macOS first launch and permission regrant, Windows
+  SmartScreen, and the unsigned/ad-hoc distribution posture.
+- [ ] No Note, Workspace, clipboard content, private key, or deployment secret
+  appears in logs or artifacts.
+- [ ] A normal installation/update is tried after publication; failures become
+  issues and a new patch version rather than edits under the same tag.

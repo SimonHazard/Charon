@@ -49,10 +49,15 @@ Use the vocabulary exactly:
   visible under `legacy-trash-v1/`; never silently restore, merge, hide, or
   destroy them.
 - Treat unmodified `Shift`, `Shift` as a native modifier sequence. Keep
-  `CmdOrCtrl+Shift+Space` as the reveal-and-focus-composer fallback. Do not claim
-  a platform capability until its physical matrix passes on the exact
-  release-configuration artifact. Charon ships unsigned under ADR 0014; never
-  reintroduce a Developer ID, notarization, or paid-certificate gate.
+  `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux as the
+  reveal-and-focus-composer fallback. Never claim an unimplemented capability;
+  new Windows/X11 adapters begin as experimental and Wayland never claims
+  double Shift. Charon ships unsigned under ADR 0014; never reintroduce a
+  Developer ID, notarization, or paid-certificate gate.
+- The only permitted desktop network request is the default-off Tauri update
+  check accepted by ADR 0016. It sends no user content or stable identifier,
+  verifies signed artifacts, installs only after explicit action, and defers
+  restart while a draft is dirty.
 
 ## Architecture
 
@@ -123,8 +128,10 @@ Use the vocabulary exactly:
 - Prove that a file, export, asset, script, message, or dependency has no live
   consumer before deleting it. Delete obsolete paths instead of leaving future-
   facing scaffolding.
-- Completed plans and accepted ADRs remain historical evidence. Keep one active
-  queue in `plans/README.md`; do not create a parallel advisory-plan tree.
+- Accepted ADRs and `docs/IMPLEMENTATION_HISTORY.md` are durable history. Keep
+  only active work in `plans/`; remove a completed plan after its unique
+  decisions and live references have migrated. Do not create a parallel
+  advisory-plan tree.
 
 ## Completion
 

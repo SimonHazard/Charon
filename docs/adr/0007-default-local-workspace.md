@@ -4,8 +4,7 @@
 
 Accepted for v1. ADR 0011 preserves the safe visible default, explicit chooser,
 validation, local-only bootstrap, and one-directory boundary. It supersedes the
-initial-Section naming paragraph and the reference to former Plan 008 settings
-work.
+initial-Section naming paragraph and its obsolete settings-work handoff.
 
 ## Context
 
@@ -44,7 +43,7 @@ ADR 0007 supersedes ADR 0001 only where that decision described the first
 Workspace as necessarily user-selected. One directory is still exactly one
 Workspace and remains the durable transaction, migration, conflict, and
 recovery boundary. Remembering and switching the last explicitly chosen
-Workspace remains part of Plan 008's native preference and settings work.
+Workspace is implemented by the native Preferences surface.
 
 ## Consequences
 
@@ -53,8 +52,8 @@ Workspace remains part of Plan 008's native preference and settings work.
 - Existing unrelated directories are not colonized or overwritten.
 - Documents-folder failures have an explicit local fallback rather than a
   disabled control.
-- Plan 008 can focus onboarding on explanation, permissions, preferences, and
-  safe Workspace switching instead of being required for the first note.
+- Onboarding can focus on explanation, permissions, preferences, and safe
+  Workspace switching instead of being required for the first note.
 
 ## Revisit when
 

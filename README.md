@@ -1,120 +1,133 @@
 # Charon
 
 Charon is a small local capture shelf for people who work with AI agents. It
-turns selected text or a short manual entry into ordinary Markdown, keeps the
-files in a folder you control, and copies one deterministic Markdown Note when
-you ask it to.
+turns selected text or a short manual entry into ordinary Markdown, keeps every
+Note in a folder you control, and copies deterministic agent-ready Markdown only
+when you ask it to.
 
-No account, sync, analytics, telemetry, content upload, or automatic paste.
+No account, sync, analytics, telemetry, content upload, or automatic Paste.
 
-## What it does
+> Charon is an experimental side project. Native compatibility is improved
+> through normal use and user reports rather than a formal certification
+> programme.
 
-- Capture selected text with unmodified double Shift on a proved macOS adapter.
-- Reveal Charon and focus the bottom composer with
-  `CmdOrCtrl+Shift+Space`.
-- Search Notes, Tags, and Attachment names in one list. Done Notes stay visible
-  and are muted and struck through.
-- Open a Note directly from its row and edit Markdown, Tags, and Note-owned
-  Attachments in place.
-- Mark status, copy deterministic Markdown, Edit, or permanently Delete through
-  explicit per-Note controls.
-- Include optional Tags and managed local Attachment paths in `Copy as
-  Markdown`, with a disclosure before they enter the clipboard.
-- Permanently delete one Note only after an explicit confirmation.
+## Features
 
-The desktop has one narrow shelf, Light and Graphite appearances, English and
-French, compact Preferences, and an always-visible manual composer.
+- One compact shelf for open and completed Notes.
+- Fast manual capture from the always-visible composer.
+- Passive double-Shift selected-text capture on macOS.
+- Search across Markdown, Tags, and managed Attachment names.
+- Markdown editing and preview, up to 16 Tags and 20 managed Attachments per
+  Note.
+- Deterministic `Copy as Markdown` with optional Tags and disclosed local
+  Attachment paths.
+- Explicit, confirmed permanent deletion with bounded recovery behavior.
+- English and French UI, with Light and Graphite appearances.
 
-## Local data and permissions
+Windows and Linux selected-text adapters are on the active roadmap. Windows and
+X11 target double Shift; Wayland uses `Alt+Shift+Space` to reveal and focus the
+composer because ordinary applications cannot observe a portable global
+modifier-only sequence there.
+
+## Download and updates
+
+[Download the latest release](https://github.com/SimonHazard/Charon/releases/latest).
+
+The active release work adds automatic macOS, Linux, and Windows bundles from
+version tags plus an integrated Tauri updater using signed update artifacts.
+Until that work ships, the source build has no update client. The applications
+remain unsigned by paid platform certificates:
+
+- macOS may require Privacy & Security, Open Anyway, or Control-click, Open;
+- macOS may ask for Input Monitoring and Accessibility again after an update;
+- Windows may show SmartScreen and require More info, Run anyway.
+
+Release notes and `SHA256SUMS.txt` describe the exact artifacts. Charon never
+claims they are notarized, trusted, or verified by Apple or Microsoft.
+
+## Local data and privacy
 
 One `Workspace` is one local folder, defaulting to `Documents/Charon`. Rust owns
-every durable read, write, migration, Attachment copy, transaction, and recovery
-operation. React never reads Note files or Attachment bytes directly.
+durable reads, writes, migration, managed Attachment copies, transactions, and
+recovery. React never reads Note files or Attachment bytes directly.
 
-On macOS, Input Monitoring observes only the double-Shift modifier sequence.
-Accessibility reads the focused selection and, when direct access returns no
-text, permits ADR 0010's single bounded source-application Copy transaction.
-Selected text may briefly enter the system clipboard; Charon never posts Paste
-or overwrites a concurrent clipboard change.
+On macOS, Input Monitoring observes only the double-Shift gesture.
+Accessibility reads the focused selection; when direct access returns no text,
+ADR 0010 permits one bounded Copy transaction. Selected text may briefly enter
+the clipboard, but Charon never posts Paste or overwrites a concurrent clipboard
+change.
 
-Permanent Delete removes active Markdown and managed Attachment bytes from
-Charon-controlled files and normal completed transaction backups. Operating-
-system snapshots, synced history, and external backups remain outside that
-guarantee. See [the privacy contract](docs/PRIVACY.md) for the exact boundary.
+The accepted updater contract keeps checks initially disabled. After opt-in, it sends only an
+ordinary request for public release metadata: no Note, Tag, Attachment,
+Workspace path, stable identifier, or behavioral event. Installation remains
+explicit.
 
-## Repository
-
-```text
-apps/desktop/   React, Vite, Tauri, and the Rust domain
-apps/site/      Static Astro holding page
-packages/theme/ Framework-neutral semantic tokens
-docs/           Product contracts and accepted ADRs
-plans/          Ordered implementation history and active handoff
-```
-
-The desktop and site share only `@charon/theme`. The site is a media-free static
-holding page deployed with Cloudflare Workers Static Assets; it has no Worker
-runtime, client script, tracker, form, or API.
+Permanent Delete removes the targeted Markdown and managed Attachment bytes
+from Charon-controlled active files and normal completed backups. External
+backups and operating-system snapshots remain outside that guarantee. The full
+boundary is in [the privacy contract](docs/PRIVACY.md).
 
 ## Develop
 
-Requirements: Bun `1.3.12`, Rust/Cargo, Node.js 22.22.2 or newer for Astro,
-Vite, and jsdom, and the platform prerequisites for Tauri 2.
-
-Platform prerequisites ([Tauri guide](https://v2.tauri.app/start/prerequisites/)):
-
-- macOS: Xcode Command Line Tools.
-- Debian/Ubuntu Linux: `libwebkit2gtk-4.1-dev`, `build-essential`, `curl`,
-  `wget`, `file`, `libxdo-dev`, `libssl-dev`,
-  `libayatana-appindicator3-dev`, and `librsvg2-dev`.
-- Windows: Microsoft C++ Build Tools with MSVC, the WebView2 Runtime
-  (preinstalled on Windows 11), and the Rust `x86_64-pc-windows-msvc` target.
+Requirements: Bun `1.3.12`, Rust/Cargo, Node.js 22.22.2 or newer, and the
+[Tauri 2 platform prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ```sh
 bun install --frozen-lockfile
 bun run tauri:dev
 ```
 
-For browser-only work:
+Browser-only development:
 
 ```sh
 bun run dev:desktop
 bun run dev:site
 ```
 
-The browser fixture is synthetic and cannot prove native permissions, global
-shortcuts, clipboard behavior, file pickers, or window lifecycle.
+The browser fixture is synthetic. It cannot prove native permissions, global
+shortcuts, clipboard behavior, file pickers, updater installation, or window
+lifecycle.
 
-## Verify
+Useful checks:
 
 ```sh
 bun run check
 bun run build
 bun run test:e2e
 bun run check:privacy
-bun run test:perf
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
 ```
 
-`bun run verify:release` runs the consolidated release gate. Native platform
-claims remain blocked until their physical matrices pass on the exact
-release-configuration artifact. Charon ships unsigned by ADR 0014: there is no
-Apple Developer ID, no notarization, and no purchased Windows certificate.
+See [Testing](docs/TESTING.md) for the pragmatic validation policy and
+[Releasing](docs/RELEASING.md) for the automatic tag flow and updater secrets.
 
-## Contracts
+## Repository map
+
+```text
+apps/desktop/   React, Vite, Tauri, and the Rust domain
+apps/site/      Static Astro holding page
+packages/theme/ Shared semantic tokens
+docs/           Current contracts, ADRs, and implementation history
+plans/          Active implementation queue only
+```
+
+Core vocabulary is deliberate: `Workspace`, `CaptureCoordinator`,
+`ClipboardComposer`, `Tag`, and `Attachment` mean exactly what the contracts
+define.
+
+## Documentation
 
 - [Product](docs/PRODUCT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Desktop UX](docs/UX.md)
 - [Privacy](docs/PRIVACY.md)
-- [Public site](docs/SITE.md)
-- [Testing](docs/TESTING.md)
 - [Platform support](docs/platform-support.md)
-- [Implementation plans](plans/README.md)
-- [ADR 0011: rapid-capture product](docs/adr/0011-rapid-capture-product.md)
-- [ADR 0012: unified Note shelf](docs/adr/0012-unified-note-shelf.md)
-- [ADR 0013: direct Note actions](docs/adr/0013-direct-note-actions.md)
+- [Public site](docs/SITE.md)
+- [ADRs](docs/adr/)
+- [Implementation history](docs/IMPLEMENTATION_HISTORY.md)
+- [Active plans](plans/README.md)
 
-Core vocabulary is deliberate: `Workspace`, `CaptureCoordinator`,
-`ClipboardComposer`, `Tag`, and `Attachment` mean exactly what the contracts
-define.
+## License
+
+The source is visible for transparency, but no reuse license is granted. See
+[LICENSE](LICENSE). Copyright © 2026 Simon Hazard. All rights reserved.

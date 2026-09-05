@@ -1,8 +1,7 @@
 # Charon site assets
 
-Source root: `/Users/simonhazard/Documents/Codex/2026-07-31/j-aimerais-faire-un-logo-partir-2/outputs/charon-brand-kit-final/`.
-
-The current public site uses exact, unmodified PNG copies from the kit's
+The current public site uses exact, unmodified PNG copies from the approved
+Charon brand kit's
 `png/icon/` directory. The absolute reproduction path stays in this source-only
 manifest and is not emitted into the static site.
 

@@ -8,7 +8,7 @@ explicit fallback after this public Accessibility ladder returns no usable text.
 
 ## Context
 
-Plan 007 physical testing proved that `AXSelectedText` on only the focused UI
+Physical development testing proved that `AXSelectedText` on only the focused UI
 element is too narrow. It works for an editable AppKit control such as TextEdit,
 but static selections in WebKit and Chromium/Electron can be represented as a
 text-marker range on an accessible ancestor. PDF and editor applications may

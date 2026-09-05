@@ -90,7 +90,8 @@ On macOS, observing double Shift requires Input Monitoring. Reading selected
 text separately requires Accessibility; that permission also allows the single
 disclosed source-application Copy when the direct path fails. Charon explains
 and requests each permission from an explicit action in capture help, never on
-mount, and remains useful after denial through `CmdOrCtrl+Shift+Space` and the
+mount, and remains useful after denial through `Cmd+Shift+Space` on macOS,
+`Alt+Shift+Space` on Windows/Linux, and the
 bottom composer.
 
 The passive listener observes only modifier and key events needed by the
@@ -148,9 +149,9 @@ or copied into preferences.
 
 ## Network access and updates
 
-The current build has no update client and performs no desktop network request.
-An update check is the only optional desktop request permitted for a future v1
-release. It must be disclosed, default off, controlled by a clear setting, and
+The current checked-in build has no update client and performs no desktop
+network request. ADR 0016 accepts an updater for v1. Its update check is the only
+optional desktop request: it is disclosed, default off, controlled by a clear setting, and
 limited to release metadata. GitHub will observe ordinary network metadata, but
 the request includes no Note content, Tags, Attachment metadata or bytes,
 Workspace metadata or path, stable user identifier, or behavioral event.
@@ -158,7 +159,7 @@ Downloading and installing requires clear user action and an artifact verified
 against Charon's own updater signature, and restart must defer while a draft is
 dirty.
 
-That updater signature is a locally generated minisign key pair, not an Apple or
+That updater signature is a locally generated key pair, not an Apple or
 Microsoft certificate. Charon ships unsigned by both platforms under ADR 0014
 and never presents a download or an update as platform-verified, trusted, or
 notarized.

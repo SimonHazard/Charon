@@ -6,8 +6,8 @@ Accepted for v1.
 
 ## Context
 
-The Plan 007 physical smoke test proved that the previous single-permission
-model was incorrect. macOS exposes two independent protected capabilities:
+Physical development testing proved that the previous single-permission model
+was incorrect. macOS exposes two independent protected capabilities:
 
 - a passive session `CGEventTap` that observes global modifier events requires
   Input Monitoring, represented by the public
@@ -33,7 +33,7 @@ cannot be treated as durable release evidence for such a rebuildable identity.
 Charon models Input Monitoring and Accessibility as separate capability states.
 It checks both without prompting on launch.
 
-- `CmdOrCtrl+Shift+Space` uses Tauri's Rust global-shortcut plugin and requires
+- `Cmd+Shift+Space` uses Tauri's Rust global-shortcut plugin and requires
   neither enhanced permission.
 - Command-double-Shift requires Input Monitoring only. It never reads selected
   text.
@@ -58,8 +58,8 @@ blocks to acquire text or post input.
 Tauri debug bundles use an explicit ad-hoc bundle signature so the complete app
 bundle, configured identifier, and `Info.plist` are bound consistently. Ad-hoc
 TCC grants remain build-specific and must be re-granted after a changed build.
-A macOS capability is not promoted to release-supported until the same matrix
-passes with the stable Developer ID signature required by Plan 012.
+ADR 0014 later accepted ad-hoc unsigned distribution, and ADR 0016 made physical
+compatibility matrices optional rather than release-blocking.
 
 ADR 0008 corrects the permission and evidence portions of ADRs 0002 and 0006.
 ADR 0009 broadens direct selected-text compatibility without another
@@ -73,8 +73,7 @@ supersedes this ADR's earlier blanket synthetic-input prohibition accordingly.
 - Command-double-Shift can work without access to selected text.
 - Silent selection capture remains gesture-bound and fails closed when neither
   the direct path nor the bounded Copy transaction can complete safely.
-- Development rebuilds may require permission reset/regrant; signed release
-  validation remains a separate hard gate.
+- Development and release rebuilds may require permission reset/regrant.
 - Tauri owns the portable accelerator and bundle configuration, while the small
   macOS adapter owns only capabilities Tauri cannot express.
 

@@ -56,11 +56,7 @@ contrast. Every image has explicit dimensions. Brand text uses `translate="no"`.
 
 ## Approved icon assets
 
-The source kit remains:
-
-`/Users/simonhazard/Documents/Codex/2026-07-31/j-aimerais-faire-un-logo-partir-2/outputs/charon-brand-kit-final/`
-
-The site owns exact, unmodified copies of the official Lavender PNG icon at 16,
+The site owns exact, unmodified repository copies of the official Lavender PNG icon at 16,
 32, 180, 512, and 1024 pixels. The 16 and 32 pixel files are favicons, the 180
 pixel file is the Apple touch icon, the 512 pixel file is the manifest icon, and
 the 1024 pixel file is the social image. No generated, redrawn, or screenshot
