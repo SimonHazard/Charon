@@ -1,7 +1,5 @@
 # Charon desktop assets
 
-Source root: `/Users/simonhazard/Documents/Codex/2026-07-31/j-aimerais-faire-un-logo-partir-2/outputs/charon-brand-kit-final/`.
-
 The desktop keeps only the canonical artwork used to generate native icons.
 Web UI marks and wordmarks were removed with the in-shelf logo. Do not import
 site-owned copies or move artwork into `@charon/theme`.

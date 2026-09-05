@@ -1,168 +1,98 @@
 # Releasing Charon
 
-Charon releases are human-approved. No agent or workflow promotes a public
-release, installs an artifact, enables an update, or changes public platform
-claims without an operator decision and evidence from the exact artifact.
+> This document defines the accepted target flow. Until
+> [Plan 015](../plans/015-automate-builds-and-releases.md) completes, the checked-in
+> release workflow remains manual and the application has no updater client.
+> Do not publish a release by pretending the target flow is already implemented.
 
 ## Distribution posture
 
-Charon is free and ships unsigned. ADR 0014 accepted that no Apple Developer ID,
-notarization, or purchased Windows certificate is part of the release path. No
-Mac App Store or Microsoft Store listing is planned. macOS ships as a direct app
-or DMG under Tauri's ad-hoc identity; Windows and Linux artifacts are unsigned.
-Every published artifact must disclose its first-launch warning. Unsigned
-artifacts never promote an unproved capture capability or enable an unsigned
-updater path.
+Charon is a free side project distributed through public GitHub Releases. A
+validated `vX.Y.Z` tag starts the only automatic desktop workflow. It builds
+macOS, Linux, and Windows artifacts, signs the Tauri updater bundles, and
+publishes only after every platform succeeds.
 
-Two costs are disclosed, never minimized. macOS blocks the first launch of a
-downloaded build: the user opens it through System Settings, Privacy & Security,
-Open Anyway on macOS 15 and later, or Control-click, Open on macOS 14. Windows
-shows a SmartScreen warning cleared through More info, Run anyway. Separately,
-an ad-hoc signature binds the designated requirement to the binary, so TCC
-treats each version as a different app and macOS users must grant Input
-Monitoring and Accessibility again after every update.
+The application is not signed by paid platform certificates. macOS uses Tauri's
+ad-hoc identity; Windows and Linux bundles are unsigned. Release notes must say:
 
-Published SHA-256 checksums are the integrity mechanism. Record the checksum of
-every artifact next to it and never claim that a release is verified, trusted,
-or notarized by Apple or Microsoft.
+- macOS may require System Settings, Privacy & Security, Open Anyway, or
+  Control-click, Open on first launch;
+- macOS users may need to grant Input Monitoring and Accessibility again after
+  an update because the ad-hoc identity changes;
+- Windows may show SmartScreen and require More info, Run anyway;
+- these artifacts are not verified, trusted, or notarized by Apple or Microsoft.
 
-GitHub Releases is the desktop distribution destination. Releases are created as
-drafts and promoted only by a human. Unsigned macOS, Linux, and Windows review
-bundles are available through the manual review workflow. The static site is
-deployed separately through the checked Cloudflare Workers Static Assets
-configuration from Plan 018. Every GitHub workflow is manually dispatched by
-the operator; no push, pull request, or scheduled event starts one.
+`SHA256SUMS.txt` accompanies every release. It is an integrity aid, not a
+platform trust claim.
 
-The manually dispatched quality workflow consolidates routine desktop validation
-on one bounded Ubuntu job. It covers lint, types, unit tests, the production
-build, privacy, Rust formatting/Clippy/tests, generated bindings, and Chromium
-desktop journeys. It does not build platform bundles or constitute macOS,
-Windows, or release evidence. The secret-free manual review workflow remains
-the place to produce short-lived macOS, Linux, and Windows artifacts when an
-exact candidate is actually needed.
+## Integrated updater
 
-On each supported build host, `bun run tauri:build` now produces the native
-unsigned review installers selected by `tauri.conf.json`: `.app` and `.dmg` on
-macOS, `.deb`, AppImage, and `.rpm` on Linux, and NSIS plus MSI on Windows. The
-Windows installers embed the small WebView2 bootstrapper, so installation works
-offline when the WebView2 runtime is already present, as it is by default on
-Windows 11. These artifacts carry no signed-publisher, trusted, verified, or
-notarized claim.
+The Tauri updater reads:
 
-The manually dispatched `Portability` workflow runs Rust formatting, Clippy,
-and tests on macOS and Windows; `Quality` runs the same Rust gate on Linux.
-These compile-and-test results do not constitute physical or release evidence
-for any platform.
+`https://github.com/SimonHazard/Charon/releases/latest/download/latest.json`
 
-The manually dispatched site workflow typechecks, tests, builds, validates
-Wrangler, and deploys production; the full local release gate continues to
-cover both desktop and site as well as Chromium and WebKit. It creates no
-preview deployment.
-The timing-sensitive performance budget remains in `bun run verify:release`
-rather than PR CI, where shared-runner contention makes the 20k-search benchmark
-non-deterministic.
+Update checks are initially disabled. After the user enables them, Charon checks
+at startup and on explicit request. The request contains no Note, Tag,
+Attachment, Workspace path, stable Workspace identifier, or behavioral event.
+Download and installation require explicit confirmation, and restart waits
+until editor and composer drafts are safe.
 
-## Immutable action ledger
+Tauri verifies updater artifacts with the public key committed in
+`tauri.conf.json`. This updater signature is separate from Apple or Microsoft
+code signing.
 
-Resolved from official repositories on 2026-08-09. Each workflow uses the
-40-character commit, with the reviewed release tag retained as a comment.
-Each immutable revision and retained release tag is reviewed before merge.
+## GitHub environment and secrets
 
-| Repository | Reviewed release | Commit | Purpose |
-|---|---|---|---|
-| `actions/checkout` | `v7.0.1` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | Source checkout |
-| `oven-sh/setup-bun` | `v2.2.0` | `0c5077e51419868618aeaa5fe8019c62421857d6` | Bun 1.3.12 setup |
-| `dtolnay/rust-toolchain` | `stable` resolved 2026-08-09 | `4360b52568e2003a75bf9bc1d59f33a8e3fc893c` | Rustfmt and Clippy |
-| `Swatinem/rust-cache` | `v2.9.2` | `6323deb102c322ba6fcbdcafc7e3dddab59af2b6` | Cargo cache |
-| `actions/upload-artifact` | `v7.0.1` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Review artifacts |
-| `tauri-apps/tauri-action` | `action-v1.0.0` | `1deb371b0cd8bd54025b384f1cd735e725c4060f` | Desktop bundles and draft release |
-| `step-security/harden-runner` | `v2.20.1` | `b09bb98e06d4d774595224525879c09bc6e98c40` | Runner egress audit |
+Create a GitHub Actions environment named `release` with no required reviewer.
+It contains exactly:
 
-`actions/download-artifact` at `v8.0.1` was reviewed at commit
-`3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c` and is not currently needed.
+- `TAURI_SIGNING_PRIVATE_KEY`: the complete private updater key content;
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: its password.
 
-## Protected inputs
+Generate the pair once outside the repository. Commit only the public key and
+store an independent secure backup of both private values. Losing the private
+key prevents existing installations from accepting later updates.
 
-The desktop release needs no signing secret. ADR 0014 removed every Apple input,
-so `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
-`APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID` are not created, not stored,
-and not referenced. A `release` environment with required reviewers remains
-useful as a human approval gate, but it guards no credential.
+GitHub supplies `secrets.GITHUB_TOKEN`; do not create it manually. The final
+release job alone receives `contents: write`. No GitHub Actions variable, Apple
+credential, notarization credential, or Windows certificate is required.
 
-Tauri updater signing is unaffected and free. Its minisign key pair is generated
-locally and has no relationship to Apple or Microsoft signing. If an updater is
-ever accepted, `TAURI_SIGNING_PRIVATE_KEY` and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` are the only release secrets, and the
-updater public key and real endpoint may enter Tauri configuration only after
-that key ceremony. Until then, updater dependencies and UI remain absent. This
-is deliberate: a placeholder key or unsigned update path is not a feature.
-
-Store no private updater key in Git, artifacts, logs, or repository variables.
-
-`.github/workflows/release.yml` references exactly one secret, the automatic
-`GITHUB_TOKEN`. It pins `APPLE_SIGNING_IDENTITY` to the literal ad-hoc `-`, as
-`review-builds.yml` already did, so a changed `tauri.conf.json` cannot make a
-release attempt a signature that cannot exist.
+The separate `site-production` environment contains only
+`CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Desktop release jobs never
+receive them.
 
 ## Release procedure
 
-The procedure needs no credential beyond ordinary GitHub write access, so it
-runs locally on the operator's machine. It does not depend on Actions.
+1. Update the version in `package.json`, `apps/desktop/package.json`,
+   `apps/desktop/src-tauri/Cargo.toml`, and
+   `apps/desktop/src-tauri/tauri.conf.json`.
+2. Write short factual release notes.
+3. Optionally run local checks appropriate to the change. Data-safety, privacy,
+   version, updater-signature, and asset-completeness checks are never skipped by
+   the workflow.
+4. Commit the release preparation.
+5. Create and push one annotated tag: `git tag -a vX.Y.Z -m "Charon vX.Y.Z"`
+   then `git push origin vX.Y.Z`.
+6. Watch the single release workflow. A failed platform build produces no public
+   partial release.
+7. Install and use the published build. User-reported compatibility problems
+   become ordinary issues and patch releases.
 
-The release workflow is manually dispatched with its `dry_run` input set to
-`false`; it gates on `verify:release`, builds the ad-hoc bundles, creates the
-draft, and uploads `SHA256SUMS.txt`. Without Actions, run every step by hand.
-Either way a human performs steps 7 and 8.
+Do not use an existing tag for repaired binaries. Publish a new patch version.
+Do not push a real release tag without explicit operator authority.
 
-1. Bump Cargo and Tauri versions to the same semver and update the localized
-   changelog with facts that will ship. `scripts/check-release-version.ts`
-   enforces tag/Tauri/Cargo consistency only when `GITHUB_REF_NAME` is set, so
-   confirm the two manifests by hand when releasing locally.
-2. Run `bun run verify:release` twice from clean processes. Complete every
-   applicable row in `docs/RELEASE_CHECKLIST.md`.
-3. Build the exact candidate with `bun run tauri:build`; the checked-in
-   `bundle.targets` selects the platform-native unsigned installers for the
-   current host.
-4. Record the SHA-256 of every artifact that will be published, as
-   `SHA256SUMS.txt`, plus the checksum of the executable inside the app bundle
-   for the support ledger. These are the release's only integrity evidence,
-   because nothing in the artifact carries a platform signature.
-5. Create an annotated `vX.Y.Z` tag only after review. Push the tag only with
-   publication authority.
-6. Create a draft release and upload the artifacts and `SHA256SUMS.txt`, for
-   example with `gh release create vX.Y.Z --draft`. Never create a public
-   release directly. The draft body must already carry the disclosures required
-   by step 8.
-7. A human installs each published artifact from the draft, clears the
-   first-launch block the way a user will, confirms the installed bytes match
-   the recorded SHA-256, grants Input Monitoring and Accessibility again,
-   repeats native capture, clipboard, focus, Workspace, edit, copy, and Delete
-   smoke, then records the artifact IDs.
-8. Promote the draft and latest metadata only after those checks. Release notes
-   must state the first-launch bypass, the SmartScreen warning where Windows
-   artifacts ship, and the permission regrant. The current site remains
-   front-page only; exposing a release link requires a separately reviewed site
-   change.
+## Incident handling
 
-## Rollback and incidents
+- Bad release: mark it as a prerelease or remove its public latest status, state
+  the affected version/checksums, and publish a fixed version under a new tag.
+- Updater key loss: existing installations cannot trust a replacement key;
+  distribute a manual installer with a new trust root and explain the break.
+- Updater key compromise: stop release jobs, remove `latest.json`, replace the
+  GitHub secret, publish a security notice, and require a manual trust-root
+  transition. Never use the compromised key to ship its own replacement.
+- Site issue: use the checked Cloudflare deployment history and keep site
+  credentials out of desktop workflows.
 
-- Site publication uses `apps/site/wrangler.jsonc` as source of truth. GitHub's
-  `site-production` environment stores only `CLOUDFLARE_ACCOUNT_ID` and a scoped
-  `CLOUDFLARE_API_TOKEN`; neither value enters source or logs. The operator
-  manually dispatches the site workflow to validate and deploy the exact static
-  build. Use Wrangler deployment rollback when needed. Do not add a runtime
-  redirect service or a preview deployment.
-- To yank a release, mark it prerelease or draft, remove any public site link if
-  one was later introduced, and state the reason. Never replace an asset under
-  the same tag.
-- Charon cannot revoke a published unsigned artifact. There is no certificate to
-  revoke and no platform kill switch, so a bad build is withdrawn by yanking the
-  release, publishing the affected checksums in the notice, and shipping a new
-  version. Say so plainly rather than implying platform-level recall.
-- For an updater key compromise, if an updater exists, stop release jobs, remove
-  the public latest metadata, revoke the affected key, rotate the protected
-  secret, publish a security notice, and require a new version and trust root.
-  Do not use the compromised key to ship its own replacement.
-- GitHub observes ordinary network metadata when a user explicitly checks a
-  release or update. Charon sends no Note, Tag, Attachment byte, Workspace path,
-  or stable Workspace identifier.
+The exact implementation milestones are recorded in
+[`IMPLEMENTATION_HISTORY.md`](IMPLEMENTATION_HISTORY.md); active release work is
+listed in [`plans/README.md`](../plans/README.md).

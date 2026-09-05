@@ -10,7 +10,7 @@ changes remain active.
 
 ## Context
 
-Physical Plan 007 testing proved that the public Accessibility ladder in ADR
+Physical development testing proved that the public Accessibility ladder in ADR
 0009 is useful but insufficient as the only acquisition path. It can read
 editable AppKit and browser-chrome selections, yet static Chromium/Electron
 content such as Chrome pages and Codex may not publish a usable selection

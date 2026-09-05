@@ -9,6 +9,8 @@ ladder and permission gates remain active. ADR 0011 supersedes the configurable
 shortcut catalog, the empty-editor and Command-double-Shift journeys, and
 references to the old Notes input: the one portable accelerator now reveals
 Charon and focuses the bottom composer, and Command-double-Shift is removed.
+ADR 0015 supersedes the cross-platform shortcut values and Windows/Linux rows;
+ADR 0016 supersedes physical certification as a release gate.
 
 ## Context
 

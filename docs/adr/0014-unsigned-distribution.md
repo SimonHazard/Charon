@@ -26,16 +26,15 @@ documentation defect, not a real safety control.
 
 The cost of dropping the gate is not only the first-launch warning. On macOS an
 ad-hoc signature binds the designated requirement to the binary's cdhash, so the
-requirement changes on every rebuild. Plan 007 recorded exactly this: each ad-hoc
-rebuild changed the designated requirement, and only an explicit per-decision
+requirement changes on every rebuild. Physical development evidence recorded
+that each ad-hoc rebuild changed the designated requirement, and only an explicit per-decision
 reset made the grants apply again. TCC therefore treats each Charon version as a
 different application, and Input Monitoring and Accessibility must be granted
 again after every update. Those two permissions gate Charon's core capture
 gesture, so this is a recurring product cost, not a cosmetic one.
 
 Tauri's updater signature is unrelated to platform code signing. It is a locally
-generated minisign key pair, costs nothing, and stays available if an updater is
-ever accepted.
+generated key pair, costs nothing, and is required by the accepted v1 updater.
 
 ## Decision
 
@@ -44,12 +43,10 @@ ever accepted.
    Windows Authenticode certificate is part of the release path. macOS bundles
    keep Tauri's ad-hoc identity (`signingIdentity: "-"`); Windows and Linux
    bundles remain unsigned.
-2. The signed-build promotion gate of ADR 0008 and ADR 0002 is replaced by a
-   stable release-configuration gate. A capability is promoted to
-   release-supported when its complete physical matrix passes against the exact
-   release-configuration artifact that will be published, identified by its
-   SHA-256. Ad-hoc identity does not block promotion; missing physical evidence
-   still does.
+2. The signed-build promotion gate of ADR 0008 and ADR 0002 is removed. Release
+   publication requires deterministic version, build, privacy, data-safety, and
+   asset-completeness checks. Physical compatibility testing remains useful but
+   is not a publication gate under ADR 0016.
 3. Published SHA-256 checksums are the integrity mechanism. Each release records
    the checksum of every published artifact next to it, and the checklist
    verifies the installed bytes against that value. No release claims that its
@@ -61,9 +58,9 @@ ever accepted.
    later or Control-click, Open on macOS 14, that Windows shows a SmartScreen
    warning cleared through More info, Run anyway, and that Input Monitoring and
    Accessibility must be granted again after every macOS update.
-5. Unsigned artifacts still never promote an unproved capture capability. The
-   physical matrices, privacy contract, capability reporting, and per-platform
-   support tiers are unchanged by this ADR.
+5. Unsigned artifacts never create a false capability claim. Unimplemented
+   paths remain `Unsupported`; newly implemented Windows/X11 paths begin as
+   `Experimental` and are refined through ordinary use and user reports.
 6. Tauri updater signing stays permitted and free. A Tauri-signed update package
    is signed by a locally generated minisign key pair under its own key
    ceremony. It is explicitly not platform code signing, it is independent of
@@ -75,16 +72,13 @@ ever accepted.
 
 ## Scope
 
-This ADR decides the signing posture only. It satisfies the signature half of
-Plan 015 Step 1 and leaves that plan's remaining distribution decisions open:
-whether GitHub Releases becomes the only distribution and update-metadata
-origin, the optional default-off metadata-only update check and its explicit
-download, install, and dirty-draft-safe restart flow, and the site link to
-`/releases/latest`. Plan 015 remains the place to decide those, and it must not
-treat them as settled here.
+This ADR decides the signing posture only. ADR 0016 separately accepts GitHub
+Releases as the distribution and update-metadata origin, plus the default-off
+metadata check and explicit download, install, and dirty-draft-safe restart
+flow.
 
 This ADR supersedes, in every case only where a paid platform signature is made
-the promotion condition, and replaces it with the release-configuration gate of
+the promotion condition, and replaces it with the deterministic release gate of
 Decision 2:
 
 - ADR 0002, the Windows row requiring a signed-build smoke test and the revisit
@@ -97,16 +91,16 @@ Decision 2:
   requirement;
 - ADR 0011 Decision 13, only where it names signed-build gates.
 
-Every permission, listener, acquisition, fallback, privacy, and physical-matrix
-decision in those ADRs stays authoritative. This ADR lowers no evidence
-requirement other than the paid signature itself.
+Every permission, listener, acquisition, fallback, and privacy decision in those
+ADRs stays authoritative. ADR 0016 later changed physical matrices from release
+gates into optional compatibility tools.
 
 ## Consequences
 
-- Release evidence becomes reproducible by one operator on ordinary hardware
-  with no purchased credential and no protected secret.
-- macOS and Windows capabilities can reach release-supported status on physical
-  evidence alone, so the support ledger can move again.
+- Release artifacts can be produced by GitHub Actions without a purchased
+  platform credential.
+- Platform capability wording stays conservative while compatibility evolves
+  through real use.
 - Users meet a first-launch block on both platforms and must clear it manually.
   Some will not, and that is an accepted adoption cost of a free unsigned tool.
 - macOS users regrant Input Monitoring and Accessibility after every update.
@@ -115,8 +109,8 @@ requirement other than the paid signature itself.
 - Charon cannot detect or repair a tampered download. Checksums shift that
   verification to the user, and the documentation says so plainly instead of
   implying platform-level protection.
-- The `release` GitHub environment holds no Apple secret, so the protected
-  inputs it existed to guard are gone.
+- The `release` GitHub environment holds only the Tauri updater private key and
+  password. It never holds an Apple or Microsoft signing credential.
 
 ## Revisit when
 

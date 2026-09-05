@@ -2,7 +2,8 @@
 
 This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) as
 amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
-[ADR 0013](adr/0013-direct-note-actions.md).
+[ADR 0013](adr/0013-direct-note-actions.md), with distribution and platform
+direction from ADRs 0014-0016.
 
 ## Product promise and users
 
@@ -39,6 +40,8 @@ durable Note visible to users, editors, backup tools, and local agents.
 - Choose English or French, or the Light and Graphite appearances without
   changing command meaning.
 - Inspect the current Notes folder and choose another validated local Workspace.
+- Opt into signed update checks, review an available version, and explicitly
+  download, install, and restart without sending Workspace content.
 
 ## Domain model
 
@@ -121,17 +124,19 @@ timed-out, or safety-rejected input creates nothing. Acquisition never uses
 private APIs, automatic Paste, arbitrary input injection, clipboard history,
 OCR, screen capture, unbounded Accessibility scans, or application-specific
 extraction. On macOS, gesture detection requires Input Monitoring and text
-acquisition separately requires Accessibility. The standard accelerator and
-manual composer remain available after denial.
+acquisition separately requires Accessibility. The composer shortcut and manual
+composer remain available after denial. Windows and Linux X11 target the same
+gesture under ADR 0015; those paths remain unsupported until implemented and
+begin as experimental. Wayland makes no double-Shift claim.
 
 ### Manual capture and portable fallback
 
 The composer is always visible at the bottom of the shelf. It names the active
 local Notes folder context, preserves failed input, creates exactly one open
-Note on Enter, and ignores empty input. On every platform, invoking
-`CmdOrCtrl+Shift+Space` reveals Charon and focuses that composer. It does not
-open a second window or empty editor. The platform support ledger separately
-gates whether the operating system can deliver that accelerator globally.
+Note on Enter, and ignores empty input. `Cmd+Shift+Space` on macOS and
+`Alt+Shift+Space` on Windows/Linux reveal Charon and focus that composer. They do
+not open a second window or empty editor. Runtime capability reporting states
+whether the operating system delivered the shortcut globally.
 
 ### Search and visible status
 
@@ -217,6 +222,15 @@ affected operation. Errors are content-free, preserve input, identify the local
 scope, and offer retry, chooser, or recovery. Removing a generic Error page does
 not remove these states.
 
+### Updates
+
+Update checks are initially disabled. Preferences explains the metadata-only
+request before enabling checks. Once enabled, Charon checks the public signed
+release metadata at startup and also offers an explicit check action. An
+available update shows its version and notes; download and installation require
+confirmation, report progress and contextual errors, and never mutate Notes.
+Restart waits until editor and composer drafts are safe.
+
 ### Public site
 
 Until the public product story is ready, a visitor sees a deliberately concise
@@ -245,8 +259,10 @@ activation.
   current v1 surface.
 - A second capture window, compact alternate mode, generic Error destination,
   or configurable shortcut catalog.
-- Modifier-only capture claims on Linux or Windows before native physical
-  evidence passes the accepted gates.
+- A global double-Shift claim on Wayland, or a Windows/X11 claim before its
+  adapter is implemented and reported by runtime capabilities.
+- Silent updates, forced restart, background installation, rollout tracking, or
+  updater requests containing user content or stable identifiers.
 - Any distribution claim that Charon is verified, trusted, or notarized. It
   ships unsigned under ADR 0014 and discloses its first-launch warning.
 - Charts or analytics-style product surfaces in v1.

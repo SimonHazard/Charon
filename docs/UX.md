@@ -100,7 +100,8 @@ secondary Tag metadata collapses before title, preview, status, row actions,
 search, errors, or the composer become unusable. French strings wrap or compact
 without clipping or horizontal scrolling. Preferences is a focused transient surface
 containing the active Notes folder, an explicit validated chooser, theme and
-language choices, and capture permission state; it is not a product
+language choices, capture permission state, and the disclosed default-off update
+setting; it is not a product
 destination.
 
 ## Compact feature map
@@ -122,6 +123,7 @@ layout pressure.
 | Permanently delete a Note | Direct row action and per-Note AlertDialog | The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
 | Preferences | Search-trailing gear Popover | Appearance, language, Notes folder, and capture state scroll within a 400 by 480 shelf. |
 | Capture help and permissions | Search-trailing Help Popover and Preferences Capture section | Permission state and action remain visible while long disclosures use keyboard-accessible progressive disclosure. |
+| Updates | Preferences and one contextual update dialog | Checks are default-off until enabled; version/notes, explicit download/install, progress, errors, and dirty-draft-safe restart fit without exposing content. |
 | Workspace loading, empty, error, and recovery | Main shelf region | Layout-shaped progress and local recovery preserve composer or chooser priority. |
 | Manual capture | Anchored body-only composer | Input survives failure, shortcut focus is immediate, and there is no Attachment queue. |
 
@@ -187,8 +189,8 @@ opening another window. It has no permanent help sentence, pre-Note Attachment
 queue, thumbnail strip, drag and drop, or arbitrary preview; essential capture
 help remains available from Help and Preferences.
 
-Invoking `CmdOrCtrl+Shift+Space` reveals Charon and focuses the composer on every
-platform; the evidence ledger separately gates global operating-system delivery.
+Invoking `Cmd+Shift+Space` on macOS or `Alt+Shift+Space` on Windows/Linux reveals
+Charon and focuses the composer when global operating-system delivery is available.
 Unmodified double Shift on a proved macOS adapter has no surface,
 creates one Note only for non-empty selected text, and never steals source
 focus. Permission denial keeps the portable shortcut and composer usable.
@@ -254,12 +256,11 @@ recovery behavior.
 - Escape closes the topmost surface first and preserves predictable focus.
 - Unmodified `Shift`, `Shift` performs silent selected-text capture only where
   the native adapter and required permissions are proved.
-- `CmdOrCtrl+Shift+Space` reveals Charon and focuses the bottom composer when
-  invoked on every platform; global operating-system delivery remains evidence-
-  gated.
+- `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux reveal Charon
+  and focus the bottom composer when global delivery is available.
 
 Displayed shortcut glyphs resolve from `capabilities.platform`: Charon shows
-`⌘` on macOS and `Ctrl` elsewhere.
+`⌘` on macOS and `Alt` on Windows/Linux for composer focus.
 
 Normal text editing shortcuts always win inside editable content. Commands are
 reachable without a pointer. Removed or filtered rows move focus to the nearest

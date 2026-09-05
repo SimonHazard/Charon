@@ -8,6 +8,8 @@ capability tiers, permission gates, and the standard accelerator. ADR 0011
 preserves the one-surface and silent unmodified-capture decisions but supersedes
 the active-Section fallback, Command-double-Shift, empty-editor fallback, Notes-
 work-area input, and possible Copper-like mode.
+ADR 0015 supersedes the portable shortcut value outside macOS, and ADR 0016
+supersedes physical certification as a release gate.
 
 ## Context
 

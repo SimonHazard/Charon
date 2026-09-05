@@ -2,7 +2,8 @@
 
 This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
 amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
-[ADR 0013](adr/0013-direct-note-actions.md).
+[ADR 0013](adr/0013-direct-note-actions.md), with platform and delivery policy
+from ADRs 0014-0016.
 
 ## Authority and boundaries
 
@@ -184,9 +185,10 @@ intent.
 
 Input Monitoring independently gates the macOS event tap; Accessibility gates
 selected-text acquisition and the bounded source Copy. Tauri's global-shortcut
-plugin owns `CmdOrCtrl+Shift+Space` on every platform. Linux and Windows expose
-the same capability model but do not claim modifier-only capture until their
-native physical matrices pass on the exact release-configuration artifact.
+plugin owns `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux.
+ADR 0015 accepts double Shift through public native adapters on Windows and X11,
+while Wayland remains composer-shortcut-only. Runtime capability reporting stays
+`Unsupported` until an adapter ships and `Experimental` during early user use.
 
 ### ClipboardComposer
 
@@ -205,6 +207,19 @@ Composition is testable without a system clipboard. It never reads Attachment
 bytes or external source paths, changes Note status, uploads, pastes, or mutates
 Workspace files. It remains separate from the transient
 pasteboard transaction owned by `CaptureCoordinator`.
+
+### Update integration
+
+The official Tauri updater plugin is an application adapter, not a fourth domain
+module. It reads only the public signed release manifest after opt-in, exposes
+typed update state to React, and performs download/install only after explicit
+confirmation. It receives no Workspace, Note, Tag, Attachment, clipboard, or
+capture value. The public verification key is bundled with the app; the private
+key exists only in the GitHub `release` environment during artifact builds.
+
+Dirty-draft state stays UI-owned. Restart is requested only after React confirms
+that editor and composer input is safe. Update failures do not enter Workspace
+transactions and cannot change durable Note state.
 
 ## IPC and view-state contract
 
@@ -258,8 +273,9 @@ variable, secret, or server route. Production uses the custom domain
 
 ADR 0011, as amended by ADR 0012 and ADR 0013, governs the flat schema v2
 direction, irreversible per-Note deletion, shortcut reduction, unified shelf,
-direct Note actions, Light default, and rejected chart surface. Create another
-ADR before changing persistence, local-only privacy, shortcut support, bulk
-interaction, cross-app sharing, the static-site boundary, or the dependency
-rule. New adapters must correspond to a real platform boundary or distinct test
-seam.
+direct Note actions, Light default, and rejected chart surface. ADRs 0014-0016
+govern unsigned distribution, cross-platform capture, automatic releases, and
+the updater boundary. Create another ADR before changing persistence, local-only
+privacy, shortcut support, bulk interaction, cross-app sharing, the static-site
+boundary, updater data flow, or the dependency rule. New adapters must
+correspond to a real platform boundary or distinct test seam.

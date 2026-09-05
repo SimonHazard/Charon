@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted for v1. This ADR is the product and migration gate for Plans 009-012.
+Accepted for v1. This ADR is the product and schema-v2 migration gate.
 
 ## Context
 
-Plans 001-007 established a safe local Workspace and proved focus-preserving
+The initial implementation established a safe local Workspace and proved focus-preserving
 selected-text capture on macOS. They also produced a broader note-management
 product built around Sections, manual ordering, Merge, recoverable Trash,
 CopyPresets, routes, a command palette, and optional Insights. Those concepts
@@ -96,15 +96,14 @@ capture, user agency around irreversible deletion, and actionable recovery.
     `#FDF6E3`, Surface `#EEE8D5`, and Ink `#073642`. They map through semantic
     theme roles rather than raw values in components.
 12. The visible shortcut set is intentionally small: unmodified double Shift
-    where proved, `CmdOrCtrl+Shift+Space` to reveal Charon and focus the bottom
-    composer everywhere, `CmdOrCtrl+F`, Enter, Space, `CmdOrCtrl+A`, Delete, and
+    where proved, the platform composer shortcut to reveal Charon and focus the
+    bottom composer, `CmdOrCtrl+F`, Enter, Space, `CmdOrCtrl+A`, Delete, and
     Escape where context is unambiguous. Command-double-Shift, route navigation,
     command palette, reorder, move, merge, and copy-preset shortcuts are removed.
-13. macOS keeps ADRs 0008-0010 unchanged as the authority for proved selected-
-    text acquisition, permissions, transient clipboard behavior, and signed-
-    build gates. Linux and Windows keep the safe standard accelerator and
-    visible composer. Charon does not synthesize platform-specific input or
-    claim modifier-only capture there until the existing evidence gates pass.
+13. macOS keeps ADRs 0008-0010 as the authority for selected-text acquisition,
+    permissions, and transient clipboard behavior. ADR 0015 governs Windows,
+    X11, and Wayland shortcuts and acquisition; runtime capability reporting
+    prevents claims before implementation.
 14. `Documents/Charon` remains the visible safe default because ordinary
     Markdown is a core interoperability property. A compact Preferences surface
     shows the current Notes folder and offers an explicit chooser. It remembers
@@ -143,7 +142,7 @@ Relationship to earlier ADRs is deliberately narrow:
   Notes-work-area input, and possible Copper-like mode are superseded.
 - ADR 0007's safe `Documents/Charon` resolution, explicit chooser, validation,
   local-only bootstrap, and one-directory boundary remain. Its initial Section
-  naming and its reference to former Plan 008 settings work are superseded.
+  naming and its obsolete settings-work handoff are superseded.
 - ADRs 0008, 0009, and 0010 remain authoritative without modification to their
   macOS selected-text permission, acquisition, bounded Copy fallback, source-
   focus, clipboard, privacy, or release-evidence invariants. Their historical
