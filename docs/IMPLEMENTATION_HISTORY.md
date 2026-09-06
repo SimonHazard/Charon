@@ -55,3 +55,5 @@ available in Git history; active work lives only in `plans/`.
 - The same release cleanup removed separate portability and unsigned
   review-build workflows after the release matrix made both redundant. Quality,
   Security, and site deployment remain explicit operator tools.
+- On 2026-09-06, the operator replaced the source-visible, no-reuse terms with
+  the standard MIT License before making the repository public.

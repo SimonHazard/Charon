@@ -4,6 +4,9 @@
 
 Accepted on 2026-09-05 by operator decision.
 
+Amended on 2026-09-06: the operator deliberately adopted the MIT License for
+the repository.
+
 ## Context
 
 Charon is a free side project maintained by one operator. Earlier release
@@ -59,8 +62,8 @@ stable private key that must never enter Git.
   installations from trusting later updates.
 - A public repository exposes its full Git and pull-request history. Removing a
   file from the current branch is cleanup, not historical erasure.
-- The repository is source-visible but grants no reuse licence unless the
-  operator later adopts one explicitly.
+- The repository is licensed under MIT: reuse, modification, distribution, and
+  commercial use are permitted when the copyright and licence notice are kept.
 
 ## Revisit when
 
