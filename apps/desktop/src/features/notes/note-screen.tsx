@@ -65,6 +65,8 @@ export function NoteScreen({
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [composerDirty, setComposerDirty] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<'cleanup' | 'other' | null>(null);
@@ -112,6 +114,11 @@ export function NoteScreen({
     },
     [],
   );
+
+  useEffect(() => {
+    setWorkspaceSwitchBlocked(editorDirty || composerDirty);
+    return () => setWorkspaceSwitchBlocked(false);
+  }, [composerDirty, editorDirty, setWorkspaceSwitchBlocked]);
 
   useLayoutEffect(() => {
     const pending = pendingDeleteFocusRef.current;
@@ -372,7 +379,7 @@ export function NoteScreen({
           onCloseEditor={closeEditor}
           onCopy={copyNote}
           onDelete={requestDelete}
-          onDirtyChange={setWorkspaceSwitchBlocked}
+          onDirtyChange={setEditorDirty}
           onExpand={expandNote}
           onFocusAttachments={focusAttachments}
           onRemoveAttachment={removeAttachment}
@@ -407,6 +414,7 @@ export function NoteScreen({
       )}
       <div className="composer-dock">
         <CaptureInput
+          onDirtyChange={setComposerDirty}
           onCreate={async (body) => {
             await executeWorkspaceCommand({ type: 'createNote', body });
             announce(m.capture_created());

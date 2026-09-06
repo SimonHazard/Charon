@@ -31,12 +31,15 @@ modifier-only sequence there.
 
 ## Download and updates
 
-[Download the latest release](https://github.com/SimonHazard/Charon/releases/latest).
+The first public build has not been published yet. Once available, downloads
+will live in [GitHub Releases](https://github.com/SimonHazard/Charon/releases).
+A validated `vX.Y.Z` tag builds macOS, Linux, and Windows installers, publishes
+checksums, and exposes signed metadata to the integrated Tauri updater only
+after every platform succeeds.
 
-The active release work adds automatic macOS, Linux, and Windows bundles from
-version tags plus an integrated Tauri updater using signed update artifacts.
-Until that work ships, the source build has no update client. The applications
-remain unsigned by paid platform certificates:
+Update checks are disabled by default. Users can enable the metadata-only check
+in Preferences, review an available version, and explicitly install it. The
+applications remain unsigned by paid platform certificates:
 
 - macOS may require Privacy & Security, Open Anyway, or Control-click, Open;
 - macOS may ask for Input Monitoring and Accessibility again after an update;
@@ -57,7 +60,7 @@ ADR 0010 permits one bounded Copy transaction. Selected text may briefly enter
 the clipboard, but Charon never posts Paste or overwrites a concurrent clipboard
 change.
 
-The accepted updater contract keeps checks initially disabled. After opt-in, it sends only an
+The updater keeps checks initially disabled. After opt-in, it sends only an
 ordinary request for public release metadata: no Note, Tag, Attachment,
 Workspace path, stable identifier, or behavioral event. Installation remains
 explicit.
@@ -126,6 +129,7 @@ define.
 - [ADRs](docs/adr/)
 - [Implementation history](docs/IMPLEMENTATION_HISTORY.md)
 - [Active plans](plans/README.md)
+- [Security policy](SECURITY.md)
 
 ## License
 

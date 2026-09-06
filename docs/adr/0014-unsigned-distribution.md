@@ -109,8 +109,8 @@ gates into optional compatibility tools.
 - Charon cannot detect or repair a tampered download. Checksums shift that
   verification to the user, and the documentation says so plainly instead of
   implying platform-level protection.
-- The `release` GitHub environment holds only the Tauri updater private key and
-  password. It never holds an Apple or Microsoft signing credential.
+- The `release` GitHub environment holds only the Tauri updater private key.
+  It never holds an Apple or Microsoft signing credential.
 
 ## Revisit when
 

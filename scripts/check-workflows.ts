@@ -12,7 +12,12 @@ for (const file of files) {
   if (!/^\s*workflow_dispatch:/mu.test(text)) {
     failures.push(`${file}: every workflow must be manually dispatched`);
   }
-  if (/^ {2}(?:pull_request|push|schedule):/mu.test(text)) {
+  const automaticTriggers = text.match(/^ {2}(?:pull_request|push|schedule):/gmu) ?? [];
+  if (file === 'release.yml') {
+    if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('push:'))) {
+      failures.push(`${file}: only version-tag pushes may trigger automatically`);
+    }
+  } else if (automaticTriggers.length) {
     failures.push(`${file}: automatic triggers are disabled`);
   }
   for (const match of text.matchAll(/^\s*uses:\s*([^\s#]+)(?:\s+#.*)?$/gmu)) {
@@ -35,6 +40,45 @@ for (const file of files) {
   }
   if (/pull_request:[\s\S]*?secrets\./u.test(text) && !file.includes('release')) {
     failures.push(`${file}: PR workflow references secrets`);
+  }
+}
+
+const releaseWorkflowName = 'release.yml';
+if (!files.includes(releaseWorkflowName)) {
+  failures.push(`${releaseWorkflowName}: automatic desktop release workflow is missing`);
+} else {
+  const releaseWorkflow = await Bun.file(`${directory}/${releaseWorkflowName}`).text();
+  for (const fragment of [
+    "tags:\n      - 'v*'",
+    'environment: release',
+    'macos-15',
+    'ubuntu-24.04',
+    'windows-2025',
+    'TAURI_SIGNING_PRIVATE_KEY: $' + '{{ secrets.TAURI_SIGNING_PRIVATE_KEY }}',
+    'actions/upload-artifact@',
+    'actions/download-artifact@',
+    'bun scripts/check-release-version.ts',
+    'bun scripts/release-artifacts.ts',
+    'gh release create',
+    'gh release edit',
+  ]) {
+    if (!releaseWorkflow.includes(fragment)) {
+      failures.push(`${releaseWorkflowName}: missing release contract ${fragment}`);
+    }
+  }
+  for (const forbidden of [
+    'pull_request:',
+    'schedule:',
+    'branches:',
+    'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
+  ]) {
+    if (releaseWorkflow.includes(forbidden)) {
+      failures.push(`${releaseWorkflowName}: forbidden trigger or unused secret ${forbidden}`);
+    }
+  }
+  const contentsWriteCount = releaseWorkflow.match(/contents:\s+write/gu)?.length ?? 0;
+  if (contentsWriteCount !== 1) {
+    failures.push(`${releaseWorkflowName}: exactly one final job may receive contents write`);
   }
 }
 

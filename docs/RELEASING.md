@@ -1,9 +1,7 @@
 # Releasing Charon
 
-> This document defines the accepted target flow. Until
-> [Plan 015](../plans/015-automate-builds-and-releases.md) completes, the checked-in
-> release workflow remains manual and the application has no updater client.
-> Do not publish a release by pretending the target flow is already implemented.
+> The workflow and updater client are implemented. The first real tag remains
+> the live validation of the three hosted runners and must be operator-authorized.
 
 ## Distribution posture
 
@@ -44,14 +42,15 @@ code signing.
 ## GitHub environment and secrets
 
 Create a GitHub Actions environment named `release` with no required reviewer.
-It contains exactly:
+For Charon's unencrypted updater key, it contains exactly:
 
-- `TAURI_SIGNING_PRIVATE_KEY`: the complete private updater key content;
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: its password.
+- `TAURI_SIGNING_PRIVATE_KEY`: the complete private updater key content.
 
 Generate the pair once outside the repository. Commit only the public key and
-store an independent secure backup of both private values. Losing the private
-key prevents existing installations from accepting later updates.
+store an independent secure backup of the private key. Losing it prevents
+existing installations from accepting later updates. If the key is ever
+regenerated with encryption, add `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to the
+environment and workflow in the same reviewed change.
 
 GitHub supplies `secrets.GITHUB_TOKEN`; do not create it manually. The final
 release job alone receives `contents: write`. No GitHub Actions variable, Apple

@@ -249,6 +249,10 @@ describe('theme token contract', () => {
       'core:window:allow-start-dragging',
       'core:window:allow-internal-toggle-maximize',
       'clipboard-manager:allow-write-text',
+      'process:allow-restart',
+      'updater:allow-check',
+      'updater:allow-download',
+      'updater:allow-install',
     ]);
   });
 });

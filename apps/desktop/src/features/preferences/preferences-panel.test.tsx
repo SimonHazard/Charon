@@ -58,7 +58,7 @@ describe('compact Preferences', () => {
     applyLocale('en');
   });
 
-  it('shows the four bounded groups and basename-only Workspace disclosure', async () => {
+  it('shows the bounded groups and basename-only Workspace disclosure', async () => {
     const native = clients();
     render(
       <AppProviders
@@ -71,7 +71,7 @@ describe('compact Preferences', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
     expect(screen.queryByRole('button', { name: 'Solarized' })).toBeNull();
-    for (const heading of ['Appearance', 'Language', 'Notes folder', 'Capture']) {
+    for (const heading of ['Appearance', 'Language', 'Notes folder', 'Capture', 'Updates']) {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
     }
     expect(document.querySelector('.preferences-section-icon')).toBeNull();
@@ -79,6 +79,9 @@ describe('compact Preferences', () => {
     expect(document.body.textContent).not.toContain('/Users/');
     expect(screen.getByText('⌘ + Shift + Space')).toBeTruthy();
     expect(screen.queryByText(/shortcut is already used/i)).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Enable update checks' }).getAttribute('aria-pressed'),
+    ).toBe('false');
   });
 
   it('shows a contextual warning when the portable shortcut registration fails', async () => {

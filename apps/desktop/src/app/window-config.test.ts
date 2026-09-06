@@ -50,6 +50,10 @@ describe('desktop window contract', () => {
       'core:window:allow-start-dragging',
       'core:window:allow-internal-toggle-maximize',
       'clipboard-manager:allow-write-text',
+      'process:allow-restart',
+      'updater:allow-check',
+      'updater:allow-download',
+      'updater:allow-install',
     ]);
   });
 
@@ -76,5 +80,16 @@ describe('desktop window contract', () => {
     expect(tauriConfig.bundle.windows.webviewInstallMode.type).not.toBe('downloadBootstrapper');
     expect(tauriConfig.bundle.linux.deb.depends).toContain('libwebkit2gtk-4.1-0');
     expect(tauriConfig.bundle.android).toBeUndefined();
+  });
+
+  it('pins the signed updater to the public GitHub release endpoint', () => {
+    expect(tauriConfig.bundle.createUpdaterArtifacts).toBe(true);
+    expect(tauriConfig.plugins.updater).toEqual({
+      endpoints: ['https://github.com/SimonHazard/Charon/releases/latest/download/latest.json'],
+      pubkey:
+        'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBQjExRENFRTEyRjQ0NzgKUldSNFJDL2h6aDJ4NnBQSDNLNGJZSUlIWFZ4Q29XYzBXV1NIZE9ONWV0M3pKT3NLNWw5M1FZN3oK',
+    });
+    expect(tauriBootstrap).toContain('.plugin(tauri_plugin_updater::Builder::new().build())');
+    expect(tauriBootstrap).toContain('.plugin(tauri_plugin_process::init())');
   });
 });

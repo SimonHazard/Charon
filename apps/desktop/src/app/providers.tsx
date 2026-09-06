@@ -15,6 +15,8 @@ import { readTheme, saveTheme } from '@/app/theme';
 import { WorkspaceProvider } from '@/app/workspace-context';
 import { toast } from '@/components/ui/toast';
 import { NativePreferencesProvider } from '@/features/preferences/preferences-context';
+import type { UpdateClient } from '@/features/updates/update-client';
+import { UpdateProvider } from '@/features/updates/update-context';
 import { type CaptureClient, tauriCaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
 import type { WorkspaceClient } from '@/lib/ipc/workspace-client';
@@ -36,15 +38,18 @@ export function AppProviders({
   workspaceClient,
   captureClient,
   preferencesClient,
+  updateClient,
 }: PropsWithChildren<{
   workspaceClient?: WorkspaceClient;
   captureClient?: CaptureClient;
   preferencesClient?: NativePreferencesClient;
+  updateClient?: UpdateClient;
 }>) {
   const [theme, updateTheme] = useState(readTheme);
   const [locale, updateLocale] = useState(readLocale);
   const activeCaptureClient = captureClient ?? tauriCaptureClient;
   const nativePreferencesEnabled = isTauriRuntime() || Boolean(captureClient || preferencesClient);
+  const updaterEnabled = isTauriRuntime() || Boolean(updateClient);
 
   const setTheme = useCallback((next: ThemeName) => {
     saveTheme(next);
@@ -67,16 +72,18 @@ export function AppProviders({
     <PreferencesContext.Provider value={preferences}>
       <MotionSystem>
         <WorkspaceProvider client={workspaceClient}>
-          <NativePreferencesProvider
-            captureClient={activeCaptureClient}
-            enabled={nativePreferencesEnabled}
-            preferencesClient={preferencesClient}
-          >
-            <ComposerFocusProvider>
-              <CaptureBridge client={activeCaptureClient} enabled={nativePreferencesEnabled} />
-              {children}
-            </ComposerFocusProvider>
-          </NativePreferencesProvider>
+          <UpdateProvider client={updateClient} enabled={updaterEnabled}>
+            <NativePreferencesProvider
+              captureClient={activeCaptureClient}
+              enabled={nativePreferencesEnabled}
+              preferencesClient={preferencesClient}
+            >
+              <ComposerFocusProvider>
+                <CaptureBridge client={activeCaptureClient} enabled={nativePreferencesEnabled} />
+                {children}
+              </ComposerFocusProvider>
+            </NativePreferencesProvider>
+          </UpdateProvider>
         </WorkspaceProvider>
       </MotionSystem>
     </PreferencesContext.Provider>
