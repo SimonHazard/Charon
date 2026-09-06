@@ -43,7 +43,7 @@ jobs:
       - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings
       - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked
       - run: bun run bindings:check
-      - run: bunx playwright install --with-deps chromium
+      - run: bun run --cwd apps/desktop playwright install --with-deps chromium
       - name: Run Chromium desktop journeys
         run: bun run --cwd apps/desktop test:e2e -- --project=chromium
         env:
