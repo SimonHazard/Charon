@@ -16,6 +16,7 @@
 
 ## Status
 
+- **State**: IN PROGRESS — implementation ready; first public tag pending
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
@@ -25,7 +26,7 @@
 
 ## Why this matters
 
-The current workflow is macOS-only, manually dispatched, draft-only, and has no
+The work started from a macOS-only, manually dispatched draft workflow with no
 updater artifacts or app integration. Charon needs one cheap operator flow:
 choose a version, push one tag, let GitHub build and publish macOS, Linux, and
 Windows downloads, then let opted-in installations discover and explicitly
@@ -67,19 +68,18 @@ Cloudflare credential, or authenticated proxy into this plan.
 ## Secrets and permissions
 
 Create a GitHub Actions environment named `release` with no required reviewer.
-Store exactly:
+Store exactly for the current unencrypted key:
 
-- `TAURI_SIGNING_PRIVATE_KEY`: complete private key content;
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: password for that key.
+- `TAURI_SIGNING_PRIVATE_KEY`: complete private key content.
 
 Generate the updater key pair once on the operator machine. Commit only the
 public key in `tauri.conf.json`, and keep an independent secure backup of the
-private key and password. A lost key cannot sign updates trusted by existing
+private key. A lost key cannot sign updates trusted by existing
 installations.
 
 Use the automatic `${{ secrets.GITHUB_TOKEN }}`; never create it manually. Give
 `contents: write` only to the final release job. Build jobs need `contents: read`
-and access to the two `release` environment secrets. No GitHub Actions variable
+and access to the `release` environment secret. No GitHub Actions variable
 is required.
 
 Do not create Apple, notarization, Authenticode, or certificate secrets.
@@ -199,7 +199,7 @@ fixture produces valid updater JSON and checksums.
 Keep the procedure short:
 
 1. generate and securely back up the updater key pair once;
-2. put the two private values in the `release` environment;
+2. put the private key in the `release` environment;
 3. make the audited repository public before the first updater release;
 4. bump versions and release notes;
 5. optionally run local checks;
@@ -218,17 +218,17 @@ pipeline. A real first release is an operator-authorized live validation.
 
 ## Done criteria
 
-- [ ] A valid pushed `vX.Y.Z` tag is the only automatic release trigger.
+- [x] A valid pushed `vX.Y.Z` tag is the only automatic release trigger.
 - [ ] macOS, Linux, and Windows bundles and updater artifacts build in one run.
 - [ ] One combined signed `latest.json` is published with complete assets and
   `SHA256SUMS.txt` only after every platform succeeds.
-- [ ] No partial public release appears after a failed matrix.
-- [ ] The updater check is default-off, content-free, user-controlled, and uses
+- [x] No partial public release appears after a failed matrix.
+- [x] The updater check is default-off, content-free, user-controlled, and uses
   explicit download/install/restart behavior.
-- [ ] The public updater key is committed; only the two private key values are
-  operator-created GitHub secrets; no GitHub variable is required.
-- [ ] No paid platform-signing or silent-update surface is added.
-- [ ] Focused deterministic checks pass; exhaustive physical certification is
+- [x] The public updater key is committed; only the private key is an
+  operator-created GitHub secret; no GitHub variable is required.
+- [x] No paid platform-signing or silent-update surface is added.
+- [x] Focused deterministic checks pass; exhaustive physical certification is
   not required.
 
 ## STOP conditions

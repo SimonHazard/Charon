@@ -2,14 +2,27 @@ import {
   IconAlertCircle,
   IconCheck,
   IconCircleCheck,
+  IconDownload,
   IconInfoCircle,
+  IconRefresh,
   IconSettings,
 } from '@tabler/icons-react';
 import { m as motion } from 'motion/react';
+import { useState } from 'react';
 
 import { useMessages, usePreferences } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
 import type { CapabilityState, CapturePermissionKind } from '@/bindings/capture';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -22,6 +35,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
+import { useUpdates } from '@/features/updates/update-context';
 import { usePressFeedback } from '@/motion/press';
 
 export function PreferencesPanel() {
@@ -29,7 +43,9 @@ export function PreferencesPanel() {
   const appearance = usePreferences();
   const workspace = useWorkspace();
   const native = useNativePreferences();
+  const updates = useUpdates();
   const press = usePressFeedback();
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
   const chooseWorkspace = async () => {
     if ((await workspace.chooseWorkspace()) === 'success') await native.refresh();
@@ -55,6 +71,15 @@ export function PreferencesPanel() {
     ) : (
       <IconAlertCircle aria-hidden="true" className="capability-state-icon" data-state={state} />
     );
+
+  const updateBusy =
+    updates.status === 'checking' ||
+    updates.status === 'downloading' ||
+    updates.status === 'installing';
+  const updateProgress =
+    updates.totalBytes && updates.downloadedBytes > 0
+      ? Math.min(100, Math.round((updates.downloadedBytes / updates.totalBytes) * 100))
+      : null;
 
   const permissionRow = (
     permission: CapturePermissionKind,
@@ -270,7 +295,113 @@ export function PreferencesPanel() {
             </div>
           ) : null}
         </section>
+
+        <section className="preferences-group">
+          <h2>{m.preferences_updates()}</h2>
+          <p>{m.update_privacy_description()}</p>
+          <div className="preferences-update-actions">
+            <Button
+              aria-pressed={updates.enabled}
+              disabled={updateBusy}
+              onClick={() => updates.setEnabled(!updates.enabled)}
+              size="sm"
+              variant={updates.enabled ? 'default' : 'outline'}
+            >
+              {updates.enabled ? m.update_disable_checks() : m.update_enable_checks()}
+            </Button>
+            {updates.enabled ? (
+              <Button
+                disabled={updateBusy}
+                onClick={() => void updates.checkNow()}
+                size="sm"
+                variant="ghost"
+              >
+                <IconRefresh aria-hidden="true" />
+                {m.update_check_now()}
+              </Button>
+            ) : null}
+          </div>
+
+          {updates.status === 'checking' ? (
+            <p aria-live="polite" role="status">
+              {m.update_checking()}
+            </p>
+          ) : null}
+          {updates.status === 'noUpdate' ? (
+            <p aria-live="polite" role="status">
+              {m.update_none_available()}
+            </p>
+          ) : null}
+          {updates.status === 'error' ? (
+            <div className="preferences-error" role="alert">
+              <p className="preferences-inline-warning">{m.update_error()}</p>
+              <Button onClick={() => void updates.checkNow()} size="sm" variant="outline">
+                {m.common_retry()}
+              </Button>
+            </div>
+          ) : null}
+          {updates.status === 'available' && updates.version ? (
+            <div className="preferences-update-available" role="status">
+              <p>{m.update_available({ version: updates.version })}</p>
+              <Button onClick={() => setUpdateDialogOpen(true)} size="sm" variant="outline">
+                <IconDownload aria-hidden="true" />
+                {m.update_review()}
+              </Button>
+            </div>
+          ) : null}
+          {updates.status === 'downloading' ? (
+            <p aria-live="polite" role="status">
+              {updateProgress === null
+                ? m.update_downloading()
+                : m.update_downloading_progress({ progress: updateProgress })}
+            </p>
+          ) : null}
+          {updates.status === 'installing' ? (
+            <p aria-live="polite" role="status">
+              {m.update_installing()}
+            </p>
+          ) : null}
+          {updates.status === 'ready' ? (
+            <div className="preferences-update-available" role="status">
+              <p>
+                {updates.restartBlocked ? m.update_restart_blocked() : m.update_ready_to_restart()}
+              </p>
+              <Button
+                disabled={updates.restartBlocked}
+                onClick={() => void updates.restart()}
+                size="sm"
+                variant="outline"
+              >
+                {m.update_restart()}
+              </Button>
+            </div>
+          ) : null}
+        </section>
       </PopoverContent>
+
+      <AlertDialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {m.update_install_title({ version: updates.version ?? '' })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{m.update_install_description()}</AlertDialogDescription>
+          </AlertDialogHeader>
+          {updates.notes ? <p className="update-release-notes">{updates.notes}</p> : null}
+          {updates.restartBlocked ? (
+            <p className="preferences-inline-warning">{m.update_install_blocked()}</p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel>{m.common_cancel()}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={updates.restartBlocked}
+              onClick={() => void updates.downloadAndInstall()}
+            >
+              {m.update_download_install()}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Popover>
   );
 }

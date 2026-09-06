@@ -149,10 +149,10 @@ or copied into preferences.
 
 ## Network access and updates
 
-The current checked-in build has no update client and performs no desktop
-network request. ADR 0016 accepts an updater for v1. Its update check is the only
-optional desktop request: it is disclosed, default off, controlled by a clear setting, and
-limited to release metadata. GitHub will observe ordinary network metadata, but
+The checked-in build includes the updater accepted by ADR 0016. Its update
+check is the only optional desktop request: it is disclosed, default off,
+controlled by a clear setting, and limited to release metadata. GitHub will
+observe ordinary network metadata, but
 the request includes no Note content, Tags, Attachment metadata or bytes,
 Workspace metadata or path, stable user identifier, or behavioral event.
 Downloading and installing requires clear user action and an artifact verified

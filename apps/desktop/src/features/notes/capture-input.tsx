@@ -1,5 +1,5 @@
 import { IconArrowUp } from '@tabler/icons-react';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { useMessages } from '@/app/providers';
 import { Button } from '@/components/ui/button';
@@ -12,14 +12,20 @@ export const CaptureInput = forwardRef<
   CaptureInputHandle,
   {
     onCreate(body: string): Promise<void>;
+    onDirtyChange?(dirty: boolean): void;
   }
->(function CaptureInput({ onCreate }, forwardedRef) {
+>(function CaptureInput({ onCreate, onDirtyChange }, forwardedRef) {
   const m = useMessages();
   const [value, setValue] = useState('');
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const body = value.trim();
+
+  useEffect(() => {
+    onDirtyChange?.(value.length > 0 || pending);
+    return () => onDirtyChange?.(false);
+  }, [onDirtyChange, pending, value]);
 
   useImperativeHandle(forwardedRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 

@@ -48,3 +48,7 @@ available in Git history; active work lives only in `plans/`.
   uses public GitHub Release assets.
 - `07dbb48` is the pre-automation workflow baseline. The active release plan
   replaces only the desktop release trigger; unrelated workflows remain manual.
+- On 2026-09-06, Plan 015 added the operator-owned updater trust root, the
+  default-off signed updater client, deterministic release metadata/checksums,
+  and one tag-triggered three-platform publication workflow. The first public
+  tag remains the hosted-runner validation point.

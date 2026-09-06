@@ -23,7 +23,7 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 
 | Plan | Title | Priority | Effort | Status |
 | --- | --- | --- | --- | --- |
-| 015 | Publish automatic Tauri releases and integrated updates | P1 | M | TODO |
+| 015 | Publish automatic Tauri releases and integrated updates | P1 | M | IN PROGRESS: implementation ready; first public tag pending |
 | 034 | Add pragmatic Windows/Linux capture shortcuts | P2 | L | TODO |
 
 Plan 015 can ship before the Windows/X11 adapters. Unsupported capture paths
@@ -35,13 +35,12 @@ Status values are `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED: <reason>`, and
 ## GitHub secrets and variables
 
 Create a GitHub Actions environment named `release`, without a required reviewer,
-and store exactly:
+and store exactly for the current unencrypted key:
 
-- `TAURI_SIGNING_PRIVATE_KEY`: complete private updater key content;
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: password for that key.
+- `TAURI_SIGNING_PRIVATE_KEY`: complete private updater key content.
 
-Commit only the matching public key. Back up the private key and password outside
-Git; losing them prevents existing installations from accepting later updates.
+Commit only the matching public key. Back up the private key outside Git;
+losing it prevents existing installations from accepting later updates.
 
 GitHub supplies `secrets.GITHUB_TOKEN`; do not create it. No GitHub Actions
 variable is required. Do not create Apple, notarization, Authenticode, or paid
