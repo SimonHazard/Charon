@@ -68,7 +68,9 @@ receive them.
 2. Write short factual release notes.
 3. Optionally run local checks appropriate to the change. Data-safety, privacy,
    version, updater-signature, and asset-completeness checks are never skipped by
-   the workflow.
+   the workflow. Dispatch `quality.yml` once only when the release candidate
+   needs GitHub-hosted confirmation; do not run a duplicate platform-build
+   workflow.
 4. Commit the release preparation.
 5. Create and push one annotated tag: `git tag -a vX.Y.Z -m "Charon vX.Y.Z"`
    then `git push origin vX.Y.Z`.
@@ -76,6 +78,10 @@ receive them.
    partial release.
 7. Install and use the published build. User-reported compatibility problems
    become ordinary issues and patch releases.
+
+Run `security.yml` explicitly after dependency changes or for an occasional
+audit. Run `site-deploy.yml` only when the public site changes. Neither belongs
+to the desktop release chain.
 
 Do not use an existing tag for repaired binaries. Publish a new patch version.
 Do not push a real release tag without explicit operator authority.

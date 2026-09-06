@@ -19,9 +19,16 @@ ceremony. The automatic release workflow keeps the deterministic checks that
 protect version consistency, compilation, updater signatures, privacy, data
 safety, and complete release assets.
 
-Quality, Security, Portability, review-build, and site workflows remain manually
-dispatched. Only the desktop release workflow becomes automatic, and only for a
-validated version tag.
+Quality, Security, and site deployment remain manually dispatched. The desktop
+release workflow is the only automatic workflow, and only for a validated
+version tag. It already compiles and bundles on macOS, Linux, and Windows, so
+separate portability and unsigned review-build workflows would duplicate the
+most expensive jobs without strengthening the release boundary.
+
+Use Quality once when a release candidate needs GitHub-hosted confirmation. Use
+Security after dependency changes or as an occasional explicit audit. Deploy
+the site only when its public content changes. Routine pushes consume no Actions
+minutes.
 
 ## Deterministic browser fixture
 
