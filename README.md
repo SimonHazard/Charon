@@ -133,5 +133,5 @@ define.
 
 ## License
 
-The source is visible for transparency, but no reuse license is granted. See
-[LICENSE](LICENSE). Copyright © 2026 Simon Hazard. All rights reserved.
+Charon is available under the [MIT License](LICENSE). Copyright © 2026 Simon
+Hazard.
