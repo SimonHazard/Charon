@@ -107,7 +107,7 @@ if (!files.includes(qualityWorkflowName)) {
     'cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings',
     'cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked',
     'bun run bindings:check',
-    'bunx playwright install --with-deps chromium',
+    'bun run --cwd apps/desktop playwright install --with-deps chromium',
     'test:e2e -- --project=chromium',
   ];
   for (const fragment of requiredFragments) {
