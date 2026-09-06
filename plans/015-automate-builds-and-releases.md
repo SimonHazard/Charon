@@ -169,10 +169,10 @@ Use the current supported GitHub runner matrix:
 - Ubuntu: `.deb`, AppImage, `.rpm`, and the supported Linux updater artifact;
 - Windows: NSIS, MSI, and the selected updater installer/signature.
 
-Reuse pinned actions and Linux prerequisites from `review-builds.yml`. Each job
-receives the updater key secrets, builds through the workspace-local Tauri CLI,
-and uploads its results only as workflow artifacts. Prefer NSIS for the Windows
-updater while still publishing MSI as a manual installer.
+Reuse the repository's pinned actions and Linux prerequisites. Each job receives
+the updater key secret, builds through the workspace-local Tauri CLI, and uploads
+its results only as workflow artifacts. Prefer NSIS for the Windows updater while
+still publishing MSI as a manual installer.
 
 **Verify**: all three runner definitions exist, updater signatures are required,
 and no build job can publish a GitHub Release.

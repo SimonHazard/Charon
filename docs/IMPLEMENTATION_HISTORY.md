@@ -52,3 +52,6 @@ available in Git history; active work lives only in `plans/`.
   default-off signed updater client, deterministic release metadata/checksums,
   and one tag-triggered three-platform publication workflow. The first public
   tag remains the hosted-runner validation point.
+- The same release cleanup removed separate portability and unsigned
+  review-build workflows after the release matrix made both redundant. Quality,
+  Security, and site deployment remain explicit operator tools.

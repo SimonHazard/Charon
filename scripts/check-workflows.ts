@@ -6,6 +6,16 @@ const files = (await readdir(directory)).filter(
 );
 const failures: string[] = [];
 const sha = /^[0-9a-f]{40}$/u;
+const expectedWorkflows = new Set([
+  'quality.yml',
+  'release.yml',
+  'security.yml',
+  'site-deploy.yml',
+]);
+
+for (const file of files) {
+  if (!expectedWorkflows.has(file)) failures.push(`${file}: unexpected workflow`);
+}
 
 for (const file of files) {
   const text = await Bun.file(`${directory}/${file}`).text();
@@ -123,50 +133,9 @@ if (!files.includes(qualityWorkflowName)) {
   }
 }
 
-const reviewWorkflowName = 'review-builds.yml';
-if (!files.includes(reviewWorkflowName)) {
-  failures.push(`${reviewWorkflowName}: manual candidate workflow is missing`);
-} else {
-  const reviewWorkflow = await Bun.file(`${directory}/${reviewWorkflowName}`).text();
-  for (const fragment of [
-    'on:\n  workflow_dispatch:',
-    'permissions:\n  contents: read',
-    'group: review-builds-$' + '{{ github.ref }}',
-    'cancel-in-progress: true',
-    'timeout-minutes: 45',
-  ]) {
-    if (!reviewWorkflow.includes(fragment)) {
-      failures.push(`${reviewWorkflowName}: missing manual budget contract ${fragment}`);
-    }
-  }
-  if (/^ {2}(?:pull_request|push|schedule):/mu.test(reviewWorkflow)) {
-    failures.push(`${reviewWorkflowName}: candidate builds must remain manual`);
-  }
-}
-
-const portabilityWorkflowName = 'portability.yml';
-if (!files.includes(portabilityWorkflowName)) {
-  failures.push(`${portabilityWorkflowName}: three-OS Rust workflow is missing`);
-} else {
-  const portabilityWorkflow = await Bun.file(`${directory}/${portabilityWorkflowName}`).text();
-  for (const fragment of [
-    'matrix:',
-    'os: [macos-15, windows-2025]',
-    'permissions:\n  contents: read',
-    'cancel-in-progress: true',
-    'timeout-minutes: 30',
-    'cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings',
-    'cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked',
-  ]) {
-    if (!portabilityWorkflow.includes(fragment)) {
-      failures.push(`${portabilityWorkflowName}: missing portability contract ${fragment}`);
-    }
-  }
-}
-
 const securityWorkflowName = 'security.yml';
 if (!files.includes(securityWorkflowName)) {
-  failures.push(`${securityWorkflowName}: scheduled security workflow is missing`);
+  failures.push(`${securityWorkflowName}: manual security workflow is missing`);
 } else {
   const securityWorkflow = await Bun.file(`${directory}/${securityWorkflowName}`).text();
   for (const fragment of [
