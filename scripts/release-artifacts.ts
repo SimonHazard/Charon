@@ -80,6 +80,16 @@ export async function assembleReleaseArtifacts(options: AssembleOptions) {
     throw new Error(`invalid GitHub repository ${options.repository}`);
   }
 
+  let notes: string;
+  try {
+    notes = (await Bun.file(options.notesFile).text()).trim();
+  } catch {
+    throw new Error(`release notes are missing or empty: ${options.notesFile}`);
+  }
+  if (!notes) {
+    throw new Error(`release notes are missing or empty: ${options.notesFile}`);
+  }
+
   const selected = new Map<string, string>();
   const manifestPlatforms: Record<string, { signature: string; url: string }> = {};
 
@@ -109,7 +119,6 @@ export async function assembleReleaseArtifacts(options: AssembleOptions) {
   await mkdir(options.output, { recursive: true });
   for (const [name, source] of selected) await copyFile(source, join(options.output, name));
 
-  const notes = `Charon ${options.version}. See the GitHub release notes for changes and installation guidance.`;
   const latest = {
     version: options.version,
     notes,
@@ -124,9 +133,6 @@ export async function assembleReleaseArtifacts(options: AssembleOptions) {
     checksumNames.map(async (name) => `${await sha256(join(options.output, name))}  ${name}`),
   );
   await writeFile(join(options.output, 'SHA256SUMS.txt'), `${checksums.join('\n')}\n`, 'utf8');
-
-  const releaseNotes = `Charon ${options.version}\n\nThis release was built automatically for macOS, Linux, and Windows after every platform completed successfully.\n\nInstallation notes\n\n- macOS: this build uses an ad-hoc signature and is not notarized. Use Privacy & Security > Open Anyway, or Control-click > Open, on first launch. Input Monitoring and Accessibility may need to be granted again after an update.\n- Windows: this build is unsigned and may show a SmartScreen warning. Use More info > Run anyway only after checking the download.\n- Linux: packages are unsigned.\n- SHA256SUMS.txt provides integrity checks. Tauri updater signatures are separate from Apple or Microsoft code signing.\n`;
-  await writeFile(options.notesFile, releaseNotes, 'utf8');
 
   return { assets: [...selected.keys()].sort(), latest };
 }
