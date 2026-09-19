@@ -129,6 +129,7 @@ define.
 - [ADRs](docs/adr/)
 - [Implementation history](docs/IMPLEMENTATION_HISTORY.md)
 - [Active plans](plans/README.md)
+- [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 
 ## License

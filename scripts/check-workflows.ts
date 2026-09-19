@@ -19,13 +19,18 @@ for (const file of files) {
 
 for (const file of files) {
   const text = await Bun.file(`${directory}/${file}`).text();
-  if (!/^\s*workflow_dispatch:/mu.test(text)) {
-    failures.push(`${file}: every workflow must be manually dispatched`);
-  }
   const automaticTriggers = text.match(/^ {2}(?:pull_request|push|schedule):/gmu) ?? [];
   if (file === 'release.yml') {
     if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('push:'))) {
       failures.push(`${file}: only version-tag pushes may trigger automatically`);
+    }
+  } else if (file === 'quality.yml') {
+    if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('pull_request:'))) {
+      failures.push(`${file}: only pull requests may trigger automatically`);
+    }
+  } else if (file === 'site-deploy.yml') {
+    if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('push:'))) {
+      failures.push(`${file}: only main pushes may trigger automatically`);
     }
   } else if (automaticTriggers.length) {
     failures.push(`${file}: automatic triggers are disabled`);
@@ -98,6 +103,7 @@ if (!files.includes(qualityWorkflowName)) {
 } else {
   const qualityWorkflow = await Bun.file(`${directory}/${qualityWorkflowName}`).text();
   const requiredFragments = [
+    'pull_request:\n    branches:\n      - main',
     'workflow_dispatch:',
     'permissions:\n  contents: read',
     'cancel-in-progress: true',
@@ -157,7 +163,7 @@ if (!files.includes(siteWorkflowName)) {
 } else {
   const siteWorkflow = await Bun.file(`${directory}/${siteWorkflowName}`).text();
   const requiredFragments = [
-    'on:\n  workflow_dispatch:',
+    'on:\n  push:\n    branches:\n      - main',
     'permissions:\n  contents: read',
     'group: site-production',
     'environment: site-production',
@@ -174,8 +180,8 @@ if (!files.includes(siteWorkflowName)) {
   }
   for (const forbidden of [
     'pull_request:',
-    'push:',
     'schedule:',
+    'workflow_dispatch:',
     'wrangler versions upload',
     'preview',
   ]) {

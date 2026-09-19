@@ -80,8 +80,9 @@ receive them.
    become ordinary issues and patch releases.
 
 Run `security.yml` explicitly after dependency changes or for an occasional
-audit. Run `site-deploy.yml` only when the public site changes. Neither belongs
-to the desktop release chain.
+audit. The site workflow verifies and deploys automatically after a protected
+merge to `main`; it is not manually dispatchable and does not belong to the
+desktop release chain.
 
 Do not use an existing tag for repaired binaries. Publish a new patch version.
 Do not push a real release tag without explicit operator authority.

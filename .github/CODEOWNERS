@@ -1,0 +1,6 @@
+# Simon Hazard is the principal maintainer and owns every merge decision.
+* @SimonHazard
+
+# Keep repository automation changes explicitly owned by the maintainer.
+/.github/ @SimonHazard
+/scripts/check-workflows.ts @SimonHazard

@@ -7,6 +7,10 @@ Accepted on 2026-09-05 by operator decision.
 Amended on 2026-09-06: the operator deliberately adopted the MIT License for
 the repository.
 
+Amended on 2026-09-19: the operator made the repository public, kept desktop
+publication on version tags, and moved static-site deployment to protected
+`main` updates after pull-request validation.
+
 ## Context
 
 Charon is a free side project maintained by one operator. Earlier release
@@ -51,6 +55,14 @@ stable private key that must never enter Git.
 7. Accepted ADRs, current contracts, and `docs/IMPLEMENTATION_HISTORY.md` are the
    durable record. Completed execution plans and journals may be removed after
    their unique decisions and live references have migrated.
+8. The public repository accepts contributions through pull requests. Routine
+   Quality checks run on pull requests without deployment secrets. Simon Hazard
+   remains the principal maintainer and sole merger unless repository access is
+   deliberately expanded later.
+9. Updating protected `main`, normally by merging a validated pull request,
+   automatically verifies and deploys the static site through the
+   `site-production` environment. Desktop releases remain independent and occur
+   only for validated `vX.Y.Z` tags.
 
 ## Consequences
 

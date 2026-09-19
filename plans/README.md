@@ -16,8 +16,8 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 - macOS keeps double Shift and `Cmd+Shift+Space`. Windows and Linux X11 target
   double Shift; Windows/Linux use `Alt+Shift+Space` for composer focus. Wayland
   never claims a global modifier-only gesture.
-- The repository is prepared for a public source-visible release but remains
-  private until the operator explicitly changes its GitHub visibility.
+- The repository is public. Contributions use pull requests, Simon Hazard is
+  the principal maintainer, and protected `main` updates deploy the static site.
 
 ## Active queue
 

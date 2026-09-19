@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose one focused improvement that fits Charon's local-first scope.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful behavior, not an implementation mandate.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Local-first and privacy impact
+      description: Explain any filesystem, clipboard, permission, or network impact.
+    validations:
+      required: true
