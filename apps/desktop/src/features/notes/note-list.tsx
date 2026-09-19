@@ -1,5 +1,5 @@
 // biome-ignore-all lint/a11y/noRedundantRoles: WebKit drops list semantics when CSS removes markers.
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import { useMessages } from '@/app/providers';
@@ -26,6 +26,7 @@ export function NoteList({
   onRemoveAttachment,
   onRetryCleanup,
   onDirtyChange,
+  registerDraftGuard,
 }: {
   notes: readonly NoteDto[];
   expandedId: string | null;
@@ -44,10 +45,12 @@ export function NoteList({
   onRemoveAttachment(noteId: string, attachment: AttachmentDto): Promise<void>;
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
+  registerDraftGuard?(guard: () => Promise<boolean>): () => void;
 }) {
   const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
   const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
+  const expandedIndex = notes.findIndex((note) => note.id === expandedId);
   const virtualizer = useVirtualizer({
     count: notes.length,
     estimateSize: () => ROW_HEIGHT,
@@ -55,6 +58,13 @@ export function NoteList({
     getScrollElement: () => parentRef.current,
     initialRect: { width: 480, height: 600 },
     overscan: 10,
+    rangeExtractor: (range) => {
+      const visible = defaultRangeExtractor(range);
+      // An editor owns a live draft, including failed saves. Scrolling must not discard it.
+      return expandedIndex < 0 || visible.includes(expandedIndex)
+        ? visible
+        : [...visible, expandedIndex].sort((a, b) => a - b);
+    },
   });
 
   useLayoutEffect(() => {
@@ -69,6 +79,16 @@ export function NoteList({
     (event: React.KeyboardEvent) => {
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
       const target = event.target instanceof HTMLElement ? event.target : null;
+      if (
+        event.defaultPrevented ||
+        event.nativeEvent.isComposing ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey ||
+        !target?.matches('[data-note-focus]')
+      )
+        return;
       const activeRow = target?.closest<HTMLElement>('[data-index]');
       const currentIndex = Number(activeRow?.dataset.index);
       if (!Number.isInteger(currentIndex)) return;
@@ -128,6 +148,7 @@ export function NoteList({
                 onCopy={onCopy}
                 onDelete={onDelete}
                 onDirtyChange={onDirtyChange}
+                registerDraftGuard={registerDraftGuard}
                 onExpand={onExpand}
                 onFocusAttachments={onFocusAttachments}
                 onRemoveAttachment={onRemoveAttachment}

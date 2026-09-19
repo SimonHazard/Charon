@@ -50,6 +50,30 @@ describe('single note shelf', () => {
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
   });
 
+  it('preserves a failed editor through search and a request to open another Note', async () => {
+    const user = userEvent.setup();
+    let fail = true;
+    renderScreen({
+      onCommand: async (command) => {
+        if (command.type === 'updateNote' && fail) throw new Error('unavailable');
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Edit Alpha' }));
+    const textarea = await screen.findByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Keep this unsaved draft');
+    await user.click(screen.getByRole('button', { name: 'Edit Completed note' }));
+    await screen.findByRole('button', { name: 'Retry' });
+    expect((textarea as HTMLTextAreaElement).value).toBe('Keep this unsaved draft');
+    expect(document.querySelector('[data-note-editor="done"]')).toBeNull();
+    await user.type(screen.getByRole('textbox', { name: 'Search notes' }), 'no matching note');
+    expect(screen.getByRole('textbox', { name: 'Markdown body' })).toBe(textarea);
+    await user.click(screen.getByRole('button', { name: 'Clear search and tag filter' }));
+    fail = false;
+    await user.click(screen.getByRole('button', { name: 'Edit Completed note' }));
+    await waitFor(() => expect(document.querySelector('[data-note-editor="done"]')).not.toBeNull());
+  });
+
   it('shows Open and Done together and searches body, tags, and attachment names', async () => {
     const user = userEvent.setup();
     renderScreen();

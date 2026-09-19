@@ -1,6 +1,13 @@
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
+// Node's optional Web Storage must not shadow the DOM environment's storage.
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: (globalThis as typeof globalThis & { jsdom: { window: Window } }).jsdom.window
+    .localStorage,
+});
+
 const mediaQueries = new Map<string, boolean>();
 const mediaQueryLists = new Map<
   string,

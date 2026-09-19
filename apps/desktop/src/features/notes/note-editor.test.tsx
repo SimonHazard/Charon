@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -103,6 +103,72 @@ function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}
 }
 
 describe('inline note editor', () => {
+  it('preserves a reverted draft when the older save snapshot arrives before its response', async () => {
+    let finishSave!: () => void;
+    const onSave = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSave = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const props = editorProps({ onSave });
+    const view = render(
+      <AppProviders>
+        <NoteEditor {...props} />
+      </AppProviders>,
+    );
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    fireEvent.change(textarea, { target: { value: 'Older edit' } });
+    fireEvent.blur(textarea);
+    fireEvent.change(textarea, { target: { value: 'Original' } });
+    expect(props.onDirtyChange).toHaveBeenLastCalledWith(true);
+    view.rerender(
+      <AppProviders>
+        <NoteEditor {...props} note={{ ...current, body: 'Older edit' }} />
+      </AppProviders>,
+    );
+    expect((textarea as HTMLTextAreaElement).value).toBe('Original');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await act(async () => finishSave());
+    await waitFor(() => expect(props.onClose).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls.map(([body]) => body)).toEqual(['Older edit', 'Original']);
+  });
+  it('flushes a revert made while an older body is still being saved', async () => {
+    let resolveSave!: () => void;
+    const onSave = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveSave = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const props = editor({ onSave });
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    fireEvent.change(textarea, { target: { value: 'Temporary edit' } });
+    fireEvent.blur(textarea);
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith('Temporary edit'));
+    fireEvent.change(textarea, { target: { value: 'Original' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(props.onClose).not.toHaveBeenCalled();
+    await act(async () => resolveSave());
+    await waitFor(() => expect(props.onClose).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls.map(([body]) => body)).toEqual(['Temporary edit', 'Original']);
+  });
+
+  it('keeps a failed Tag removal contextual and ignores IME confirmation keys', async () => {
+    const props = editor({ onSetTags: vi.fn().mockRejectedValue(new Error('unavailable')) });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag Agent' }));
+    expect(await screen.findByText('Could not save the tags. Try again.')).toBeTruthy();
+    const input = screen.getByRole('combobox');
+    fireEvent.change(input, { target: { value: '日本語' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(props.onSetTags).toHaveBeenCalledTimes(1);
+  });
   beforeEach(() => {
     nativeWindow.enabled = false;
     nativeWindow.closeHandler = undefined;
@@ -318,5 +384,43 @@ describe('inline note editor', () => {
     expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(nativeWindow.unlisten).toHaveBeenCalledTimes(1));
     expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for an older native save and persists a reverted body before closing', async () => {
+    nativeWindow.enabled = true;
+    let finishSave!: () => void;
+    const onSave = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishSave = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    render(
+      <AppProviders
+        captureClient={captureClient}
+        preferencesClient={preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <NoteEditor {...editorProps({ onSave })} />
+      </AppProviders>,
+    );
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    fireEvent.change(textarea, { target: { value: 'Pending edit' } });
+    fireEvent.blur(textarea);
+    fireEvent.change(textarea, { target: { value: 'Original' } });
+    const preventDefault = vi.fn();
+    const closing = nativeWindow.closeHandler?.({ preventDefault });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
+    await act(async () => {
+      finishSave();
+      await closing;
+    });
+    expect(onSave.mock.calls.map(([body]) => body)).toEqual(['Pending edit', 'Original']);
+    expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
   });
 });

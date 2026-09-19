@@ -1,8 +1,17 @@
 // biome-ignore-all lint/a11y/noRedundantRoles: WebKit drops list semantics when CSS removes markers.
 import { IconFile, IconPaperclip, IconX } from '@tabler/icons-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { m as motion } from 'motion/react';
-import { forwardRef, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { m as motion, useReducedMotion } from 'motion/react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
@@ -31,7 +40,7 @@ import {
 } from '@/features/notes/draft-controller';
 import { NotePreview } from '@/features/notes/note-preview';
 import { isTauriRuntime } from '@/lib/platform';
-import { surfaceCollapsedScale, surfaceTransition } from '@/motion/system';
+import { surfaceCollapsedScale, surfaceTransition, useKeyboardMotion } from '@/motion/system';
 
 const AUTOSAVE_DELAY_MS = 650;
 const AUTOSAVE_RETRY_DELAY_MS = 3_000;
@@ -50,6 +59,7 @@ type NoteEditorProps = {
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
   onClose(): void;
+  registerDraftGuard?(guard: () => Promise<boolean>): () => void;
 };
 
 export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function NoteEditor(
@@ -63,10 +73,13 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     onRetryCleanup,
     onDirtyChange,
     onClose,
+    registerDraftGuard,
   },
   ref,
 ) {
   const m = useMessages();
+  const reduceMotion = useReducedMotion();
+  const keyboardMotion = useKeyboardMotion();
   const [draft, dispatch] = useReducer(
     draftReducer,
     { noteId: note.id, body: note.body },
@@ -100,7 +113,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     onSaveRef.current = onSave;
   }, [onSave]);
 
-  const dirty = hasUnsavedDraft(draft) || draft.status === 'saving';
+  const dirty = hasUnsavedDraft(draft) || draft.status === 'saving' || inFlight.current !== null;
   useEffect(() => {
     onDirtyChange(dirty);
     return () => onDirtyChange(false);
@@ -108,7 +121,10 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
 
   useEffect(() => {
     const current = draftRef.current;
-    if (current.noteId !== note.id || (!hasUnsavedDraft(current) && current.value !== note.body)) {
+    if (
+      current.noteId !== note.id ||
+      (!inFlight.current && !hasUnsavedDraft(current) && current.value !== note.body)
+    ) {
       lastSavedBodyRef.current = note.body;
       dispatch({ type: 'open', noteId: note.id, body: note.body });
     }
@@ -124,7 +140,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   const save = useCallback((): Promise<boolean> => {
     if (inFlight.current) return inFlight.current;
     const current = draftRef.current;
-    if (!hasUnsavedDraft(current) || current.value === lastSavedBodyRef.current) {
+    if (current.value === lastSavedBodyRef.current) {
       return Promise.resolve(true);
     }
 
@@ -135,7 +151,9 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
         await onSaveRef.current(body);
         lastSavedBodyRef.current = body;
         automaticRetryUsedRef.current = false;
-        if (mountedRef.current) dispatch({ type: 'saved', body });
+        const action = { type: 'saved', body } as const;
+        draftRef.current = draftReducer(draftRef.current, action);
+        if (mountedRef.current) dispatch(action);
         return true;
       } catch (error) {
         const key =
@@ -154,11 +172,15 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   }, []);
 
   const flushDraft = useCallback(async () => {
+    // A pending older write can still replace a draft reverted to its original value.
+    if (inFlight.current && !(await inFlight.current)) return false;
     while (draftRef.current.value !== lastSavedBodyRef.current) {
       if (!(await save())) return false;
     }
     return true;
   }, [save]);
+
+  useLayoutEffect(() => registerDraftGuard?.(flushDraft), [flushDraft, registerDraftGuard]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -176,7 +198,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     let cleanupBarrier: Promise<void> | null = null;
     void appWindow
       .onCloseRequested(async (event) => {
-        if (draftRef.current.value === lastSavedBodyRef.current) return;
+        if (!inFlight.current && draftRef.current.value === lastSavedBodyRef.current) return;
         event.preventDefault();
         if (await flushDraft()) await appWindow.destroy();
       })
@@ -237,7 +259,11 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
 
   const removeTag = async (tag: string) => {
     setTagError(null);
-    await onSetTags(note.tags.filter((current) => current !== tag));
+    try {
+      await onSetTags(note.tags.filter((current) => current !== tag));
+    } catch {
+      setTagError(m.tag_error_save());
+    }
   };
 
   const addAttachments = async () => {
@@ -284,13 +310,35 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   return (
     <motion.section
       aria-label={m.note_editor_title()}
-      animate={{ opacity: 1, scaleY: 1 }}
+      animate={{ opacity: 1, transform: 'scaleY(1)' }}
       className="note-editor-inline"
       data-note-editor={note.id}
-      exit={{ opacity: 0, scaleY: surfaceCollapsedScale }}
-      initial={{ opacity: 0, scaleY: surfaceCollapsedScale }}
+      exit={{
+        opacity: 0,
+        transform: `scaleY(${reduceMotion || keyboardMotion ? 1 : surfaceCollapsedScale})`,
+      }}
+      initial={
+        keyboardMotion
+          ? false
+          : { opacity: 0, transform: `scaleY(${reduceMotion ? 1 : surfaceCollapsedScale})` }
+      }
       ref={ref}
-      transition={surfaceTransition}
+      transition={
+        keyboardMotion ? { duration: 0 } : reduceMotion ? { duration: 0.12 } : surfaceTransition
+      }
+      onKeyDown={(event) => {
+        if (
+          event.defaultPrevented ||
+          event.nativeEvent.isComposing ||
+          event.nativeEvent.keyCode === 229
+        )
+          return;
+        if (event.key === 'Escape' && !removeTarget) {
+          event.preventDefault();
+          event.stopPropagation();
+          void close();
+        }
+      }}
     >
       <Tabs defaultValue="write">
         <div className="note-editor-heading">
@@ -327,12 +375,6 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
                 const action = { type: 'change', value: event.target.value } as const;
                 draftRef.current = draftReducer(draftRef.current, action);
                 dispatch(action);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  void close();
-                }
               }}
               ref={textareaRef}
               rows={12}
@@ -391,6 +433,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
                 setTagError(null);
               }}
               onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
                 if (event.key === 'Enter' || event.key === ',') {
                   event.preventDefault();
                   void addTag(tagInput);

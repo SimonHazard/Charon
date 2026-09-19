@@ -98,6 +98,7 @@
   "capture_input_saving": "Adding note…",
   "capture_input_error": "The note was not added. Your text is preserved; retry after resolving the workspace issue.",
   "capture_created": "Note added.",
+  "tag_error_save": "Could not save the tags. Try again.",
   "tags_label": "Tags",
   "tag_add_placeholder": "Add a tag…",
   "tag_remove": "Remove tag {tag}",

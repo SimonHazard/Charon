@@ -48,6 +48,7 @@ export const NoteRow = memo(function NoteRow({
   onRemoveAttachment,
   onRetryCleanup,
   onDirtyChange,
+  registerDraftGuard,
 }: {
   note: NoteDto;
   expanded: boolean;
@@ -66,6 +67,7 @@ export const NoteRow = memo(function NoteRow({
   onRemoveAttachment(noteId: string, attachment: AttachmentDto): Promise<void>;
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
+  registerDraftGuard?(guard: () => Promise<boolean>): () => void;
 }) {
   const m = useMessages();
   const headline = useMemo(() => noteHeadline(note.body), [note.body]);
@@ -221,6 +223,7 @@ export const NoteRow = memo(function NoteRow({
             onAddAttachments={() => onAddAttachments(note.id)}
             onClose={() => onCloseEditor(note.id)}
             onDirtyChange={onDirtyChange}
+            registerDraftGuard={registerDraftGuard}
             onRemoveAttachment={(attachment) => onRemoveAttachment(note.id, attachment)}
             onRetryCleanup={onRetryCleanup}
             onSave={(body) => onSave(note.id, body)}

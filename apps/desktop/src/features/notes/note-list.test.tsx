@@ -145,11 +145,12 @@ describe('virtual note list', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it('flushes the expanded draft when virtualization unmounts its row', async () => {
+  it('keeps an expanded draft mounted outside the virtual range, including failed saves', async () => {
     const user = userEvent.setup();
     const notes = Array.from({ length: 100 }, (_, index) =>
       note({ id: `note-${index}`, body: `Note ${index}` }),
     );
+    callbacks.onSave.mockRejectedValueOnce(new Error('unavailable'));
     render(
       <AppProviders>
         <NoteList {...callbacks} allTags={[]} copyState={null} expandedId="note-0" notes={notes} />
@@ -165,10 +166,33 @@ describe('virtual note list', () => {
     scroller.scrollTop = 7_000;
     fireEvent.scroll(scroller);
 
-    await waitFor(() =>
-      expect(screen.queryByRole('textbox', { name: 'Markdown body' })).toBeNull(),
-    );
+    expect(screen.getByRole('textbox', { name: 'Markdown body' })).toBe(textarea);
     await waitFor(() => expect(callbacks.onSave).toHaveBeenCalledTimes(1));
     expect(callbacks.onSave).toHaveBeenCalledWith('note-0', 'Virtualized draft');
+    expect((textarea as HTMLTextAreaElement).value).toBe('Virtualized draft');
+    expect(await screen.findByRole('button', { name: 'Retry' })).toBeTruthy();
+  });
+
+  it('leaves arrows and text selection inside the editor and tag input', async () => {
+    render(
+      <AppProviders>
+        <NoteList
+          {...callbacks}
+          allTags={[]}
+          copyState={null}
+          expandedId="note-a"
+          notes={[note({ id: 'note-a', body: 'Alpha' }), note({ id: 'note-b', body: 'Beta' })]}
+        />
+      </AppProviders>,
+    );
+    for (const input of screen.getAllByRole('textbox')) {
+      input.focus();
+      expect(fireEvent.keyDown(input, { key: 'ArrowDown' })).toBe(true);
+      expect(document.activeElement).toBe(input);
+    }
+    const row = screen.getByRole('button', { name: 'Alpha' });
+    row.focus();
+    expect(fireEvent.keyDown(row, { key: 'ArrowDown', shiftKey: true })).toBe(true);
+    expect(document.activeElement).toBe(row);
   });
 });

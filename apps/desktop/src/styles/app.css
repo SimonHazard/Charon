@@ -1023,3 +1023,12 @@
     border: 1px solid currentColor;
   }
 }
+
+/* Repeated keyboard actions remain immediate, including portaled surfaces. */
+:root[data-input-modality="keyboard"] [data-slot="button"],
+:root[data-input-modality="keyboard"] [data-slot="popover-content"],
+:root[data-input-modality="keyboard"] [data-slot="tooltip-content"],
+:root[data-input-modality="keyboard"] [data-slot="alert-dialog-content"],
+:root[data-input-modality="keyboard"] [data-slot="alert-dialog-overlay"] {
+  transition-duration: 0s;
+}
