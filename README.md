@@ -110,7 +110,7 @@ See [Testing](docs/TESTING.md) for the pragmatic validation policy and
 
 ```text
 apps/desktop/   React, Vite, Tauri, and the Rust domain
-apps/site/      Static Astro holding page
+apps/site/      Static Astro early access page
 packages/theme/ Shared semantic tokens
 docs/           Current contracts, ADRs, and implementation history
 plans/          Active implementation queue only

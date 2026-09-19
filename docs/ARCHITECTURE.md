@@ -259,7 +259,7 @@ apps/site    -> packages/theme
 Neither application imports the other. `packages/theme` is framework-neutral
 and exports semantic CSS variables, theme names, and motion and radius contracts
 only. Brand assets, localization, components, native types, and Motion helpers
-remain app-owned. Astro stays static and currently serves a media-free holding
+remain app-owned. Astro stays static and currently serves a media-free early access
 page. If product media returns, it must come from the real app rather than fake
 styled UI. Astro gains no server adapter, account, form, analytics, CMS, or
 runtime API.

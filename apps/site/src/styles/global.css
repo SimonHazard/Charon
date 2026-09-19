@@ -173,6 +173,37 @@ h2 {
   background: var(--action-hover);
 }
 
+.download {
+  max-width: 32rem;
+  margin-top: 2.5rem;
+}
+
+.release-status {
+  margin-bottom: 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.download .primary-action {
+  margin-top: 0;
+  font-size: 0.875rem;
+}
+
+.download-note,
+.release-note {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.download-note {
+  margin-block: 1rem 0.5rem;
+}
+
+.release-note {
+  margin-bottom: 0;
+}
+
 .primary-action:active {
   transform: scale(0.975);
 }

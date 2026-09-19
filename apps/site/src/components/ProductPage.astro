@@ -1,5 +1,5 @@
 ---
-import { copy, type Locale } from '../content/site';
+import { copy, downloadUrl, type Locale } from '../content/site';
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 interface Props {
@@ -15,6 +15,14 @@ const c = copy[locale];
     <div class="home-copy">
       <h1>{c.title}</h1>
       <p class="lede">{c.intro}</p>
+      <div class="download">
+        <p class="release-status">{c.releaseStatus}</p>
+        <a class="primary-action" href={downloadUrl} rel="noreferrer" aria-describedby="download-note">
+          {c.download}
+        </a>
+        <p id="download-note" class="download-note">{c.downloadNote}</p>
+        <p class="release-note">{c.releaseNote}</p>
+      </div>
     </div>
   </section>
 </BaseLayout>

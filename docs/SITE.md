@@ -5,13 +5,12 @@ preserving ADR 0004's static-site and cross-application boundaries.
 
 ## Current public direction
 
-On 2026-08-13, the operator deliberately reduced the public home to a quiet
-holding page. Charon is still taking shape, so the homepage stays concise and
-avoids detailed product, platform, privacy, and workflow claims for now.
+The public home prepares the first early access with a concise product
+introduction and one ordinary link to GitHub Releases. The initial release is
+not published yet, so both languages explicitly say it is coming soon.
 
-The public home has one job: establish the Charon name, signal that the project
-is in progress, and provide quiet authorship and support links in the footer. It
-does not try to explain the complete desktop product before that story is ready.
+The operator requested this evolution on 2026-09-19. It preserves the quiet
+visual direction, approved icon assets, and static privacy boundary.
 
 ## Homepage composition
 
@@ -19,14 +18,21 @@ The English `/` and French `/fr/` pages contain only:
 
 1. one compact header with the official Lavender Charon PNG icon and the name
    `Charon`;
-2. one short headline;
-3. one deliberately vague sentence;
-4. one minimal footer with `Ko-fi` linking to
+2. one short headline and a description of local Markdown capture for AI context;
+3. a pending early access status and one primary download destination linking
+   to `https://github.com/SimonHazard/Charon/releases`;
+4. short copy explaining that the first macOS, Windows, and Linux installers
+   will appear there, and that this is an experimental personal project with
+   installation instructions accompanying each release;
+5. one minimal footer with `Ko-fi` linking to
    `https://ko-fi.com/simonhazard` and `simonhazard.com` linking to
    `https://simonhazard.com/`.
 
-The footer does not repeat `Charon`. The homepage has no primary action and no
-release link.
+The footer does not repeat `Charon`. The download destination is the release
+listing, which exists before the first release and remains useful afterwards.
+Do not invent installer filenames, publish a dead version-specific link, or
+claim a build is available before publication. After the first release exists,
+update the localized pending copy and its verification assertions together.
 
 There is no product navigation, language switch, theme control, source link,
 product screenshot, video, feature section, platform table, privacy proof,
@@ -39,16 +45,16 @@ paths; it is not a promoted content destination.
 
 ## Design direction
 
-The site is read as a restrained editorial holding page for developers and
+The site is read as a restrained editorial early access page for developers and
 agent users. Design variance is 4/10, motion is 1/10, and density is 2/10. It
 keeps the Light canvas and semantic Charon theme roles, uses the system UI font,
-and spends the only visual emphasis on the approved Lavender icon.
+and uses Lavender for the approved icon and primary download action.
 
 Structure comes from type, space, and two hairline rules. The page has no
 gradient, glow, permanent glass, shadowed card, fake interface, decorative
-illustration, remote font, or ambient animation. The technical 404's primary
-action has a small press response, and every interactive link respects reduced
-motion.
+illustration, remote font, or ambient animation. The primary download and
+technical 404 actions have a small press response, and every interactive link
+respects reduced motion.
 
 The page remains readable at 320 CSS pixels and above, preserves browser zoom,
 uses a visible focus indicator, includes a skip link, and maintains WCAG AA
@@ -64,8 +70,8 @@ derived logo is accepted.
 
 ## Information architecture
 
-- `/` is the English holding page.
-- `/fr/` is the French holding page.
+- `/` is the English early access page.
+- `/fr/` is the French early access page.
 - unknown paths use the checked static `404.html`.
 
 No other public content route is emitted for now. In particular, privacy,
@@ -77,15 +83,15 @@ analytics, CMS, newsletter, client framework, runtime fetch, or runtime API.
 ## Search and social metadata
 
 The homepage browser title, Open Graph title, and site name are exactly
-`Charon`. Its localized description stays as short and non-specific as the
-visible holding copy. Open Graph and Twitter use the official 1024 pixel PNG
+`Charon`. Its localized description matches the concise visible product
+introduction. Open Graph and Twitter use the official 1024 pixel PNG
 icon with a compact `summary` card, not a product screenshot or large media
 card.
 
 Both localized home routes keep verified canonical URLs and reciprocal
 `hreflang` links, including `x-default`. Sitemap and robots files remain
 generated. Structured application data is omitted while the public homepage
-intentionally avoids detailed product and release claims.
+does not yet announce a published release.
 
 ## Privacy and outbound links
 
@@ -100,9 +106,9 @@ cookies, forms, behavioral pixels, third-party embeds, and application request
 logging. It never sends Note content, Tags, Attachments, searches, selections,
 clipboard contents, filenames, or paths to the developer.
 
-The Ko-fi and personal-site destinations are ordinary footer anchors, not
-embedded resources and not contacted by the Charon page. A visitor leaves the
-Charon site's privacy boundary only after explicitly following one of them.
+The GitHub Releases, Ko-fi, and personal-site destinations are ordinary anchors
+with `rel="noreferrer"`, never embeds or prefetched resources. A visitor leaves
+the Charon site's privacy boundary only after explicitly following one of them.
 
 ## Hosting contract
 
@@ -132,8 +138,8 @@ Before publication:
 
 - build all localized routes and validate canonical and `hreflang` metadata;
 - verify both homes contain no media, video, secondary navigation, theme or
-  language control, source link, release action, or section below the holding
-  statement;
+  language control, source link, or additional content section; verify one
+  GitHub Releases action and honest pending early access copy in both languages;
 - verify the footer contains only the exact Ko-fi and personal-site links and
   does not repeat `Charon`;
 - verify privacy, release/download, and changelog routes are absent in both

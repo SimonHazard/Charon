@@ -99,7 +99,9 @@ exposed to this workflow.
 - English and French updater copy
 - `docs/PRIVACY.md`, `docs/RELEASING.md`, `docs/RELEASE_CHECKLIST.md`,
   `docs/TESTING.md`, `docs/platform-support.md`, and `plans/README.md`
-- release links on the site after the first real release exists
+- a future GitHub Releases link with explicit pending early access copy on the
+  site, as requested by the operator on 2026-09-19; announce availability only
+  after the first real release exists
 
 **Out of scope**:
 

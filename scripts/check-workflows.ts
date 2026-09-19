@@ -67,7 +67,7 @@ if (!files.includes(releaseWorkflowName)) {
     'on:\n  push:\n    branches:\n      - main',
     'should_release:',
     'environment: release',
-    'macos-15',
+    'os: macos-15-intel\n            artifact: macos-x86_64',
     'ubuntu-24.04',
     'windows-2025',
     'TAURI_SIGNING_PRIVATE_KEY: $' + '{{ secrets.TAURI_SIGNING_PRIVATE_KEY }}',
@@ -99,6 +99,12 @@ if (!files.includes(releaseWorkflowName)) {
   if (contentsWriteCount !== 1) {
     failures.push(`${releaseWorkflowName}: exactly one final job may receive contents write`);
   }
+  const gate = releaseWorkflow.match(/^ {2}gate:\n((?: {4}.*\n|\n)*)/mu)?.[1] ?? '';
+  const buildIndex = gate.indexOf('      - run: bun run build\n');
+  const privacyIndex = gate.indexOf('      - run: bun run check:privacy\n');
+  if (buildIndex === -1 || privacyIndex === -1 || buildIndex >= privacyIndex) {
+    failures.push(`${releaseWorkflowName}: gate must build both apps before the privacy scan`);
+  }
 }
 
 const qualityWorkflowName = 'quality.yml';
@@ -114,6 +120,8 @@ if (!files.includes(qualityWorkflowName)) {
     'runs-on: ubuntu-24.04',
     'timeout-minutes: 20',
     'bun install --frozen-lockfile',
+    'bun run test:release',
+    'bun run check:workflows',
     'cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings',
     'cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked',
     'bun run bindings:check',
