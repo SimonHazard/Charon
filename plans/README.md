@@ -6,8 +6,10 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 
 ## Current direction
 
-- A validated `vX.Y.Z` tag automatically builds and publishes macOS, Linux, and
-  Windows Tauri releases after every platform succeeds.
+- A protected merge to `main` automatically builds and publishes macOS, Linux,
+  and Windows Tauri releases only when the four manifests contain one new
+  consistent version. The workflow creates the matching `vX.Y.Z` tag after
+  every platform succeeds.
 - The signed in-app updater uses public GitHub Release assets. Checks are
   default-off until enabled; install and restart remain explicit and draft-safe.
 - Deterministic version, compilation, privacy, data-safety, updater-signature,
@@ -23,7 +25,7 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 
 | Plan | Title | Priority | Effort | Status |
 | --- | --- | --- | --- | --- |
-| 015 | Publish automatic Tauri releases and integrated updates | P1 | M | IN PROGRESS: implementation ready; first public tag pending |
+| 015 | Publish automatic Tauri releases and integrated updates | P1 | M | IN PROGRESS: implementation ready; first versioned merge pending |
 | 034 | Add pragmatic Windows/Linux capture shortcuts | P2 | L | TODO |
 
 Plan 015 can ship before the Windows/X11 adapters. Unsupported capture paths

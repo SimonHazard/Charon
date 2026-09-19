@@ -1,14 +1,18 @@
 # Releasing Charon
 
-> The workflow and updater client are implemented. The first real tag remains
-> the live validation of the three hosted runners and must be operator-authorized.
+> The workflow and updater client are implemented. The first merge containing
+> a new manifest version remains the live validation of the three hosted
+> runners and must be operator-authorized.
 
 ## Distribution posture
 
 Charon is a free side project distributed through public GitHub Releases. A
-validated `vX.Y.Z` tag starts the only automatic desktop workflow. It builds
-macOS, Linux, and Windows artifacts, signs the Tauri updater bundles, and
-publishes only after every platform succeeds.
+protected update to `main` starts the only automatic desktop workflow. It reads
+the root package, desktop package, Cargo, and Tauri versions. If all four contain
+one new SemVer, it builds macOS, Linux, and Windows artifacts, signs the Tauri
+updater bundles, creates the matching `vX.Y.Z` tag on that merged commit, and
+publishes only after every platform succeeds. If the version already has a
+published release, the workflow exits without rebuilding.
 
 The application is not signed by paid platform certificates. macOS uses Tauri's
 ad-hoc identity; Windows and Linux bundles are unsigned. Release notes must say:
@@ -71,12 +75,12 @@ receive them.
    the workflow. Dispatch `quality.yml` once only when the release candidate
    needs GitHub-hosted confirmation; do not run a duplicate platform-build
    workflow.
-4. Commit the release preparation.
-5. Create and push one annotated tag: `git tag -a vX.Y.Z -m "Charon vX.Y.Z"`
-   then `git push origin vX.Y.Z`.
-6. Watch the single release workflow. A failed platform build produces no public
-   partial release.
-7. Install and use the published build. User-reported compatibility problems
+4. Commit the release preparation and merge its validated pull request into
+   protected `main`.
+5. Watch the single release workflow. It creates the matching tag only after
+   every asset is complete. A failed platform build produces no public partial
+   release.
+6. Install and use the published build. User-reported compatibility problems
    become ordinary issues and patch releases.
 
 Run `security.yml` explicitly after dependency changes or for an occasional
@@ -84,8 +88,9 @@ audit. The site workflow verifies and deploys automatically after a protected
 merge to `main`; it is not manually dispatchable and does not belong to the
 desktop release chain.
 
-Do not use an existing tag for repaired binaries. Publish a new patch version.
-Do not push a real release tag without explicit operator authority.
+Do not reuse an existing manifest version or tag for repaired binaries. Publish
+a new patch version. An orphaned tag or draft release fails closed instead of
+being overwritten.
 
 ## Incident handling
 

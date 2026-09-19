@@ -1,8 +1,9 @@
 # Plan 015: Publish automatic Tauri releases and integrated updates
 
 > **Executor instructions**: Implement the smallest reliable release and
-> updater path for a side project. A pushed `vX.Y.Z` tag builds all current
-> desktop targets, signs updater artifacts, assembles one `latest.json`, and
+> updater path for a side project. A protected merge to `main` with one new
+> consistent manifest version builds all current desktop targets, signs updater
+> artifacts, assembles one `latest.json`, creates the matching `vX.Y.Z` tag, and
 > publishes the GitHub Release only after every build succeeds. Add the in-app
 > updater under the existing privacy contract. Do not add paid platform signing,
 > a release approval ceremony, or a physical certification matrix. Never print
@@ -16,7 +17,7 @@
 
 ## Status
 
-- **State**: IN PROGRESS — implementation ready; first public tag pending
+- **State**: IN PROGRESS — implementation ready; first versioned merge pending
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
@@ -28,23 +29,25 @@
 
 The work started from a macOS-only, manually dispatched draft workflow with no
 updater artifacts or app integration. Charon needs one cheap operator flow:
-choose a version, push one tag, let GitHub build and publish macOS, Linux, and
-Windows downloads, then let opted-in installations discover and explicitly
-install the signed update.
+choose a version in the four manifests, merge the release preparation, let
+GitHub build and publish macOS, Linux, and Windows downloads plus the matching
+tag, then let opted-in installations discover and explicitly install the signed
+update.
 
 ## Target behavior
 
-1. The operator updates every manifest version and release notes, commits, then
-   pushes one annotated `vX.Y.Z` tag.
-2. `release.yml` starts only for that tag and validates tag/version consistency.
+1. The operator updates every manifest version and release notes, then merges a
+   validated pull request into protected `main`.
+2. `release.yml` validates manifest consistency and exits successfully when the
+   matching version is already published.
 3. macOS, Linux, and Windows jobs build normal bundles plus Tauri updater
    artifacts and signatures.
 4. Build jobs upload private workflow artifacts; they do not mutate a public
    release in parallel.
 5. One final job verifies all expected OS families, creates `SHA256SUMS.txt` and
-   one combined `latest.json`, creates the GitHub Release, uploads everything,
-   and publishes it.
-6. A failure leaves no partial public release. A fix uses a new version tag.
+   one combined `latest.json`, then creates the `vX.Y.Z` tag on the merged
+   commit, creates the GitHub Release, uploads everything, and publishes it.
+6. A failure leaves no partial public release. A fix uses a new manifest version.
 7. When update checks are enabled, Charon reads the public `latest.json` without
    sending content or a stable identifier. It shows the version and notes, then
    downloads and installs only after explicit confirmation. Restart waits until
@@ -56,14 +59,9 @@ The selected v1 endpoint is:
 
 `https://github.com/SimonHazard/Charon/releases/latest/download/latest.json`
 
-GitHub Releases themselves work in a private repository, but anonymous installed
-clients cannot read private release metadata or assets. The repository has a
-clean public-facing tip; the operator separately changes visibility to public before the
-first updater-enabled release. Do not embed a GitHub token in the app.
-
-If the operator keeps the source private, stop and create a separate plan for a
-public R2/static endpoint and public artifact delivery. Do not smuggle a PAT,
-Cloudflare credential, or authenticated proxy into this plan.
+The repository is public, so anonymous installed clients can read release
+metadata and assets. Do not embed a GitHub token, Cloudflare credential, or
+authenticated proxy in the app.
 
 ## Secrets and permissions
 
@@ -111,7 +109,7 @@ exposed to this workflow.
   consent, telemetry, rollout cohorts, channels, delta updates, rollback server,
   or a custom update backend.
 - Automatic version bumping, release bots, conventional-commit parsers, release
-  branches, or publication on every `main` push.
+  branches, or rebuilding a version already published from `main`.
 - Full E2E, performance, accessibility, or physical application matrices as
   release gates.
 - Cloudflare deployment changes or repository visibility mutation.
@@ -120,22 +118,25 @@ exposed to this workflow.
 
 - Branch: `codex/015-automatic-tauri-releases`
 - Commit: `feat(release): add automatic releases and signed updates`
-- Do not push a version tag, publish a release, create secret values, or change
-  repository visibility without explicit operator authorization.
+- Do not merge a new manifest version, publish a release, or create secret
+  values without explicit operator authorization.
 
 ## Steps
 
 ### Step 1: Lock the version and workflow policy
 
-Allow only `release.yml` to use a `push.tags` trigger matching `v*`. Keep every
-other versioned workflow manual-only. Reject branch, pull-request, and schedule
-triggers for the release workflow.
+Allow `release.yml` to use only a protected `main` push trigger. Keep Security
+manual, Quality on pull requests/manual dispatch, and site deployment on
+protected `main`. Reject tag, pull-request, schedule, and manual triggers for
+the release workflow.
 
-Extend the version check so the tag exactly matches Tauri, Cargo, root package,
-and desktop package SemVer values.
+Extend the version check so Tauri, Cargo, root package, and desktop package use
+one valid SemVer value. Before expensive work, skip an already-published version
+and fail closed on an orphaned tag or draft release.
 
-**Verify**: focused tests accept one matching tag and reject malformed tags,
-manifest drift, release branch pushes, and automatic triggers elsewhere.
+**Verify**: focused tests accept one consistent manifest version and reject
+malformed versions, manifest drift, release branch pushes, and automatic
+triggers elsewhere.
 
 ### Step 2: Add the signed updater contract
 
@@ -187,9 +188,10 @@ signature content is missing. Generate:
 - one static `latest.json` with version, notes, publication date, public asset
   URLs, and the contents of each matching `.sig` file.
 
-Create and publish the release only after those checks. Release copy states the
-unsigned/ad-hoc warnings and that compatibility fixes follow normal user
-feedback. Never overwrite an already-published version.
+Create the tag and draft release on the merged commit only after those checks,
+then publish it. Release copy states the unsigned/ad-hoc warnings and that
+compatibility fixes follow normal user feedback. Never overwrite an existing
+tag, draft, or published version.
 
 **Verify**: a fixture missing one platform prevents publication; a complete
 fixture produces valid updater JSON and checksums.
@@ -200,11 +202,12 @@ Keep the procedure short:
 
 1. generate and securely back up the updater key pair once;
 2. put the private key in the `release` environment;
-3. make the audited repository public before the first updater release;
+3. confirm the audited repository remains public before the first updater
+   release;
 4. bump versions and release notes;
 5. optionally run local checks;
-6. push annotated tag `vX.Y.Z`;
-7. watch the single workflow and use the published build;
+6. merge the validated release preparation into protected `main`;
+7. watch the single workflow create `vX.Y.Z` and use the published build;
 8. ship user-reported fixes as a new patch version.
 
 Document key loss/compromise handling and the fact that GitHub observes ordinary
@@ -213,12 +216,13 @@ network metadata for enabled update checks.
 ### Step 6: Verify without publishing
 
 Run focused unit/type/Rust/privacy/workflow checks plus `git diff --check`.
-Do not run the exhaustive physical matrix. Do not push a fake tag to test the
-pipeline. A real first release is an operator-authorized live validation.
+Do not run the exhaustive physical matrix. Do not merge a fake version to test
+the pipeline. A real first release is an operator-authorized live validation.
 
 ## Done criteria
 
-- [x] A valid pushed `vX.Y.Z` tag is the only automatic release trigger.
+- [x] A protected `main` update is the only automatic release trigger, and an
+      already-published manifest version exits without rebuilding.
 - [ ] macOS, Linux, and Windows bundles and updater artifacts build in one run.
 - [ ] One combined signed `latest.json` is published with complete assets and
   `SHA256SUMS.txt` only after every platform succeeds.
@@ -241,8 +245,8 @@ pipeline. A real first release is an operator-authorized live validation.
   application.
 - Tauri cannot produce a supported updater artifact for one target without
   changing the agreed platform scope.
-- A real tag, release, visibility change, or secret mutation would occur without
-  explicit operator authority.
+- A real versioned merge, release, visibility change, or secret mutation would
+  occur without explicit operator authority.
 
 ## Maintenance notes
 

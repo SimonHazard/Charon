@@ -22,7 +22,7 @@ for (const file of files) {
   const automaticTriggers = text.match(/^ {2}(?:pull_request|push|schedule):/gmu) ?? [];
   if (file === 'release.yml') {
     if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('push:'))) {
-      failures.push(`${file}: only version-tag pushes may trigger automatically`);
+      failures.push(`${file}: only main pushes may trigger automatically`);
     }
   } else if (file === 'quality.yml') {
     if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('pull_request:'))) {
@@ -64,7 +64,8 @@ if (!files.includes(releaseWorkflowName)) {
 } else {
   const releaseWorkflow = await Bun.file(`${directory}/${releaseWorkflowName}`).text();
   for (const fragment of [
-    "tags:\n      - 'v*'",
+    'on:\n  push:\n    branches:\n      - main',
+    'should_release:',
     'environment: release',
     'macos-15',
     'ubuntu-24.04',
@@ -74,6 +75,8 @@ if (!files.includes(releaseWorkflowName)) {
     'actions/download-artifact@',
     'bun scripts/check-release-version.ts',
     'bun scripts/release-artifacts.ts',
+    'gh release view',
+    '--target "$RELEASE_SHA"',
     'gh release create',
     'gh release edit',
   ]) {
@@ -84,7 +87,8 @@ if (!files.includes(releaseWorkflowName)) {
   for (const forbidden of [
     'pull_request:',
     'schedule:',
-    'branches:',
+    'workflow_dispatch:',
+    'tags:',
     'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
   ]) {
     if (releaseWorkflow.includes(forbidden)) {
