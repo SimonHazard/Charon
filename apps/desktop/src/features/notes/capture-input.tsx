@@ -20,6 +20,8 @@ export const CaptureInput = forwardRef<
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
+  const submittingRef = useRef(false);
   const body = value.trim();
 
   useEffect(() => {
@@ -30,7 +32,8 @@ export const CaptureInput = forwardRef<
   useImperativeHandle(forwardedRef, () => ({ focus: () => inputRef.current?.focus() }), []);
 
   const submit = async () => {
-    if (!body || pending) return;
+    if (!body || submittingRef.current || composingRef.current) return;
+    submittingRef.current = true;
     setPending(true);
     setFailed(false);
     try {
@@ -39,6 +42,7 @@ export const CaptureInput = forwardRef<
     } catch {
       setFailed(true);
     } finally {
+      submittingRef.current = false;
       setPending(false);
       inputRef.current?.focus();
     }
@@ -64,6 +68,22 @@ export const CaptureInput = forwardRef<
             onChange={(event) => {
               setValue(event.target.value);
               setFailed(false);
+            }}
+            onCompositionStart={() => {
+              composingRef.current = true;
+            }}
+            onCompositionEnd={() => {
+              composingRef.current = false;
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Enter' &&
+                (composingRef.current ||
+                  event.nativeEvent.isComposing ||
+                  event.nativeEvent.keyCode === 229)
+              ) {
+                event.preventDefault();
+              }
             }}
             placeholder={m.capture_input_placeholder()}
             readOnly={pending}

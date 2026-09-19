@@ -4,6 +4,53 @@ import { expect, type Page, test } from '@playwright/test';
 const desktop = '/?fixture=demo';
 const site = 'http://127.0.0.1:4321/';
 
+test('editor arrows stay native and keyboard surfaces open immediately', async ({ page }) => {
+  await page.goto(desktop);
+  await page.getByRole('button', { name: 'Edit Agent handoff', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  const editor = page.getByRole('textbox', { name: 'Markdown body' });
+  await expect(editor).toBeFocused();
+  await editor.fill('First line\nSecond line\nThird line');
+  await editor.press('Home');
+  await editor.press('ArrowUp');
+  await expect(editor).toBeFocused();
+  await editor.press('Shift+ArrowDown');
+  expect(
+    await editor.evaluate(
+      (element: HTMLTextAreaElement) => element.selectionEnd - element.selectionStart,
+    ),
+  ).toBeGreaterThan(0);
+  await editor.press('Escape');
+  await expect(editor).toHaveCount(0);
+  await page.getByRole('button', { name: 'Settings', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.preferences-popover')).toHaveCSS('transition-duration', '0s');
+});
+
+test('pointer popovers interpolate scale through transform and reduced motion stays still', async ({
+  page,
+}) => {
+  await page.goto(desktop);
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  const popup = page.locator('.preferences-popover');
+  await expect(popup).toBeVisible();
+  expect(
+    await popup.evaluate((element) => {
+      const css = getComputedStyle(element);
+      return {
+        property: css.transitionProperty,
+        scale: css.scale,
+        duration: css.transitionDuration,
+      };
+    }),
+  ).toEqual({ property: 'transform, opacity', scale: 'none', duration: '0.16s' });
+  await page.keyboard.press('Escape');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(popup).toHaveCSS('transform', 'none');
+  await expect(popup).toHaveCSS('transition-property', 'opacity');
+});
+
 async function expectCompactShelf(page: Page, width: number, height: number) {
   await expect(page.locator('.note-search input')).toBeVisible();
   await expect(page.locator('.note-capture-input input')).toBeVisible();

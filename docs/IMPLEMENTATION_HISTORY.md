@@ -43,15 +43,19 @@ available in Git history; active work lives only in `plans/`.
 - ADR 0014 keeps releases free of paid Apple and Microsoft signing while
   requiring honest first-launch warnings.
 - ADR 0016 accepts a pragmatic side-project release model: deterministic safety
-  checks remain, compatibility is refined through normal use, version tags
-  publish three-platform releases automatically, and the signed Tauri updater
+  checks remain, compatibility is refined through normal use, and one new
+  consistent manifest version merged to protected `main` publishes a
+  three-platform release and its tag automatically. The signed Tauri updater
   uses public GitHub Release assets.
 - `07dbb48` is the pre-automation workflow baseline. The active release plan
   replaces only the desktop release trigger; unrelated workflows remain manual.
 - On 2026-09-06, Plan 015 added the operator-owned updater trust root, the
   default-off signed updater client, deterministic release metadata/checksums,
-  and one tag-triggered three-platform publication workflow. The first public
-  tag remains the hosted-runner validation point.
+  and one three-platform publication workflow. On 2026-09-19 the operator moved
+  its trigger from a manually pushed tag to a new manifest version merged into
+  protected `main`; the workflow creates the tag only after every artifact is
+  complete. The first versioned merge remains the hosted-runner validation
+  point.
 - The same release cleanup removed separate portability and unsigned
   review-build workflows after the release matrix made both redundant. Quality,
   Security, and site deployment remain explicit operator tools.

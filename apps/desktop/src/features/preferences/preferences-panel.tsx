@@ -127,6 +127,7 @@ export function PreferencesPanel() {
             <PopoverTrigger
               aria-label={m.navigation_settings()}
               className="shelf-action-button"
+              onBlur={press.onBlur}
               onKeyDown={press.onKeyDown}
               onKeyUp={press.onKeyUp}
               onPointerCancel={press.onPointerCancel}

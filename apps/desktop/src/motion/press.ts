@@ -1,5 +1,5 @@
 import { animate, useMotionValue, useReducedMotion } from 'motion/react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 function readNumberToken(name: string, fallback: number): number {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -19,10 +19,17 @@ function directDurationSeconds(): number {
 export function usePressFeedback() {
   const reduce = useReducedMotion();
   const scale = useMotionValue(1);
+  useEffect(() => {
+    if (reduce) {
+      scale.stop();
+      scale.set(1);
+    }
+    return () => scale.stop();
+  }, [reduce, scale]);
   const moveTo = useCallback(
     (target: number) => {
       if (reduce) return;
-      animate(scale, target, { duration: directDurationSeconds() });
+      animate(scale, target, { duration: directDurationSeconds(), ease: [0.25, 0.46, 0.45, 0.94] });
     },
     [reduce, scale],
   );
@@ -35,9 +42,16 @@ export function usePressFeedback() {
     onPointerUp: release,
     onPointerCancel: release,
     onPointerLeave: release,
+    onBlur: release,
     onKeyDown: (event: React.KeyboardEvent) => {
-      if (event.key === 'Enter' || event.key === ' ') press();
+      if (!reduce && (event.key === 'Enter' || event.key === ' ')) {
+        scale.stop();
+        scale.set(readNumberToken('--motion-press-scale', 0.98));
+      }
     },
-    onKeyUp: release,
+    onKeyUp: () => {
+      scale.stop();
+      scale.set(1);
+    },
   };
 }

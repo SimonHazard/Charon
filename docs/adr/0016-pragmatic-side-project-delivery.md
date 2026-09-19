@@ -7,6 +7,10 @@ Accepted on 2026-09-05 by operator decision.
 Amended on 2026-09-06: the operator deliberately adopted the MIT License for
 the repository.
 
+Amended on 2026-09-19: the operator made the repository public, moved static-site
+deployment to protected `main` updates after pull-request validation, then made
+one new consistent manifest version on `main` the desktop publication trigger.
+
 ## Context
 
 Charon is a free side project maintained by one operator. Earlier release
@@ -27,9 +31,14 @@ stable private key that must never enter Git.
 
 ## Decision
 
-1. A validated `vX.Y.Z` tag is the only automatic desktop release trigger. It
-   builds macOS, Linux, and Windows artifacts and publishes only after every
-   platform build succeeds.
+1. A protected update to `main` is the only automatic desktop release trigger.
+   The workflow reads one valid SemVer shared by the root package, desktop
+   package, Cargo package, and Tauri configuration. If that version already has
+   a published GitHub Release, it exits successfully without rebuilding. For a
+   new version it builds macOS, Linux, and Windows artifacts, then creates the
+   matching `vX.Y.Z` tag on the merged commit and publishes only after every
+   platform build succeeds. An orphaned tag or draft release fails closed and
+   requires a new patch version.
 2. Version consistency, build success, updater signatures, privacy sentinels,
    Workspace data-safety checks, and release-asset completeness remain
    deterministic gates. The full historical browser, performance, design, and
@@ -51,6 +60,15 @@ stable private key that must never enter Git.
 7. Accepted ADRs, current contracts, and `docs/IMPLEMENTATION_HISTORY.md` are the
    durable record. Completed execution plans and journals may be removed after
    their unique decisions and live references have migrated.
+8. The public repository accepts contributions through pull requests. Routine
+   Quality checks run on pull requests without deployment secrets. Simon Hazard
+   remains the principal maintainer and sole merger unless repository access is
+   deliberately expanded later.
+9. Updating protected `main`, normally by merging a validated pull request,
+   automatically verifies and deploys the static site through the
+   `site-production` environment. The same update evaluates the desktop
+   manifest version under Decision 1; ordinary merges with an already-published
+   version do not publish another desktop release.
 
 ## Consequences
 

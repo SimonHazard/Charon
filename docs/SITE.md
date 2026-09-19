@@ -115,9 +115,12 @@ instrumentation.
 
 The custom domain is the only public deployment surface. The `workers.dev`
 route and every Preview URL are disabled, and production receives no Cloudflare
-Access cookie. The GitHub Actions deployment workflow is manually dispatched by
-the operator. It runs the checked static build before deployment and has
-read-only GitHub permissions.
+Access cookie. The GitHub Actions deployment workflow runs only after a
+protected update to `main`, normally the maintainer merging a pull request. It
+runs the checked static build before deployment, has read-only GitHub
+permissions, and receives Cloudflare credentials only inside the
+`site-production` environment. Pull requests run the Quality workflow without
+deployment credentials.
 
 Cloudflare necessarily processes ordinary HTTP connection metadata to deliver
 and protect the site. The repository privacy contract discloses that hosting

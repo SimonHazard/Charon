@@ -33,9 +33,11 @@ modifier-only sequence there.
 
 The first public build has not been published yet. Once available, downloads
 will live in [GitHub Releases](https://github.com/SimonHazard/Charon/releases).
-A validated `vX.Y.Z` tag builds macOS, Linux, and Windows installers, publishes
-checksums, and exposes signed metadata to the integrated Tauri updater only
-after every platform succeeds.
+After a protected merge to `main`, one new consistent manifest version builds
+macOS, Linux, and Windows installers. The workflow creates its `vX.Y.Z` tag,
+publishes checksums, and exposes signed metadata to the integrated Tauri updater
+only after every platform succeeds. A merge whose version already has a release
+does not publish again.
 
 Update checks are disabled by default. Users can enable the metadata-only check
 in Preferences, review an available version, and explicitly install it. The
@@ -129,6 +131,8 @@ define.
 - [ADRs](docs/adr/)
 - [Implementation history](docs/IMPLEMENTATION_HISTORY.md)
 - [Active plans](plans/README.md)
+- [Contributing](CONTRIBUTING.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
 - [Security policy](SECURITY.md)
 
 ## License

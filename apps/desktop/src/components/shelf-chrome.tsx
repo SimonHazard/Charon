@@ -35,6 +35,7 @@ export function ShelfActions() {
               <PopoverTrigger
                 aria-label={m.shortcut_help_title()}
                 className="shelf-action-button"
+                onBlur={helpPress.onBlur}
                 onKeyDown={helpPress.onKeyDown}
                 onKeyUp={helpPress.onKeyUp}
                 onPointerCancel={helpPress.onPointerCancel}

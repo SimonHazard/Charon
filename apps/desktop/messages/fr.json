@@ -98,6 +98,7 @@
   "capture_input_saving": "Ajout de la note…",
   "capture_input_error": "La note n’a pas été ajoutée. Votre texte est conservé ; réessayez après avoir résolu le problème de l’espace de travail.",
   "capture_created": "Note ajoutée.",
+  "tag_error_save": "Impossible d’enregistrer les tags. Réessayez.",
   "tags_label": "Tags",
   "tag_add_placeholder": "Ajouter un tag…",
   "tag_remove": "Retirer le tag {tag}",

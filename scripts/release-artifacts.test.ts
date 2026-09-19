@@ -41,14 +41,33 @@ async function fixture(options: { omitWindows?: boolean } = {}) {
       );
     }
   }
+  const notesFile = join(root, 'RELEASE_NOTES.md');
+  await writeFile(
+    notesFile,
+    '# Charon 0.1.0 — Early Access\n\nThis build is not notarized.\n',
+    'utf8',
+  );
   return {
     input,
-    notesFile: join(root, 'RELEASE_NOTES.md'),
+    notesFile,
     output: join(root, 'output'),
   };
 }
 
 describe('release artifact assembly', () => {
+  test('fails closed when release notes are missing', async () => {
+    const paths = await fixture();
+    await rm(paths.notesFile);
+    await expect(
+      assembleReleaseArtifacts({
+        ...paths,
+        repository: 'SimonHazard/Charon',
+        version: '0.1.0',
+        publishedAt: '2026-09-06T00:00:00.000Z',
+      }),
+    ).rejects.toThrow('release notes are missing or empty');
+  });
+
   test('fails closed when one platform is missing', async () => {
     const paths = await fixture({ omitWindows: true });
     await expect(
@@ -76,6 +95,7 @@ describe('release artifact assembly', () => {
       'windows-x86_64',
     ]);
     expect(result.latest.platforms['windows-x86_64'].url).toContain('/releases/download/v0.1.0/');
+    expect(result.latest.notes).toContain('not notarized');
     expect(await Bun.file(join(paths.output, 'SHA256SUMS.txt')).text()).toContain('latest.json');
     expect(await Bun.file(paths.notesFile).text()).toContain('not notarized');
   });

@@ -19,11 +19,12 @@ ceremony. The automatic release workflow keeps the deterministic checks that
 protect version consistency, compilation, updater signatures, privacy, data
 safety, and complete release assets.
 
-Quality, Security, and site deployment remain manually dispatched. The desktop
-release workflow is the only automatic workflow, and only for a validated
-version tag. It already compiles and bundles on macOS, Linux, and Windows, so
-separate portability and unsigned review-build workflows would duplicate the
-most expensive jobs without strengthening the release boundary.
+Quality runs for pull requests and remains manually dispatchable; Security
+remains manual. Protected `main` updates deploy the site and evaluate the
+desktop manifest version. A new consistent version starts the macOS, Linux, and
+Windows release matrix, while an already-published version exits without
+rebuilding. Separate portability and unsigned review-build workflows would
+duplicate the most expensive jobs without strengthening the release boundary.
 
 Use Quality once when a release candidate needs GitHub-hosted confirmation. Use
 Security after dependency changes or as an occasional explicit audit. Deploy
@@ -52,7 +53,7 @@ Pure and mocked tests cover boundaries that could lose data or violate privacy:
 - deterministic `Copy as Markdown` output;
 - updater disabled/no-update/available/error states, signature enforcement, and
   dirty-draft restart deferral;
-- tag/manifests consistency and complete release-asset metadata.
+- cross-manifest version consistency and complete release-asset metadata.
 
 Native use by the operator and users supplies compatibility feedback. Windows
 and X11 capture begin as experimental after implementation; Wayland never claims

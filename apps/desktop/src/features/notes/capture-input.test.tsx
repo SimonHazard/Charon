@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,6 +6,24 @@ import { AppProviders } from '@/app/providers';
 import { CaptureInput } from '@/features/notes/capture-input';
 
 describe('flat capture input', () => {
+  it('does not submit while confirming an IME composition', async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppProviders>
+        <CaptureInput onCreate={onCreate} />
+      </AppProviders>,
+    );
+    const input = screen.getByRole('textbox', { name: 'Capture a note' });
+    fireEvent.compositionStart(input);
+    fireEvent.change(input, { target: { value: '日本語' } });
+    expect(fireEvent.keyDown(input, { key: 'Enter', isComposing: true })).toBe(false);
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+    expect(onCreate).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(input);
+    expect(fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })).toBe(false);
+    fireEvent.submit(input.closest('form') as HTMLFormElement);
+    await waitFor(() => expect(onCreate).toHaveBeenCalledWith('日本語'));
+  });
   it('creates on Enter, ignores whitespace, and clears only after success', async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);

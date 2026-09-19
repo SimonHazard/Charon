@@ -7,17 +7,25 @@ type ReleaseVersions = {
 
 const semver = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
 
-export function validateReleaseVersion(tag: string, versions: ReleaseVersions) {
-  if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(tag)) {
-    throw new Error(`release tag ${tag} must be vX.Y.Z SemVer`);
-  }
-  const version = tag.slice(1);
+export function validateManifestVersions(versions: ReleaseVersions) {
+  const version = versions.rootPackage;
   if (!semver.test(version)) throw new Error(`invalid release version ${version}`);
   const mismatches = Object.entries(versions)
     .filter(([, manifestVersion]) => manifestVersion !== version)
     .map(([manifest, manifestVersion]) => `${manifest}=${manifestVersion}`);
   if (mismatches.length) {
-    throw new Error(`tag ${tag} does not match ${mismatches.join(', ')}`);
+    throw new Error(`manifest version ${version} does not match ${mismatches.join(', ')}`);
+  }
+  return version;
+}
+
+export function validateReleaseVersion(tag: string, versions: ReleaseVersions) {
+  if (!/^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u.test(tag)) {
+    throw new Error(`release tag ${tag} must be vX.Y.Z SemVer`);
+  }
+  const version = validateManifestVersions(versions);
+  if (tag !== `v${version}`) {
+    throw new Error(`release tag ${tag} does not match manifest version ${version}`);
   }
   return version;
 }
@@ -30,17 +38,17 @@ function cargoVersion(text: string) {
 }
 
 if (import.meta.main) {
-  const tag = process.env.GITHUB_REF_NAME;
-  if (!tag) throw new Error('GITHUB_REF_NAME is required');
   const rootPackage = await Bun.file('package.json').json();
   const desktopPackage = await Bun.file('apps/desktop/package.json').json();
   const tauri = await Bun.file('apps/desktop/src-tauri/tauri.conf.json').json();
   const cargo = await Bun.file('apps/desktop/src-tauri/Cargo.toml').text();
-  const version = validateReleaseVersion(tag, {
+  const versions = {
     rootPackage: String(rootPackage.version),
     desktopPackage: String(desktopPackage.version),
     cargoPackage: cargoVersion(cargo),
     tauri: String(tauri.version),
-  });
-  console.log(`release version ${version} is consistent across all manifests`);
+  };
+  const tag = process.env.RELEASE_TAG;
+  const version = tag ? validateReleaseVersion(tag, versions) : validateManifestVersions(versions);
+  console.log(version);
 }

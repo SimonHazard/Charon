@@ -80,6 +80,13 @@ export function NoteScreen({
   const captureRef = useRef<CaptureInputHandle>(null);
   const announcementTimerRef = useRef<number | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const draftGuardRef = useRef<(() => Promise<boolean>) | null>(null);
+  const registerDraftGuard = useCallback((guard: () => Promise<boolean>) => {
+    draftGuardRef.current = guard;
+    return () => {
+      if (draftGuardRef.current === guard) draftGuardRef.current = null;
+    };
+  }, []);
   const pendingDeleteFocusRef = useRef<{ deletedId: string; index: number } | null>(null);
 
   const indexRef = useRef<NoteIndex | null>(null);
@@ -87,10 +94,14 @@ export function NoteScreen({
   const index = indexRef.current;
   /** The first query of a session normalizes the corpus (~44 ms at 20k Notes); the field stays live while it runs. */
   const deferredQuery = useDeferredValue(query);
-  const notes = useMemo(
-    () => index.filter(snapshot.notes, { query: deferredQuery, tag }),
-    [deferredQuery, index, snapshot.notes, tag],
-  );
+  const notes = useMemo(() => {
+    const matches = index.filter(snapshot.notes, { query: deferredQuery, tag });
+    const editor = snapshot.notes.find((note) => note.id === expandedId);
+    // Keep the open editor available until explicitly closed, even when a query changes.
+    return editor && !matches.some((note) => note.id === editor.id)
+      ? [editor, ...matches]
+      : matches;
+  }, [deferredQuery, expandedId, index, snapshot.notes, tag]);
   const allTags = useMemo(() => index.tags(snapshot.notes), [index, snapshot.notes]);
   const announce = useCallback((text: string) => {
     if (announcementTimerRef.current !== null) {
@@ -201,14 +212,21 @@ export function NoteScreen({
     [announce, clipboardClient, m, refreshWorkspace, snapshot.revision],
   );
 
-  const expandNote = useCallback((noteId: string) => {
-    setCopyState((current) => (current?.noteId === noteId ? null : current));
-    setExpandedId(noteId);
-  }, []);
+  const expandNote = useCallback(
+    async (noteId: string) => {
+      if (expandedId !== noteId && draftGuardRef.current && !(await draftGuardRef.current())) {
+        return false;
+      }
+      setCopyState((current) => (current?.noteId === noteId ? null : current));
+      setExpandedId(noteId);
+      return true;
+    },
+    [expandedId],
+  );
 
   const focusAttachments = useCallback(
     async (noteId: string) => {
-      expandNote(noteId);
+      if (!(await expandNote(noteId))) return;
       await new Promise<void>((resolve) => {
         window.requestAnimationFrame(() => {
           window.requestAnimationFrame(() => {
@@ -275,7 +293,11 @@ export function NoteScreen({
   const closeEditor = useCallback((noteId: string) => {
     setExpandedId((current) => (current === noteId ? null : current));
     window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-note-focus="${noteId}"]`)?.focus();
+      const row =
+        document.querySelector<HTMLElement>(`[data-note-focus="${noteId}"]`) ??
+        document.querySelector<HTMLElement>('[data-note-focus]');
+      if (row) row.focus();
+      else captureRef.current?.focus();
     });
   }, []);
   const removeAttachment = useCallback(
@@ -380,6 +402,7 @@ export function NoteScreen({
           onCopy={copyNote}
           onDelete={requestDelete}
           onDirtyChange={setEditorDirty}
+          registerDraftGuard={registerDraftGuard}
           onExpand={expandNote}
           onFocusAttachments={focusAttachments}
           onRemoveAttachment={removeAttachment}

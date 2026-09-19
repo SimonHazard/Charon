@@ -19,13 +19,18 @@ for (const file of files) {
 
 for (const file of files) {
   const text = await Bun.file(`${directory}/${file}`).text();
-  if (!/^\s*workflow_dispatch:/mu.test(text)) {
-    failures.push(`${file}: every workflow must be manually dispatched`);
-  }
   const automaticTriggers = text.match(/^ {2}(?:pull_request|push|schedule):/gmu) ?? [];
   if (file === 'release.yml') {
     if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('push:'))) {
-      failures.push(`${file}: only version-tag pushes may trigger automatically`);
+      failures.push(`${file}: only main pushes may trigger automatically`);
+    }
+  } else if (file === 'quality.yml') {
+    if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('pull_request:'))) {
+      failures.push(`${file}: only pull requests may trigger automatically`);
+    }
+  } else if (file === 'site-deploy.yml') {
+    if (automaticTriggers.some((trigger) => !trigger.trim().startsWith('push:'))) {
+      failures.push(`${file}: only main pushes may trigger automatically`);
     }
   } else if (automaticTriggers.length) {
     failures.push(`${file}: automatic triggers are disabled`);
@@ -59,7 +64,8 @@ if (!files.includes(releaseWorkflowName)) {
 } else {
   const releaseWorkflow = await Bun.file(`${directory}/${releaseWorkflowName}`).text();
   for (const fragment of [
-    "tags:\n      - 'v*'",
+    'on:\n  push:\n    branches:\n      - main',
+    'should_release:',
     'environment: release',
     'macos-15',
     'ubuntu-24.04',
@@ -69,6 +75,8 @@ if (!files.includes(releaseWorkflowName)) {
     'actions/download-artifact@',
     'bun scripts/check-release-version.ts',
     'bun scripts/release-artifacts.ts',
+    'gh release view',
+    '--target "$RELEASE_SHA"',
     'gh release create',
     'gh release edit',
   ]) {
@@ -79,7 +87,8 @@ if (!files.includes(releaseWorkflowName)) {
   for (const forbidden of [
     'pull_request:',
     'schedule:',
-    'branches:',
+    'workflow_dispatch:',
+    'tags:',
     'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
   ]) {
     if (releaseWorkflow.includes(forbidden)) {
@@ -98,6 +107,7 @@ if (!files.includes(qualityWorkflowName)) {
 } else {
   const qualityWorkflow = await Bun.file(`${directory}/${qualityWorkflowName}`).text();
   const requiredFragments = [
+    'pull_request:\n    branches:\n      - main',
     'workflow_dispatch:',
     'permissions:\n  contents: read',
     'cancel-in-progress: true',
@@ -157,7 +167,7 @@ if (!files.includes(siteWorkflowName)) {
 } else {
   const siteWorkflow = await Bun.file(`${directory}/${siteWorkflowName}`).text();
   const requiredFragments = [
-    'on:\n  workflow_dispatch:',
+    'on:\n  push:\n    branches:\n      - main',
     'permissions:\n  contents: read',
     'group: site-production',
     'environment: site-production',
@@ -174,8 +184,8 @@ if (!files.includes(siteWorkflowName)) {
   }
   for (const forbidden of [
     'pull_request:',
-    'push:',
     'schedule:',
+    'workflow_dispatch:',
     'wrangler versions upload',
     'preview',
   ]) {

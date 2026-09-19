@@ -219,6 +219,14 @@ Escape closes the topmost transient surface first. Closing the editor never
 silently drops unsaved text; autosave status or a contextual preservation choice
 must be clear. Focus returns to the originating Note when it still exists.
 
+The expanded editor stays mounted while the shelf scrolls and stays visible in
+the result when a search would otherwise exclude it, until explicitly closed.
+Opening another Note first flushes the current body; a failed save keeps its
+draft and retry action available. Closing a filtered-out Note returns focus to
+a surviving row or the composer. Arrow keys inside Markdown, Tags, and tab
+controls keep their native text-editing or control behavior. IME confirmation
+does not submit the composer or add a Tag.
+
 ## Interaction states
 
 Every flow and reusable control defines:
@@ -317,6 +325,10 @@ travel, scale, springs, parallax, and momentum become a short opacity crossfade
 or static swap. With reduced transparency, transient materials become solid.
 Increased contrast adds clear boundaries without changing information
 architecture.
+
+Keyboard-triggered editor and transient-surface changes are immediate. Pointer
+interactions retain the restrained existing motion; popover scaling uses the
+same transform property as its transition, with the trigger as its origin.
 
 ## Accessibility and acceptance review
 
