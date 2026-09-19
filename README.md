@@ -130,6 +130,7 @@ define.
 - [Implementation history](docs/IMPLEMENTATION_HISTORY.md)
 - [Active plans](plans/README.md)
 - [Contributing](CONTRIBUTING.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
 - [Security policy](SECURITY.md)
 
 ## License
