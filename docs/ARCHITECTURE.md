@@ -48,6 +48,11 @@ flowchart LR
 One local directory is one Workspace. First-run bootstrap resolves a safe
 default under Documents in the application layer, then delegates all creation,
 opening, validation, and folder switching to the same Workspace boundary.
+An explicit choice accepts an empty directory or an existing valid Workspace;
+nonempty unrelated directories return a content-free `directory_not_empty`
+error. Candidate validation and preference persistence precede the runtime
+replacement under the switch lock, so either failure keeps the active Workspace.
+Folder-choice errors have separate UI state from Note command/snapshot errors.
 Schema v2 has this direction:
 
 ```text

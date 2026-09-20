@@ -1,7 +1,7 @@
 {
   "name": "@charon/desktop",
   "description": "Free local-first capture shelf for agent-ready Markdown",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -25,6 +25,7 @@
     "@base-ui/react": "1.6.0",
     "@charon/theme": "workspace:*",
     "@tabler/icons-react": "3.46.0",
+    "@tanstack/markdown": "0.0.15",
     "@tanstack/react-virtual": "3.14.9",
     "@tauri-apps/api": "2.11.1",
     "@tauri-apps/plugin-dialog": "2.7.2",

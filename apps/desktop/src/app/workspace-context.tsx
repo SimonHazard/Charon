@@ -45,6 +45,8 @@ type WorkspaceContextValue = WorkspaceViewState & {
   retryWorkspaceStartup(): Promise<boolean>;
   canChooseWorkspace: boolean;
   isChoosingWorkspace: boolean;
+  workspaceSwitchError: WorkspaceIpcError | null;
+  dismissWorkspaceSwitchError(): void;
   isWorkspaceSwitchBlocked: boolean;
   setWorkspaceSwitchBlocked(blocked: boolean): void;
 };
@@ -79,7 +81,14 @@ export function WorkspaceProvider({
   const snapshotRef = useRef<WorkspaceSnapshot | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [isChoosingWorkspace, setIsChoosingWorkspace] = useState(false);
-  const [isWorkspaceSwitchBlocked, setWorkspaceSwitchBlocked] = useState(false);
+  const [isWorkspaceSwitchBlocked, updateWorkspaceSwitchBlocked] = useState(false);
+  const workspaceSwitchBlockedRef = useRef(false);
+  const setWorkspaceSwitchBlocked = useCallback((blocked: boolean) => {
+    workspaceSwitchBlockedRef.current = blocked;
+    updateWorkspaceSwitchBlocked(blocked);
+  }, []);
+  const [workspaceSwitchError, setWorkspaceSwitchError] = useState<WorkspaceIpcError | null>(null);
+  const dismissWorkspaceSwitchError = useCallback(() => setWorkspaceSwitchError(null), []);
   const lastFocusRefreshRef = useRef(Number.NEGATIVE_INFINITY);
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
@@ -169,22 +178,17 @@ export function WorkspaceProvider({
     try {
       const path = await client.chooseDirectory();
       if (!path) return 'cancelled' as const;
+      if (workspaceSwitchBlockedRef.current) return 'blocked' as const;
       const snapshot = await client.openOrCreate(path);
       applySnapshot(snapshot);
+      setWorkspaceSwitchError(null);
       return 'success' as const;
     } catch (error) {
       const workspaceError = asWorkspaceError(error);
-      try {
-        const activeSnapshot = await client.snapshot();
-        snapshotRef.current = activeSnapshot;
-        setState({ status: 'warning', snapshot: activeSnapshot, error: workspaceError });
-      } catch {
-        setState((current) =>
-          current.snapshot
-            ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
-            : { status: 'empty', snapshot: null, error: workspaceError },
-        );
-      }
+      setWorkspaceSwitchError(workspaceError);
+      setState((current) =>
+        current.snapshot ? current : { status: 'empty', snapshot: null, error: workspaceError },
+      );
       return 'failed' as const;
     } finally {
       setIsChoosingWorkspace(false);
@@ -196,13 +200,13 @@ export function WorkspaceProvider({
     setIsChoosingWorkspace(true);
     try {
       applySnapshot(await client.bootstrapDefault());
+      setWorkspaceSwitchError(null);
       return true;
     } catch (error) {
       const workspaceError = asWorkspaceError(error);
+      setWorkspaceSwitchError(workspaceError);
       setState((current) =>
-        current.snapshot
-          ? { status: 'warning', snapshot: current.snapshot, error: workspaceError }
-          : { status: 'empty', snapshot: null, error: workspaceError },
+        current.snapshot ? current : { status: 'empty', snapshot: null, error: workspaceError },
       );
       return false;
     } finally {
@@ -231,6 +235,7 @@ export function WorkspaceProvider({
     writeQueueRef.current = Promise.resolve();
     setIsChoosingWorkspace(false);
     setWorkspaceSwitchBlocked(false);
+    setWorkspaceSwitchError(null);
 
     const connect = async () => {
       try {
@@ -292,7 +297,7 @@ export function WorkspaceProvider({
       active = false;
       unsubscribe?.();
     };
-  }, [applySnapshot, client, workspaceKey]);
+  }, [applySnapshot, client, workspaceKey, setWorkspaceSwitchBlocked]);
 
   useEffect(() => {
     if (state.status !== 'ready' && state.status !== 'warning') return;
@@ -322,6 +327,8 @@ export function WorkspaceProvider({
       retryWorkspaceStartup,
       canChooseWorkspace,
       isChoosingWorkspace,
+      workspaceSwitchError,
+      dismissWorkspaceSwitchError,
       isWorkspaceSwitchBlocked,
       setWorkspaceSwitchBlocked,
     }),
@@ -330,7 +337,10 @@ export function WorkspaceProvider({
       chooseWorkspace,
       executeWorkspaceCommand,
       isChoosingWorkspace,
+      workspaceSwitchError,
+      dismissWorkspaceSwitchError,
       isWorkspaceSwitchBlocked,
+      setWorkspaceSwitchBlocked,
       openDefaultWorkspace,
       refreshWorkspace,
       retryWorkspaceStartup,

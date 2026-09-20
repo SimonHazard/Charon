@@ -43,6 +43,25 @@ function clients(overrides: Partial<CaptureCapabilities> = {}) {
   return { captureClient, preferencesClient, requestPermission };
 }
 
+function WorkspaceActivity() {
+  const workspace = useWorkspace();
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          void workspace.executeWorkspaceCommand({ type: 'createNote', body: 'A new note' })
+        }
+      >
+        Save note
+      </button>
+      <button type="button" onClick={() => void workspace.refreshWorkspace()}>
+        Refresh notes
+      </button>
+    </>
+  );
+}
+
 function DirtyDraftControl() {
   const workspace = useWorkspace();
   return (
@@ -115,7 +134,7 @@ describe('compact Preferences', () => {
     await user.click(screen.getByRole('button', { name: 'Settings' }));
     await user.click(screen.getByRole('button', { name: 'Graphite' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
-    await user.click(screen.getByRole('button', { name: 'French' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Language' }), 'fr');
     expect(document.documentElement.lang).toBe('fr');
     await user.click(screen.getByRole('button', { name: 'Ouvrir Réglages' }));
     expect(native.requestPermission).toHaveBeenCalledWith('inputMonitoring');
@@ -193,6 +212,47 @@ describe('compact Preferences', () => {
     expect(await screen.findByText(/could not be refreshed/i)).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(native.captureClient.capabilities).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps a folder error through note writes, refreshes, cancellation and reopening Preferences', async () => {
+    const native = clients();
+    const client = {
+      ...workspaceClient(snapshot()),
+      chooseDirectory: vi.fn().mockResolvedValue('/synthetic/nonempty'),
+      openOrCreate: vi.fn().mockRejectedValue({
+        code: 'directory_not_empty',
+        messageKey: 'workspace_error_directory_not_empty',
+      }),
+    };
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={client}
+      >
+        <WorkspaceActivity />
+        <ShelfActions />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Choose…' }));
+    expect(await screen.findByText(/Choose an empty folder/)).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Save note' }));
+    await user.click(screen.getByRole('button', { name: 'Refresh notes' }));
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByText(/Choose an empty folder/)).toBeTruthy();
+    client.chooseDirectory.mockResolvedValueOnce(null);
+    await user.click(screen.getByRole('button', { name: 'Choose…' }));
+    expect(screen.getByText(/Choose an empty folder/)).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Dismiss folder error' }));
+    expect(screen.queryByText(/Choose an empty folder/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Choose…' }));
+    expect(await screen.findByText(/Choose an empty folder/)).toBeTruthy();
+    client.openOrCreate.mockResolvedValueOnce(snapshot());
+    await user.click(screen.getByRole('button', { name: 'Choose…' }));
+    await waitFor(() => expect(screen.queryByText(/Choose an empty folder/)).toBeNull());
   });
 
   it('blocks folder switching while an editor draft is dirty', async () => {

@@ -17,4 +17,3 @@ apps/desktop/src-tauri/gen/
 apps/desktop/project.inlang/cache/
 apps/desktop/project.inlang/.meta.json
 apps/desktop/project.inlang/README.md
-.claude/settings.local.json

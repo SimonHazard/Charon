@@ -21,6 +21,11 @@ fn workspace_error_conversion_is_complete_and_content_free() {
             "workspace_error_invalid_path",
         ),
         (
+            WorkspaceError::DirectoryNotEmpty,
+            "directory_not_empty",
+            "workspace_error_directory_not_empty",
+        ),
+        (
             WorkspaceError::DefaultLocationUnavailable,
             "default_location_unavailable",
             "workspace_error_default_location_unavailable",

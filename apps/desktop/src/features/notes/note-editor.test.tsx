@@ -103,6 +103,25 @@ function editor(overrides: Partial<React.ComponentProps<typeof NoteEditor>> = {}
 }
 
 describe('inline note editor', () => {
+  it('opens Markdown help without editing the draft and Escape closes only the help', async () => {
+    const props = editor();
+    const user = userEvent.setup();
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    const trigger = screen.getByRole('button', { name: 'Markdown help' });
+    await user.click(trigger);
+    expect(
+      await screen.findByText('Use these examples in Write, then switch to Preview.'),
+    ).toBeTruthy();
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByText('Use these examples in Write, then switch to Preview.')).toBeNull(),
+    );
+    expect(document.activeElement).toBe(trigger);
+    expect((textarea as HTMLTextAreaElement).value).toBe('Original');
+    expect(props.onSave).not.toHaveBeenCalled();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
   it('preserves a reverted draft when the older save snapshot arrives before its response', async () => {
     let finishSave!: () => void;
     const onSave = vi

@@ -1,15 +1,15 @@
-# Charon 0.1.0 — Early Access
+# Charon 0.1.1 — Early Access
 
 Charon is a local-only capture shelf for turning selected text or short manual entries into ordinary, agent-ready Markdown files in a folder you control.
 
 ## Highlights
 
-- Capture selected text with passive double Shift on macOS, or use the always-visible manual composer on every supported platform.
-- Search, edit, complete, copy, and permanently delete Notes from one compact shelf.
-- Add up to 16 Tags and 20 managed Attachments to a Note.
-- Copy deterministic Markdown with optional Tags and disclosed local Attachment paths.
-- Use the English or French interface in Light or Graphite appearance.
-- Opt in to signed updater checks; installation always requires an explicit action.
+- Remove the extra Windows title-bar gap and unused space beside Notes and the deletion dialog footer.
+- Keep Preferences opaque in both themes, with sun/moon appearance controls and a native language dropdown.
+- Open an existing Workspace or create one in an empty folder. Failed folder changes preserve the active Workspace and keep an actionable error visible in Preferences; existing Notes are never moved.
+- Preview headings, emphasis, lists, tasks, quotes, code, and tables with TanStack Markdown. Links and images stay inert text without network or file access.
+- Consult the English or French Markdown help from the editor or general Help without changing your draft.
+- Keep Copy as Markdown unchanged: managed Attachment paths are copied, not media bytes.
 
 ## Early Access limits
 

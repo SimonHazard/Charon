@@ -1,11 +1,13 @@
 import {
   IconAlertCircle,
-  IconCheck,
   IconCircleCheck,
   IconDownload,
   IconInfoCircle,
+  IconMoon,
   IconRefresh,
   IconSettings,
+  IconSun,
+  IconX,
 } from '@tabler/icons-react';
 import { m as motion } from 'motion/react';
 import { useState } from 'react';
@@ -164,36 +166,38 @@ export function PreferencesPanel() {
             value={[appearance.theme]}
           >
             {(['light', 'dark'] as const).map((theme) => (
-              <ToggleGroupItem aria-label={m[`theme_${theme}`]()} key={theme} value={theme}>
-                {appearance.theme === theme ? (
-                  <IconCheck aria-hidden="true" className="preferences-choice-icon" />
-                ) : null}
-                {m[`theme_${theme}`]()}
-              </ToggleGroupItem>
+              <Tooltip key={theme}>
+                <TooltipTrigger
+                  render={<ToggleGroupItem aria-label={m[`theme_${theme}`]()} value={theme} />}
+                >
+                  {theme === 'light' ? (
+                    <IconSun aria-hidden="true" />
+                  ) : (
+                    <IconMoon aria-hidden="true" />
+                  )}
+                </TooltipTrigger>
+                <TooltipContent>{m[`theme_${theme}`]()}</TooltipContent>
+              </Tooltip>
             ))}
           </ToggleGroup>
         </section>
 
         <section className="preferences-group">
-          <h2>{m.preferences_language()}</h2>
-          <ToggleGroup
-            aria-label={m.locale_menu_label()}
-            className="preferences-toggle"
-            onValueChange={(values) => {
-              const value = values[0];
+          <h2>
+            <label htmlFor="preferences-language">{m.preferences_language()}</label>
+          </h2>
+          <select
+            id="preferences-language"
+            className="preferences-language"
+            value={appearance.locale}
+            onChange={(event) => {
+              const value = event.target.value;
               if (value === 'en' || value === 'fr') appearance.setLocale(value);
             }}
-            value={[appearance.locale]}
           >
-            {(['en', 'fr'] as const).map((locale) => (
-              <ToggleGroupItem key={locale} value={locale}>
-                {appearance.locale === locale ? (
-                  <IconCheck aria-hidden="true" className="preferences-choice-icon" />
-                ) : null}
-                {locale === 'en' ? m.locale_english() : m.locale_french()}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+            <option value="en">{m.locale_english()}</option>
+            <option value="fr">{m.locale_french()}</option>
+          </select>
         </section>
 
         <section className="preferences-group">
@@ -214,6 +218,24 @@ export function PreferencesPanel() {
               {m.preferences_workspace_choose()}
             </Button>
           </div>
+          <p>{m.preferences_workspace_switch_hint()}</p>
+          {workspace.workspaceSwitchError ? (
+            <div className="preferences-error" role="alert">
+              <p className="preferences-inline-warning">
+                {(m as unknown as Record<string, (() => string) | undefined>)[
+                  workspace.workspaceSwitchError.messageKey
+                ]?.() ?? m.workspace_error_unknown()}
+              </p>
+              <Button
+                aria-label={m.preferences_workspace_dismiss_error()}
+                onClick={workspace.dismissWorkspaceSwitchError}
+                size="icon-xs"
+                variant="ghost"
+              >
+                <IconX aria-hidden="true" />
+              </Button>
+            </div>
+          ) : null}
           {workspace.isWorkspaceSwitchBlocked ? (
             <p className="preferences-inline-warning">{m.preferences_workspace_draft_blocked()}</p>
           ) : null}

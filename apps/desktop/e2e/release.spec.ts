@@ -276,7 +276,7 @@ test('compact Preferences applies themes and locale without leaving the shelf', 
   await expect(page.getByRole('heading', { name: 'Preferences' })).toBeVisible();
   await page.getByRole('button', { name: 'Graphite' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('button', { name: 'French' }).click();
+  await page.getByRole('combobox', { name: 'Language' }).selectOption('fr');
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
   await expect(page.getByRole('heading', { name: 'Préférences' })).toBeVisible();
   const preferences = page.locator('.preferences-popover');
@@ -290,7 +290,7 @@ test('compact Preferences applies themes and locale without leaving the shelf', 
 test('French document language is restored before interaction after reload', async ({ page }) => {
   await page.goto(desktop);
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: 'French' }).click();
+  await page.getByRole('combobox', { name: 'Language' }).selectOption('fr');
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
@@ -364,16 +364,7 @@ test('compact shelf keeps EN and FR across Light and Dark at 400 and 480 pixels'
             }[theme],
           })
           .click();
-        await matrixPage
-          .getByRole('button', {
-            name: locale === 'fr' ? /English|Anglais/ : /French|Français/,
-          })
-          .click();
-        await matrixPage
-          .getByRole('button', {
-            name: locale === 'fr' ? /French|Français/ : /English|Anglais/,
-          })
-          .click();
+        await matrixPage.getByRole('combobox').selectOption(locale);
         await expect(matrixPage.locator('html')).toHaveAttribute('lang', locale);
         await expect(matrixPage.locator('html')).toHaveAttribute('data-theme', theme);
         await matrixPage.keyboard.press('Escape');
@@ -392,7 +383,7 @@ test('desktop remains usable at effective 360 pixels and reduced preferences', a
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
   await page.goto(desktop);
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: 'French' }).click();
+  await page.getByRole('combobox', { name: 'Language' }).selectOption('fr');
   await page.keyboard.press('Escape');
   await expect(page.locator('.preferences-popover')).toBeHidden();
   await expect(page.locator('.note-capture-input input')).toBeVisible();
@@ -596,4 +587,115 @@ test('site content and capture relationship remain complete without JavaScript',
     }
   }
   await context.close();
+});
+
+test('Windows shelf aligns rows and native title bar; solid Preferences and full-width dialog footer', async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' }),
+  );
+  await page.setViewportSize({ width: 480, height: 720 });
+  await page.goto(desktop);
+  await expect(page.locator('.window-drag-region')).toHaveCount(0);
+  await expect(page.locator('.desktop-shell')).toHaveAttribute('data-native-titlebar', 'true');
+  const search = await page.locator('.note-search').boundingBox();
+  const row = await page.locator('.note-row').first().boundingBox();
+  expect(search).not.toBeNull();
+  expect(row).not.toBeNull();
+  expect(search?.y).toBeLessThan(16);
+  expect(Math.abs((search?.x ?? 0) - (row?.x ?? 0))).toBeLessThan(1);
+  expect(Math.abs((search?.width ?? 0) - (row?.width ?? 0))).toBeLessThan(1);
+  for (const theme of ['Graphite', 'Light']) {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.getByRole('button', { name: theme, exact: true }).click();
+    const popup = page.locator('.preferences-popover');
+    const material = await popup.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const solid = document.createElement('div');
+      solid.style.backgroundColor = 'var(--material-transient-solid)';
+      element.append(solid);
+      const expected = getComputedStyle(solid).backgroundColor;
+      solid.remove();
+      return { background: style.backgroundColor, expected, blur: style.backdropFilter };
+    });
+    expect(material.background).toBe(material.expected);
+    expect(material.blur).toBe('none');
+    await page.getByRole('combobox').focus();
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(popup).toBeHidden();
+  }
+  await page.screenshot({ path: testInfo.outputPath('charon-windows-shelf.png') });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await expect(page.locator('.preferences-popover')).toHaveCSS('opacity', '1');
+  await page.screenshot({ path: testInfo.outputPath('charon-preferences.png') });
+  await page.getByRole('combobox').focus();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.preferences-popover')).toBeHidden();
+  await page.getByRole('button', { name: 'Delete Agent handoff', exact: true }).click();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toHaveCSS('opacity', '1');
+  // Measure both boxes in one frame so the opening transform cannot skew the comparison.
+  const geometry = await dialog.evaluate((element) => {
+    const footer = element.querySelector('[data-slot="alert-dialog-footer"]');
+    if (!footer) throw new Error('Delete dialog footer is missing');
+    const outer = element.getBoundingClientRect();
+    const inner = footer.getBoundingClientRect();
+    return {
+      widthDifference: Math.abs(outer.width - inner.width),
+      xDifference: Math.abs(outer.x - inner.x),
+    };
+  });
+  expect(geometry.widthDifference).toBeLessThan(1);
+  expect(geometry.xDifference).toBeLessThan(1);
+  await page.screenshot({ path: testInfo.outputPath('charon-delete.png') });
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.goto(`${desktop}&notes=100`);
+  expect(
+    await page
+      .locator('.note-list')
+      .evaluate((element) => element.scrollHeight > element.clientHeight),
+  ).toBe(true);
+  await page.locator('.note-list').evaluate((element) => {
+    element.scrollTop = 500;
+  });
+  await expectCompactShelf(page, 480, 720);
+});
+
+test('Markdown help preserves the editor and safe Preview makes no resource requests', async ({
+  page,
+}, testInfo) => {
+  await page.goto(desktop);
+  await page.getByRole('button', { name: 'Edit Agent handoff', exact: true }).click();
+  const body =
+    '# Title\n\n**Bold** *italic* ~~removed~~\n\n- [x] Task\n\n> Quote\n\n```js\nconst value = 1;\n```\n\n| A | B |\n| --- | --- |\n| C | D |\n\n[Link](https://example.com/docs)\n\n![Image](https://example.com/pixel.png)\n\n![Local](file:///private/image.png)\n\n![Relative](./secret.png)\n\n<img src="https://example.com/raw.png" onerror="alert(1)">';
+  const editor = page.getByRole('textbox', { name: 'Markdown body' });
+  await editor.fill(body);
+  const help = page.getByRole('button', { name: 'Markdown help', exact: true });
+  await help.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.markdown-help')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.markdown-help')).toHaveCount(0);
+  await expect(help).toBeFocused();
+  await expect(editor).toHaveValue(body);
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(request.url()));
+  await page.getByRole('tab', { name: 'Preview', exact: true }).click();
+  const preview = page.getByTestId('note-preview');
+  await expect(preview.getByRole('table')).toBeVisible();
+  await expect(preview.locator('a, img, script, iframe, video, audio')).toHaveCount(0);
+  await expect(preview.getByText('https://example.com/docs')).toBeVisible();
+  expect(requests).toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath('charon-markdown.png') });
+  await page.getByRole('tab', { name: 'Write', exact: true }).click();
+  await expect(editor).toHaveValue(body);
+  await editor.press('Escape');
+  await page.getByRole('button', { name: 'Keyboard shortcuts', exact: true }).click();
+  await page.getByRole('button', { name: 'Markdown help', exact: true }).click();
+  await expect(page.locator('.markdown-help')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.markdown-help')).toHaveCount(0);
+  await expect(page.locator('.help-popover')).toBeVisible();
 });

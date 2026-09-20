@@ -139,9 +139,9 @@ pub fn workspace_open_or_create(
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
     let path = PathBuf::from(path);
-    let snapshot = replace_workspace(&runtime, open_or_create_workspace(&path)?)?;
-    remember_workspace(&app, &path)?;
-    Ok(snapshot)
+    replace_workspace_remembering(&runtime, open_or_create_workspace(&path)?, || {
+        remember_workspace(&app, &path)
+    })
 }
 
 #[tauri::command(async)]
@@ -178,9 +178,9 @@ pub fn workspace_bootstrap_default(
             .map_err(|_| crate::workspace::WorkspaceError::DefaultLocationUnavailable)?,
     };
     let path = resolve_default_workspace_path(&documents)?;
-    let snapshot = replace_workspace(&runtime, open_or_create_workspace(&path)?)?;
-    remember_workspace(&app, &path)?;
-    Ok(snapshot)
+    replace_workspace_remembering(&runtime, open_or_create_workspace(&path)?, || {
+        remember_workspace(&app, &path)
+    })
 }
 
 #[tauri::command(async)]
@@ -210,7 +210,15 @@ pub fn workspace_execute(
 
 fn replace_workspace(
     runtime: &State<'_, WorkspaceRuntime>,
+    workspace: Workspace,
+) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
+    replace_workspace_remembering(runtime, workspace, || Ok(()))
+}
+
+fn replace_workspace_remembering(
+    runtime: &WorkspaceRuntime,
     mut workspace: Workspace,
+    remember: impl FnOnce() -> Result<(), WorkspaceIpcError>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
     let _switch = runtime.switching.lock().map_err(|_| runtime_lock_error())?;
     workspace.start_watching()?;
@@ -222,6 +230,8 @@ fn replace_workspace(
         actual_revision: None,
         recovery_location: None,
     })?;
+    // No fallible operation may follow persistence before the runtime swap.
+    remember()?;
     let mut previous = current.replace(workspace);
     drop(current);
     if let Some(previous) = previous.as_mut() {
@@ -293,10 +303,18 @@ fn open_or_create_workspace(path: &Path) -> Result<Workspace, crate::workspace::
     match fs::symlink_metadata(path.join("charon.workspace.json")) {
         Ok(_) => Workspace::open(path),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            if !default_candidate_is_safe(path)? {
-                return Err(crate::workspace::WorkspaceError::Validation(
-                    "target directory is not empty and is not a Workspace".to_owned(),
-                ));
+            match fs::symlink_metadata(path) {
+                Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                    return Err(crate::workspace::WorkspaceError::InvalidPath);
+                }
+                Ok(_) => {
+                    if let Some(entry) = fs::read_dir(path)?.next() {
+                        entry?;
+                        return Err(crate::workspace::WorkspaceError::DirectoryNotEmpty);
+                    }
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
             }
             Workspace::create(path)
         }
@@ -406,13 +424,102 @@ mod tests {
 
     use super::{
         consume_attachment_sources, execute_capture_note, open_or_create_workspace,
-        register_attachment_sources, resolve_default_workspace_path, selected_attachment_paths,
-        selected_folder_path, validate_candidate, workspace_choose_directory, WorkspaceRuntime,
+        register_attachment_sources, replace_workspace_remembering, resolve_default_workspace_path,
+        selected_attachment_paths, selected_folder_path, validate_candidate,
+        workspace_choose_directory, WorkspaceRuntime,
     };
     use crate::workspace::{
         Workspace, WorkspaceCommand, WorkspaceHealthIssueKind, WorkspaceIpcError,
     };
     use tempfile::tempdir;
+
+    #[test]
+    fn chosen_empty_directory_becomes_a_workspace_and_reopens() {
+        let directory = tempdir().expect("directory");
+        let mut workspace = open_or_create_workspace(directory.path()).expect("create");
+        let id = workspace.snapshot().expect("snapshot").workspace_id;
+        assert!(directory.path().join("charon.workspace.json").is_file());
+        drop(workspace);
+        let mut reopened = open_or_create_workspace(directory.path()).expect("reopen");
+        assert_eq!(reopened.snapshot().expect("snapshot").workspace_id, id);
+    }
+
+    #[test]
+    fn chosen_nonempty_directory_has_a_specific_error_and_is_untouched() {
+        let directory = tempdir().expect("directory");
+        fs::write(directory.path().join("keep.txt"), b"keep").expect("existing file");
+        let error = match open_or_create_workspace(directory.path()) {
+            Ok(_) => panic!("unrelated folder accepted"),
+            Err(error) => WorkspaceIpcError::from(error),
+        };
+        assert_eq!(error.code, "directory_not_empty");
+        assert_eq!(
+            fs::read(directory.path().join("keep.txt")).unwrap(),
+            b"keep"
+        );
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn remembering_failure_preserves_the_active_workspace() {
+        let previous_dir = tempdir().expect("previous");
+        let candidate_dir = tempdir().expect("candidate");
+        let mut previous = Workspace::create(previous_dir.path()).expect("previous workspace");
+        execute_capture_note(&mut previous, "preserved".to_owned()).unwrap();
+        let previous_id = previous.snapshot().unwrap().workspace_id;
+        let runtime = WorkspaceRuntime::default();
+        *runtime.current.lock().unwrap() = Some(previous);
+        let candidate = Workspace::create(candidate_dir.path()).expect("candidate workspace");
+        let result = replace_workspace_remembering(&runtime, candidate, || {
+            Err(crate::workspace::WorkspaceError::Io(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "injected preference failure",
+            ))
+            .into())
+        });
+        assert!(result.is_err());
+        let snapshot = runtime
+            .current
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .snapshot()
+            .unwrap();
+        assert_eq!(snapshot.workspace_id, previous_id);
+        assert_eq!(snapshot.notes[0].body, "preserved");
+    }
+
+    #[test]
+    fn unavailable_candidate_is_not_remembered_or_activated() {
+        let previous_dir = tempdir().unwrap();
+        let candidate_dir = tempdir().unwrap();
+        let mut previous = Workspace::create(previous_dir.path()).unwrap();
+        let previous_id = previous.snapshot().unwrap().workspace_id;
+        let candidate = Workspace::create(candidate_dir.path()).unwrap();
+        fs::remove_dir_all(candidate_dir.path()).unwrap();
+        let runtime = WorkspaceRuntime::default();
+        *runtime.current.lock().unwrap() = Some(previous);
+        let called = std::cell::Cell::new(false);
+        assert!(replace_workspace_remembering(&runtime, candidate, || {
+            called.set(true);
+            Ok(())
+        })
+        .is_err());
+        assert!(!called.get());
+        assert_eq!(
+            runtime
+                .current
+                .lock()
+                .unwrap()
+                .as_mut()
+                .unwrap()
+                .snapshot()
+                .unwrap()
+                .workspace_id,
+            previous_id
+        );
+    }
 
     #[test]
     fn capture_note_creates_one_flat_note_with_exact_body() {

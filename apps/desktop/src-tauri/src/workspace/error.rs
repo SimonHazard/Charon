@@ -6,6 +6,8 @@ use ts_rs::TS;
 pub enum WorkspaceError {
     #[error("the Workspace path is invalid")]
     InvalidPath,
+    #[error("the chosen directory is not empty and is not a Workspace")]
+    DirectoryNotEmpty,
     #[error("the default Workspace location is unavailable")]
     DefaultLocationUnavailable,
     #[error("the Workspace manifest is invalid")]
@@ -63,6 +65,10 @@ impl From<WorkspaceError> for WorkspaceIpcError {
             WorkspaceError::InvalidPath => {
                 result.code = "invalid_path".to_owned();
                 result.message_key = "workspace_error_invalid_path".to_owned();
+            }
+            WorkspaceError::DirectoryNotEmpty => {
+                result.code = "directory_not_empty".to_owned();
+                result.message_key = "workspace_error_directory_not_empty".to_owned();
             }
             WorkspaceError::DefaultLocationUnavailable => {
                 result.code = "default_location_unavailable".to_owned();

@@ -13,7 +13,6 @@
       "!**/playwright-report",
       "!**/target",
       "!**/test-results",
-      "!**/.claude",
       "!apps/desktop/src/paraglide",
       "!apps/desktop/project.inlang/cache",
       "!apps/desktop/project.inlang/.meta.json",
