@@ -14,9 +14,11 @@ not send Notes, Tags, Attachments, searches, selected text, clipboard contents,
 filenames, paths, or usage events to the developer.
 
 The public site is static and uses no analytics, trackers, fingerprinting,
-cookies, forms, or behavioral pixels. Its footer contains ordinary links to
-`https://simonhazard.com/` and `https://ko-fi.com/simonhazard`; neither site is
-embedded or contacted until the visitor explicitly follows its link. Those
+cookies, forms, or behavioral pixels. It links to
+`https://github.com/SimonHazard/Charon/releases` for downloads, and its footer
+contains ordinary links to `https://simonhazard.com/` and
+`https://ko-fi.com/simonhazard`. None of these destinations is embedded or
+contacted until the visitor explicitly follows its link. Those
 destinations have their own hosting and privacy boundaries after navigation.
 
 The public site is hosted as ordinary static files on Cloudflare Workers Static

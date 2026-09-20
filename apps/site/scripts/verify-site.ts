@@ -37,7 +37,7 @@ for (const route of removedRoutes) {
     await access(new URL(route, root));
     failures.push(`obsolete route still emitted: ${route}`);
   } catch {
-    // The holding site intentionally emits no supporting content routes.
+    // The compact site intentionally emits no supporting content routes.
   }
 }
 
@@ -56,9 +56,9 @@ for (const banned of [
   'locale-link',
   'View source',
   'Voir le code source',
-  'View releases',
-  'Voir les versions',
-  'github.com/SimonHazard/Charon/releases',
+  '<script',
+  'Charon is taking shape. More soon.',
+  'Charon prend forme. La suite arrive bientôt.',
 ]) {
   if (homes.some((html) => html.includes(banned))) failures.push(`banned home claim: ${banned}`);
 }
@@ -84,6 +84,20 @@ for (const [href, label] of [
   }
 }
 for (const [index, html] of homes.entries()) {
+  const downloads =
+    html.match(/<a\b[^>]*href="https:\/\/github\.com\/SimonHazard\/Charon\/releases"[^>]*>/gu) ??
+    [];
+  if (downloads.length !== 1 || !downloads[0]?.includes('rel="noreferrer"')) {
+    failures.push(
+      `localized home ${index + 1} must link once to GitHub Releases without a referrer`,
+    );
+  }
+  if (!html.includes(index === 0 ? 'Early access coming soon' : 'L’early access arrive bientôt')) {
+    failures.push(`localized home ${index + 1} must disclose pending early access`);
+  }
+  if (html.includes('/releases/latest') || html.includes('/releases/download/')) {
+    failures.push(`localized home ${index + 1} points to an unpublished release asset`);
+  }
   const footer = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/u)?.[1] ?? '';
   if (footer.includes('Charon')) {
     failures.push(`localized home ${index + 1} keeps Charon footer text`);

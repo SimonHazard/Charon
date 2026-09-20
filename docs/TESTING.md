@@ -19,6 +19,11 @@ ceremony. The automatic release workflow keeps the deterministic checks that
 protect version consistency, compilation, updater signatures, privacy, data
 safety, and complete release assets.
 
+The release gate builds both apps before scanning their production output for
+privacy violations. Workflow regression tests reject a missing or late build
+and a macOS runner that does not match the Intel updater target. Quality runs
+these checks on each pull request before the release workflow can start.
+
 Quality runs for pull requests and remains manually dispatchable; Security
 remains manual. Protected `main` updates deploy the site and evaluate the
 desktop manifest version. A new consistent version starts the macOS, Linux, and

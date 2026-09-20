@@ -38,6 +38,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - run: bun install --frozen-lockfile
       - run: bun run lint
+      - run: bun run test:release
+      - run: bun run check:workflows
       - run: bun run --cwd apps/desktop typecheck
       - run: bun run --cwd apps/desktop test
       - run: bun run --cwd apps/desktop build

@@ -233,14 +233,14 @@ Restart waits until editor and composer drafts are safe.
 
 ### Public site
 
-Until the public product story is ready, a visitor sees a deliberately concise
-Charon holding page with the approved PNG icon, one vague statement, and a
-minimal footer linking to the operator's website and Ko-fi page. The footer does
-not repeat the Charon name. Detailed workflow, platform, privacy, changelog, and
-release claims remain in the repository contracts rather than public site
-routes for now. The static site performs no tracking and embeds no third-party
-content; its two external destinations are followed only after an explicit link
-activation.
+A visitor sees a concise early access page with the approved PNG icon, a short
+introduction to local Markdown capture, and one GitHub Releases download link.
+The first installers are explicitly described as forthcoming until publication.
+The minimal footer links to the operator's website and Ko-fi without repeating
+Charon. Detailed workflow, platform, privacy, and changelog claims remain in the
+repository contracts. The static site performs no tracking and embeds no
+third-party content; external destinations are followed only after explicit
+link activation.
 
 ## Non-goals
 

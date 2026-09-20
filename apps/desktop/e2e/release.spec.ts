@@ -469,12 +469,22 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
   await context.close();
 });
 
-test('site keeps only the truthful localized holding pages', async ({ page }) => {
+test('site keeps only the truthful localized early access pages', async ({ page }) => {
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Keep what matters.');
   await expect(page.locator('video, picture, [data-theme-control]')).toHaveCount(0);
+  await expect(page.getByText('Early access coming soon', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Downloads on GitHub' })).toHaveAttribute(
+    'href',
+    'https://github.com/SimonHazard/Charon/releases',
+  );
   await page.goto(`${site}fr/`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Gardez l’essentiel.');
+  await expect(page.getByText('L’early access arrive bientôt', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Téléchargements sur GitHub' })).toHaveAttribute(
+    'href',
+    'https://github.com/SimonHazard/Charon/releases',
+  );
   await page.goto(`${site}privacy/`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
   await page.goto(`${site}download/`);
@@ -483,6 +493,7 @@ test('site keeps only the truthful localized holding pages', async ({ page }) =>
 
 test('site is keyboard accessible, axe-clean and makes no third-party request', async ({
   page,
+  browserName,
 }) => {
   const externalRequests: string[] = [];
   page.on('request', (request) => {
@@ -497,6 +508,12 @@ test('site is keyboard accessible, axe-clean and makes no third-party request', 
   await page.goto(site);
   await page.getByText('Skip to content').focus();
   await expect(page.getByText('Skip to content')).toBeFocused();
+  // macOS WebKit uses Option+Tab to include links in keyboard navigation.
+  const nextLink = browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab';
+  await page.keyboard.press(nextLink);
+  await expect(page.getByRole('link', { name: 'Charon', exact: true })).toBeFocused();
+  await page.keyboard.press(nextLink);
+  await expect(page.getByRole('link', { name: 'Downloads on GitHub' })).toBeFocused();
   const results = await new AxeBuilder({ page }).analyze();
   expect(
     results.violations.filter((violation) =>
@@ -556,13 +573,21 @@ test('site content and capture relationship remain complete without JavaScript',
   const page = await context.newPage();
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.getByText('Charon is taking shape. More soon.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Early access coming soon', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Downloads on GitHub' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ko-fi' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'simonhazard.com' })).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-    ),
-  ).toBe(true);
+  for (const route of ['', 'fr/']) {
+    await page.goto(`${site}${route}`);
+    for (const width of [320, 390, 768, 1280, 1536]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect(page.locator('.primary-action')).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+    }
+  }
   await context.close();
 });
