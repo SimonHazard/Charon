@@ -1,6 +1,6 @@
 [package]
 name = "charon-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "Free local-first capture shelf for agent-ready Markdown"
 authors = ["Simon Hazard"]
 homepage = "https://github.com/SimonHazard/Charon"
