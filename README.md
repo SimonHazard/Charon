@@ -31,8 +31,8 @@ modifier-only sequence there.
 
 ## Download and updates
 
-The first public build has not been published yet. Once available, downloads
-will live in [GitHub Releases](https://github.com/SimonHazard/Charon/releases).
+Version 0.1.0 is available in early access for macOS, Windows, and Linux on
+[GitHub Releases](https://github.com/SimonHazard/Charon/releases).
 After a protected merge to `main`, one new consistent manifest version builds
 macOS, Linux, and Windows installers. The workflow creates its `vX.Y.Z` tag,
 publishes checksums, and exposes signed metadata to the integrated Tauri updater

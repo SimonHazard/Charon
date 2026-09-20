@@ -473,15 +473,19 @@ test('site keeps only the truthful localized early access pages', async ({ page 
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Keep what matters.');
   await expect(page.locator('video, picture, [data-theme-control]')).toHaveCount(0);
-  await expect(page.getByText('Early access coming soon', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Downloads on GitHub' })).toHaveAttribute(
+  await expect(
+    page.getByText('v0.1.0 is available in early access', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download Charon' })).toHaveAttribute(
     'href',
     'https://github.com/SimonHazard/Charon/releases',
   );
   await page.goto(`${site}fr/`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Gardez l’essentiel.');
-  await expect(page.getByText('L’early access arrive bientôt', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Téléchargements sur GitHub' })).toHaveAttribute(
+  await expect(
+    page.getByText('La v0.1.0 est disponible en accès anticipé', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Télécharger Charon' })).toHaveAttribute(
     'href',
     'https://github.com/SimonHazard/Charon/releases',
   );
@@ -513,7 +517,7 @@ test('site is keyboard accessible, axe-clean and makes no third-party request', 
   await page.keyboard.press(nextLink);
   await expect(page.getByRole('link', { name: 'Charon', exact: true })).toBeFocused();
   await page.keyboard.press(nextLink);
-  await expect(page.getByRole('link', { name: 'Downloads on GitHub' })).toBeFocused();
+  await expect(page.getByRole('link', { name: 'Download Charon' })).toBeFocused();
   const results = await new AxeBuilder({ page }).analyze();
   expect(
     results.violations.filter((violation) =>
@@ -573,8 +577,10 @@ test('site content and capture relationship remain complete without JavaScript',
   const page = await context.newPage();
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.getByText('Early access coming soon', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Downloads on GitHub' })).toBeVisible();
+  await expect(
+    page.getByText('v0.1.0 is available in early access', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download Charon' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ko-fi' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'simonhazard.com' })).toBeVisible();
   for (const route of ['', 'fr/']) {

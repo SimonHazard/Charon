@@ -59,6 +59,10 @@ for (const banned of [
   '<script',
   'Charon is taking shape. More soon.',
   'Charon prend forme. La suite arrive bientôt.',
+  'Early access coming soon',
+  'L’early access arrive bientôt',
+  'will be published',
+  'seront publiés',
 ]) {
   if (homes.some((html) => html.includes(banned))) failures.push(`banned home claim: ${banned}`);
 }
@@ -92,11 +96,17 @@ for (const [index, html] of homes.entries()) {
       `localized home ${index + 1} must link once to GitHub Releases without a referrer`,
     );
   }
-  if (!html.includes(index === 0 ? 'Early access coming soon' : 'L’early access arrive bientôt')) {
-    failures.push(`localized home ${index + 1} must disclose pending early access`);
+  if (
+    !html.includes(
+      index === 0
+        ? 'v0.1.0 is available in early access'
+        : 'La v0.1.0 est disponible en accès anticipé',
+    )
+  ) {
+    failures.push(`localized home ${index + 1} must announce the published early access version`);
   }
   if (html.includes('/releases/latest') || html.includes('/releases/download/')) {
-    failures.push(`localized home ${index + 1} points to an unpublished release asset`);
+    failures.push(`localized home ${index + 1} must keep the GitHub Releases listing destination`);
   }
   const footer = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/u)?.[1] ?? '';
   if (footer.includes('Charon')) {

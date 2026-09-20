@@ -235,7 +235,7 @@ Restart waits until editor and composer drafts are safe.
 
 A visitor sees a concise early access page with the approved PNG icon, a short
 introduction to local Markdown capture, and one GitHub Releases download link.
-The first installers are explicitly described as forthcoming until publication.
+The page announces the published v0.1.0 early access for macOS, Windows, and Linux.
 The minimal footer links to the operator's website and Ko-fi without repeating
 Charon. Detailed workflow, platform, privacy, and changelog claims remain in the
 repository contracts. The static site performs no tracking and embeds no
