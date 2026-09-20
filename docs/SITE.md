@@ -5,9 +5,10 @@ preserving ADR 0004's static-site and cross-application boundaries.
 
 ## Current public direction
 
-The public home prepares the first early access with a concise product
-introduction and one ordinary link to GitHub Releases. The initial release is
-not published yet, so both languages explicitly say it is coming soon.
+The public home announces v0.1.0 early access with a concise product
+introduction and one ordinary link to GitHub Releases. The initial release was
+published on 2026-09-20 with macOS, Windows, and Linux installers; both languages
+state its availability and refer to the release notes for installation instructions.
 
 The operator requested this evolution on 2026-09-19. It preserves the quiet
 visual direction, approved icon assets, and static privacy boundary.
@@ -19,11 +20,11 @@ The English `/` and French `/fr/` pages contain only:
 1. one compact header with the official Lavender Charon PNG icon and the name
    `Charon`;
 2. one short headline and a description of local Markdown capture for AI context;
-3. a pending early access status and one primary download destination linking
+3. the published early access version and one primary download destination linking
    to `https://github.com/SimonHazard/Charon/releases`;
-4. short copy explaining that the first macOS, Windows, and Linux installers
-   will appear there, and that this is an experimental personal project with
-   installation instructions accompanying each release;
+4. short copy explaining that macOS, Windows, and Linux installers are
+   available there, and that this is an experimental personal project with
+   installation instructions in the release notes;
 5. one minimal footer with `Ko-fi` linking to
    `https://ko-fi.com/simonhazard` and `simonhazard.com` linking to
    `https://simonhazard.com/`.
@@ -31,8 +32,8 @@ The English `/` and French `/fr/` pages contain only:
 The footer does not repeat `Charon`. The download destination is the release
 listing, which exists before the first release and remains useful afterwards.
 Do not invent installer filenames, publish a dead version-specific link, or
-claim a build is available before publication. After the first release exists,
-update the localized pending copy and its verification assertions together.
+claim a build is available before publication. When the announced version changes,
+update the localized copy and its verification assertions together.
 
 There is no product navigation, language switch, theme control, source link,
 product screenshot, video, feature section, platform table, privacy proof,
@@ -90,8 +91,7 @@ card.
 
 Both localized home routes keep verified canonical URLs and reciprocal
 `hreflang` links, including `x-default`. Sitemap and robots files remain
-generated. Structured application data is omitted while the public homepage
-does not yet announce a published release.
+generated. Structured application data remains omitted from this compact page.
 
 ## Privacy and outbound links
 
@@ -139,7 +139,7 @@ Before publication:
 - build all localized routes and validate canonical and `hreflang` metadata;
 - verify both homes contain no media, video, secondary navigation, theme or
   language control, source link, or additional content section; verify one
-  GitHub Releases action and honest pending early access copy in both languages;
+  GitHub Releases action and the published early access version in both languages;
 - verify the footer contains only the exact Ko-fi and personal-site links and
   does not repeat `Charon`;
 - verify privacy, release/download, and changelog routes are absent in both
