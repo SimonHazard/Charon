@@ -1,6 +1,5 @@
 import { IconHelp } from '@tabler/icons-react';
 import { m as motion } from 'motion/react';
-
 import { useMessages } from '@/app/providers';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +11,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { MarkdownHelp } from '@/features/notes/markdown-help';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { PreferencesPanel } from '@/features/preferences/preferences-panel';
 import { usePressFeedback } from '@/motion/press';
@@ -74,6 +74,7 @@ export function ShelfActions() {
               </span>
             </PopoverDescription>
           </PopoverHeader>
+          <MarkdownHelp />
         </PopoverContent>
       </Popover>
       <PreferencesPanel />

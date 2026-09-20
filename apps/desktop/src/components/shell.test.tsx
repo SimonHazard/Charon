@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -83,6 +83,23 @@ describe('single shelf shell', () => {
     expect(screen.getByText('Shift Shift').tagName).toBe('KBD');
     expect(screen.getByText('⌘ + Shift + Space').tagName).toBe('KBD');
     expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('uses the native Windows title bar without reserving a second drag region', async () => {
+    const native = platformClients('windows');
+    render(
+      <AppProviders {...native}>
+        <AppShell>
+          <p>content</p>
+        </AppShell>
+      </AppProviders>,
+    );
+    await waitFor(() =>
+      expect(document.querySelector('.desktop-shell')?.hasAttribute('data-native-titlebar')).toBe(
+        true,
+      ),
+    );
+    expect(document.querySelector('.window-drag-region')).toBeNull();
   });
 
   it('shows the portable fallback and Ctrl shortcut on Windows', async () => {

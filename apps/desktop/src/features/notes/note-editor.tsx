@@ -12,7 +12,6 @@ import {
   useRef,
   useState,
 } from 'react';
-
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
 import {
@@ -38,6 +37,7 @@ import {
   draftReducer,
   hasUnsavedDraft,
 } from '@/features/notes/draft-controller';
+import { MarkdownHelp } from '@/features/notes/markdown-help';
 import { NotePreview } from '@/features/notes/note-preview';
 import { isTauriRuntime } from '@/lib/platform';
 import { surfaceCollapsedScale, surfaceTransition, useKeyboardMotion } from '@/motion/system';
@@ -347,6 +347,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
             <TabsTrigger value="write">{m.note_editor_write()}</TabsTrigger>
             <TabsTrigger value="preview">{m.note_editor_preview()}</TabsTrigger>
           </TabsList>
+          <MarkdownHelp compact />
           <span aria-live="polite" className="note-save-state">
             {saveState}
           </span>

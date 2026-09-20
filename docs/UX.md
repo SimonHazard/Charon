@@ -48,9 +48,10 @@ uses a 720px-wide native window so the effective content width remains at least
 
 The shelf column is at most `34rem`/544px and stays centered in wider restored
 windows rather than stretching Notes across spare canvas. A minimal native drag
-region sits above search; Help and Preferences trail the search input inside the
-same surface. One virtualized stack of bounded vertical Note surfaces fills the
-available middle region. The solid composer remains anchored and visible at the
+region sits above search on macOS/Linux; Windows uses its native title bar
+without an additional webview drag strip. Help and Preferences trail the search
+input inside the same surface. One virtualized stack of bounded vertical Note
+surfaces fills the available middle region. The solid composer remains anchored and visible at the
 bottom.
 
 ```text
@@ -99,10 +100,10 @@ The top chrome remains compact at large text sizes. At narrow desktop widths,
 secondary Tag metadata collapses before title, preview, status, row actions,
 search, errors, or the composer become unusable. French strings wrap or compact
 without clipping or horizontal scrolling. Preferences is a focused transient surface
-containing the active Notes folder, an explicit validated chooser, theme and
-language choices, capture permission state, and the disclosed default-off update
-setting; it is not a product
-destination.
+containing the active Notes folder, an explicit validated chooser, compact
+sun/moon appearance buttons with localized accessible names and Tooltips, a
+native language select (English/Français), capture permission state, and the
+disclosed default-off update setting; it is not a product destination.
 
 ## Compact feature map
 
@@ -179,6 +180,17 @@ expanded Note. Keyboard focus keeps its own visible ring in every theme and is
 never communicated by color alone. A plain click on the main surface expands
 the Note; modifier clicks do not create a secondary interaction mode.
 
+### Choosing a Notes folder
+
+The explicit chooser opens an existing valid Workspace or creates one in an
+empty directory. A nonempty unrelated directory is rejected without changes.
+Switching never moves the previous Notes. The candidate is validated and the
+choice remembered before replacing the active Workspace; failure preserves the
+previous active space. A folder error remains inside Preferences until a
+successful switch or explicit dismissal, including across typing, autosave,
+refresh, chooser cancellation, and closing/reopening Preferences. Without an
+active Workspace, the same failure remains actionable in the startup surface.
+
 ## Composer
 
 The solid bottom composer is always visible, accepts a short Markdown body,
@@ -202,8 +214,12 @@ the focused Note. Shared layout begins at the row's current on-screen position.
 The editor extends the same bounded surface with no nested left rail or
 decorative accent bar. A segmented Write/Preview control offers autosaving
 Markdown, draft preservation, Tag editing, Attachment list/import/removal,
-status, and close. Safe Preview never executes
-embedded content or arbitrary Attachment formats.
+status, and close. Safe Preview uses TanStack Markdown for headings, emphasis,
+strikethrough, lists, read-only tasks, quotes, code, and tables. Raw HTML stays disabled;
+links show their destination as inert text and images show only alternative
+text, without resource requests or Attachment reads. Markdown help beside
+Write/Preview and in general Help shows localized syntax examples without
+changing the draft. Escape closes help first and restores its trigger focus.
 
 Tags preserve first-entered spelling and order while preventing
 case-insensitive duplicates. Editing is inline and has no separate management
@@ -316,6 +332,11 @@ animation, fixed gesture timelines, and animation input locks. The virtual
 `<li>` remains the sole owner of Y translation; any row/editor motion belongs
 to its nested surface. Virtualization keeps a stable visual placeholder while
 the expanded surface owns focus.
+
+Preferences and Markdown help use fully opaque semantic surfaces in both themes.
+The Note list and confirmation dialogs reserve no empty scrollbar gutter.
+Dialog content and footer own their spacing; the footer spans the entire inner
+width even with classic Windows scrollbars.
 
 Only transform and opacity animate. Translucency is limited to transient
 Popovers, menus, Tooltips, dialogs, and toasts where it communicates hierarchy,

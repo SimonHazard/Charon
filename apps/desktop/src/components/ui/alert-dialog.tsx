@@ -31,7 +31,7 @@ function AlertDialogContent({ className, ...props }: AlertDialogPrimitive.Popup.
       <AlertDialogPrimitive.Popup
         data-slot="alert-dialog-content"
         className={cn(
-          'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-1rem)] w-[min(24rem,calc(100vw-1rem))] max-w-none -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] rounded-xl bg-popover p-4 text-popover-foreground opacity-100 ring-1 ring-foreground/10 outline-none transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] [transition-timing-function:var(--motion-easing-transient)] data-starting-style:transform-[scale(var(--motion-transient-scale))] data-starting-style:opacity-0 data-ending-style:transform-[scale(var(--motion-transient-scale))] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity',
+          'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid max-h-[calc(100dvh-1rem)] w-[min(24rem,calc(100vw-1rem))] max-w-none -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-xl bg-popover pt-4 text-popover-foreground [&>*:not([data-slot=alert-dialog-footer])]:mx-4 opacity-100 ring-1 ring-foreground/10 outline-none transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] [transition-timing-function:var(--motion-easing-transient)] data-starting-style:transform-[scale(var(--motion-transient-scale))] data-starting-style:opacity-0 data-ending-style:transform-[scale(var(--motion-transient-scale))] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity',
           className,
         )}
         {...props}
@@ -55,7 +55,7 @@ function AlertDialogFooter({ className, ...props }: React.ComponentProps<'div'>)
     <div
       data-slot="alert-dialog-footer"
       className={cn(
-        '-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
+        'flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end',
         className,
       )}
       {...props}
