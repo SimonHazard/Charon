@@ -635,12 +635,20 @@ test('Windows shelf aligns rows and native title bar; solid Preferences and full
   await expect(page.locator('.preferences-popover')).toBeHidden();
   await page.getByRole('button', { name: 'Delete Agent handoff', exact: true }).click();
   const dialog = page.getByRole('alertdialog');
-  const footer = dialog.locator('[data-slot="alert-dialog-footer"]');
-  const outer = await dialog.boundingBox();
-  const inner = await footer.boundingBox();
-  expect(Math.abs((outer?.width ?? 0) - (inner?.width ?? 0))).toBeLessThan(1);
-  expect(Math.abs((outer?.x ?? 0) - (inner?.x ?? 0))).toBeLessThan(1);
   await expect(dialog).toHaveCSS('opacity', '1');
+  // Measure both boxes in one frame so the opening transform cannot skew the comparison.
+  const geometry = await dialog.evaluate((element) => {
+    const footer = element.querySelector('[data-slot="alert-dialog-footer"]');
+    if (!footer) throw new Error('Delete dialog footer is missing');
+    const outer = element.getBoundingClientRect();
+    const inner = footer.getBoundingClientRect();
+    return {
+      widthDifference: Math.abs(outer.width - inner.width),
+      xDifference: Math.abs(outer.x - inner.x),
+    };
+  });
+  expect(geometry.widthDifference).toBeLessThan(1);
+  expect(geometry.xDifference).toBeLessThan(1);
   await page.screenshot({ path: testInfo.outputPath('charon-delete.png') });
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.goto(`${desktop}&notes=100`);
