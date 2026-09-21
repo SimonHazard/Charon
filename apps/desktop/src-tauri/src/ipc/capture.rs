@@ -5,7 +5,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_global_shortcut::GlobalShortcutExt;
+use tauri_plugin_global_shortcut::GlobalShortcut;
 
 use crate::capture::platform;
 use crate::capture::{
@@ -107,21 +107,45 @@ impl Drop for CaptureWorker {
 
 struct TauriShortcutPort {
     app: AppHandle,
+    #[cfg(target_os = "linux")]
+    portal: Option<platform::linux::portal::PortalShortcut>,
 }
 
 impl ShortcutPort for TauriShortcutPort {
     fn register(&mut self, shortcut: &str) -> Result<(), CaptureError> {
+        #[cfg(target_os = "linux")]
+        if platform::linux::is_wayland() {
+            let app = self.app.clone();
+            self.portal = Some(platform::linux::portal::PortalShortcut::start(Arc::new(
+                move || handle_global_shortcut(&app),
+            ))?);
+            return Ok(());
+        }
         self.app
-            .global_shortcut()
+            .try_state::<GlobalShortcut<tauri::Wry>>()
+            .ok_or(CaptureError::ShortcutRegistration)?
             .register(shortcut)
             .map_err(|_| CaptureError::ShortcutRegistration)
     }
 
     fn unregister(&mut self, shortcut: &str) -> Result<(), CaptureError> {
+        #[cfg(target_os = "linux")]
+        if platform::linux::is_wayland() {
+            self.portal.take();
+            return Ok(());
+        }
         self.app
-            .global_shortcut()
+            .try_state::<GlobalShortcut<tauri::Wry>>()
+            .ok_or(CaptureError::ShortcutUnregistration)?
             .unregister(shortcut)
             .map_err(|_| CaptureError::ShortcutUnregistration)
+    }
+    fn current_state(&self) -> Option<(crate::capture::CapabilityState, String)> {
+        #[cfg(target_os = "linux")]
+        if let Some(portal) = &self.portal {
+            return Some(portal.state());
+        }
+        None
     }
 }
 
@@ -140,7 +164,11 @@ pub fn initialize(app: &AppHandle) -> Result<(), CaptureError> {
     });
     let platform = platform::create(callback);
     *current = Some(CaptureCoordinator::new(
-        Box::new(TauriShortcutPort { app: app.clone() }),
+        Box::new(TauriShortcutPort {
+            app: app.clone(),
+            #[cfg(target_os = "linux")]
+            portal: None,
+        }),
         platform,
     ));
 

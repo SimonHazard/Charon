@@ -493,8 +493,10 @@ checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 name = "charon-desktop"
 version = "0.1.1"
 dependencies = [
+ "async-io",
  "core-foundation 0.10.1",
  "core-graphics",
+ "futures-lite",
  "notify",
  "objc2",
  "objc2-app-kit",
@@ -514,6 +516,9 @@ dependencies = [
  "thiserror 2.0.19",
  "ts-rs",
  "uuid",
+ "windows",
+ "x11rb",
+ "zbus",
 ]
 
 [[package]]

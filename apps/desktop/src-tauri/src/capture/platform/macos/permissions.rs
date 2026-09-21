@@ -10,10 +10,16 @@ unsafe extern "C" {
     fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> u8;
 }
 
-#[link(name = "CoreGraphics", kind = "framework")]
+type IOHIDRequestType = i32;
+type IOHIDAccessType = i32;
+
+const IOHID_REQUEST_TYPE_LISTEN_EVENT: IOHIDRequestType = 1;
+const IOHID_ACCESS_TYPE_GRANTED: IOHIDAccessType = 0;
+
+#[link(name = "IOKit", kind = "framework")]
 unsafe extern "C" {
-    fn CGPreflightListenEventAccess() -> bool;
-    fn CGRequestListenEventAccess() -> bool;
+    fn IOHIDCheckAccess(request_type: IOHIDRequestType) -> IOHIDAccessType;
+    fn IOHIDRequestAccess(request_type: IOHIDRequestType) -> bool;
 }
 
 pub(super) fn accessibility_trusted() -> bool {
@@ -22,16 +28,19 @@ pub(super) fn accessibility_trusted() -> bool {
 }
 
 pub(super) fn can_listen_to_input() -> bool {
-    // SAFETY: the public preflight API has no arguments and only reads TCC state.
-    unsafe { CGPreflightListenEventAccess() }
+    // SAFETY: the public IOKit preflight API only reads TCC state for the
+    // supplied request type. Unlike CGPreflightListenEventAccess, this does
+    // not conflate a separate Accessibility grant with Input Monitoring.
+    input_monitoring_granted(unsafe { IOHIDCheckAccess(IOHID_REQUEST_TYPE_LISTEN_EVENT) })
 }
 
 pub(super) fn request(permission: CapturePermissionKind) {
     match permission {
         CapturePermissionKind::InputMonitoring => {
-            // SAFETY: the public Core Graphics request API delegates the consent
-            // flow to TCC. Capability state is re-preflighted after the call.
-            let _ = unsafe { CGRequestListenEventAccess() };
+            // SAFETY: the public IOKit request API delegates the consent flow
+            // to TCC and registers the app in Input Monitoring. Capability
+            // state is re-preflighted after the call.
+            let _ = unsafe { IOHIDRequestAccess(IOHID_REQUEST_TYPE_LISTEN_EVENT) };
         }
         CapturePermissionKind::Accessibility => {
             let prompt_key = CFString::new("AXTrustedCheckOptionPrompt");
@@ -40,5 +49,25 @@ pub(super) fn request(permission: CapturePermissionKind) {
             // SAFETY: the dictionary uses the public prompt option and remains alive for the call.
             let _ = unsafe { AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef()) };
         }
+    }
+}
+
+fn input_monitoring_granted(access: IOHIDAccessType) -> bool {
+    access == IOHID_ACCESS_TYPE_GRANTED
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        input_monitoring_granted, IOHIDRequestType, IOHID_ACCESS_TYPE_GRANTED,
+        IOHID_REQUEST_TYPE_LISTEN_EVENT,
+    };
+
+    #[test]
+    fn input_monitoring_requires_the_explicit_hid_grant() {
+        assert_eq!(IOHID_REQUEST_TYPE_LISTEN_EVENT, 1 as IOHIDRequestType);
+        assert!(input_monitoring_granted(IOHID_ACCESS_TYPE_GRANTED));
+        assert!(!input_monitoring_granted(1));
+        assert!(!input_monitoring_granted(2));
     }
 }
