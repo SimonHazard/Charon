@@ -20,15 +20,16 @@ protect version consistency, compilation, updater signatures, privacy, data
 safety, and complete release assets.
 
 The release gate builds both apps before scanning their production output for
-privacy violations. Workflow regression tests reject a missing or late build
-and a macOS runner that does not match the Intel updater target. Quality runs
+privacy violations. Workflow regression tests reject a missing or late build,
+a non-Apple-Silicon macOS runner, and a macOS artifact that does not match the
+arm64 updater target. Quality runs
 these checks on each pull request before the release workflow can start.
 
 Quality runs for pull requests and remains manually dispatchable; Security
 remains manual. Protected `main` updates deploy the site and evaluate the
-desktop manifest version. A new consistent version starts the macOS, Linux, and
-Windows release matrix, while an already-published version exits without
-rebuilding. Separate portability and unsigned review-build workflows would
+desktop manifest version. A new consistent version starts the Apple Silicon
+macOS, Linux, and Windows release matrix, while an already-published version
+exits without rebuilding. Separate portability and unsigned review-build workflows would
 duplicate the most expensive jobs without strengthening the release boundary.
 
 Use Quality once when a release candidate needs GitHub-hosted confirmation. Use

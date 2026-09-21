@@ -12,8 +12,8 @@ type PlatformSpec = {
 
 const platforms: PlatformSpec[] = [
   {
-    directory: 'macos-x86_64',
-    key: 'darwin-x86_64',
+    directory: 'macos-aarch64',
+    key: 'darwin-aarch64',
     installer: [/\.dmg$/u],
     updater: /\.app\.tar\.gz$/u,
     signature: /\.app\.tar\.gz\.sig$/u,

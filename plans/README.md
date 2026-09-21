@@ -6,9 +6,10 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 
 ## Current direction
 
-- A protected merge to `main` automatically builds and publishes macOS, Linux,
-  and Windows Tauri releases only when the four manifests contain one new
-  consistent version. The workflow creates the matching `vX.Y.Z` tag after
+- A protected merge to `main` automatically builds and publishes Apple Silicon
+  macOS, Linux, and Windows Tauri releases only when the four manifests contain
+  one new consistent version. The workflow creates the matching `vX.Y.Z` tag
+  after
   every platform succeeds.
 - The signed in-app updater uses public GitHub Release assets. Checks are
   default-off until enabled; install and restart remain explicit and draft-safe.

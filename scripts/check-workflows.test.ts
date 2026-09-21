@@ -51,9 +51,9 @@ describe('release workflow regression checks', () => {
     expect(result.stderr).toContain('gate must build both apps before the privacy scan');
   });
 
-  test('rejects a generic macOS runner for Intel updater artifacts', async () => {
-    const result = await check(originalRelease.replace('os: macos-15-intel', 'os: macos-15'));
+  test('rejects an Intel macOS runner for Apple Silicon updater artifacts', async () => {
+    const result = await check(originalRelease.replace('os: macos-15', 'os: macos-15-intel'));
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain('missing release contract os: macos-15-intel');
+    expect(result.stderr).toContain('missing release contract os: macos-15');
   });
 });

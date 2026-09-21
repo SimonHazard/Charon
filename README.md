@@ -47,6 +47,8 @@ in Preferences, review an available version, and explicitly install it. The
 applications remain unsigned by paid platform certificates:
 
 - macOS may require Privacy & Security, Open Anyway, or Control-click, Open;
+- Future macOS releases target Apple Silicon (`arm64`) and do not support Intel
+  Macs;
 - macOS may ask for Input Monitoring and Accessibility again after an update;
 - Windows may show SmartScreen and require More info, Run anyway.
 

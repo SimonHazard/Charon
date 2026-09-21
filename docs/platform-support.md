@@ -8,7 +8,7 @@ matrices are optional troubleshooting tools rather than release gates.
 
 | Platform | Composer | Double Shift | Selected-text capture | Status |
 | --- | --- | --- | --- | --- |
-| macOS 14+ | visible composer; `Cmd+Shift+Space` fallback | implemented | public Accessibility ladder, then ADR 0010 bounded Copy | implemented; unsigned releases require first-launch bypass and permission regrant |
+| macOS 14+ on Apple Silicon (`arm64`) | visible composer; `Cmd+Shift+Space` fallback | implemented | public Accessibility ladder, then ADR 0010 bounded Copy | implemented; unsigned releases require first-launch bypass and permission regrant |
 | Windows | visible composer; `Alt+Shift+Space` | implemented | focused UI Automation selection only | experimental; no UIAccess, elevation, or synthetic Copy |
 | Linux X11 | visible composer; `Alt+Shift+Space` | implemented with XI2 | focused AT-SPI, then bounded PRIMARY | experimental; local X11 only |
 | Linux Wayland | visible composer; portal shortcut, `Alt+Shift+Space` requested | unavailable by design | no double-Shift acquisition | composer fallback only; portal availability depends on the desktop |
@@ -18,6 +18,10 @@ Workspace persistence, path containment, managed Attachment storage, and
 agnostic. Build portability does not imply native capture support.
 
 ## macOS evidence and limits
+
+The next published macOS installers target Apple Silicon (`arm64`) only. Intel
+Macs are outside the supported release target and do not receive a macOS updater
+artifact. macOS 14 remains the minimum supported operating-system version.
 
 Development testing established the following behavior on the macOS adapter:
 

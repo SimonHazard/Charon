@@ -7,7 +7,7 @@ This is a short operator reminder, not a certification matrix.
 - [ ] Release notes describe only behavior that actually ships.
 - [ ] The repository is public before the first updater-enabled release.
 - [ ] The `release` environment contains the backed-up updater private key.
-- [ ] macOS, Linux, and Windows build jobs all succeed.
+- [ ] Apple Silicon macOS, Linux, and Windows build jobs all succeed.
 - [ ] The final job finds every expected installer, updater bundle, and `.sig`.
 - [ ] The final job creates `vX.Y.Z` on the merged `main` commit only after all
       release assets are complete.

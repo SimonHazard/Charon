@@ -61,6 +61,9 @@ available in Git history; active work lives only in `plans/`.
   Security, and site deployment remain explicit operator tools.
 - On 2026-09-06, the operator replaced the source-visible, no-reuse terms with
   the standard MIT License before making the repository public.
+- On 2026-09-21, ADR 0017 moved published macOS distribution from Intel to
+  native Apple Silicon (`arm64`) artifacts. macOS 14 remains the minimum OS;
+  Intel and universal macOS artifacts are intentionally not published.
 
 ## Experimental cross-platform capture and control polish (2026-09-21)
 

@@ -100,8 +100,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-15-intel
-            artifact: macos-x86_64
+          - os: macos-15
+            artifact: macos-aarch64
             bundles: app,dmg
             paths: |
               apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
@@ -146,6 +146,9 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
       - run: bun install --frozen-lockfile
+      - name: Assert Apple Silicon runner
+        if: runner.os == 'macOS'
+        run: test "$(uname -m)" = "arm64"
       - name: Build installers and signed updater artifacts
         shell: bash
         env:
