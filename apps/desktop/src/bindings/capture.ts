@@ -1,6 +1,6 @@
 // Generated from Rust by `bun run bindings:generate`. Do not edit.
 
-export type CapabilityState = 'available' | 'denied' | 'unsupported' | 'error';
+export type CapabilityState = 'available' | 'experimental' | 'denied' | 'unsupported' | 'error';
 
 export type PlatformKind = 'macos' | 'linuxX11' | 'linuxWayland' | 'windows' | 'unknown';
 

@@ -40,6 +40,7 @@ impl ShortcutPort for FakeShortcut {
 }
 
 struct FakePlatformState {
+    platform: PlatformKind,
     double_shift: CapabilityState,
     selected_text: CapabilityState,
     selected: Result<Option<String>, CaptureError>,
@@ -47,6 +48,7 @@ struct FakePlatformState {
     grant_input_on_request: bool,
     grant_accessibility_on_request: bool,
     starts: usize,
+    fail_listener: bool,
     reads: usize,
     resets: usize,
     shutdowns: usize,
@@ -56,7 +58,7 @@ struct FakePlatform(Arc<Mutex<FakePlatformState>>);
 
 impl PlatformCapturePort for FakePlatform {
     fn platform(&self) -> PlatformKind {
-        PlatformKind::Macos
+        self.0.lock().expect("platform state").platform
     }
 
     fn input_monitoring_state(&self) -> CapabilityState {
@@ -68,8 +70,13 @@ impl PlatformCapturePort for FakePlatform {
     }
 
     fn start(&mut self) -> Result<(), CaptureError> {
-        self.0.lock().expect("platform state").starts += 1;
-        Ok(())
+        let mut state = self.0.lock().expect("platform state");
+        state.starts += 1;
+        if state.fail_listener {
+            Err(CaptureError::ListenerUnavailable)
+        } else {
+            Ok(())
+        }
     }
 
     fn request_permission(
@@ -122,9 +129,19 @@ fn coordinator(
     selected_text: CapabilityState,
     selected: Result<Option<&str>, CaptureError>,
 ) -> CoordinatorFixture {
+    coordinator_on(PlatformKind::Macos, double_shift, selected_text, selected)
+}
+
+fn coordinator_on(
+    kind: PlatformKind,
+    double_shift: CapabilityState,
+    selected_text: CapabilityState,
+    selected: Result<Option<&str>, CaptureError>,
+) -> CoordinatorFixture {
     let shortcuts = Arc::new(Mutex::new(ShortcutState::default()));
     let selected = selected.map(|value| value.map(str::to_owned));
     let platform = Arc::new(Mutex::new(FakePlatformState {
+        platform: kind,
         double_shift,
         selected_text,
         selected,
@@ -132,6 +149,7 @@ fn coordinator(
         grant_input_on_request: false,
         grant_accessibility_on_request: false,
         starts: 0,
+        fail_listener: false,
         reads: 0,
         resets: 0,
         shutdowns: 0,
@@ -393,4 +411,77 @@ fn export_capture_bindings() {
         bindings.push_str("\n\n");
     }
     fs::write(Path::new(&output), bindings).expect("write TypeScript bindings");
+}
+
+#[test]
+fn experimental_adapters_capture_and_register_alt_without_duplicate_listeners() {
+    for platform in [PlatformKind::Windows, PlatformKind::LinuxX11] {
+        let (mut coordinator, shortcuts, native) = coordinator_on(
+            platform,
+            CapabilityState::Experimental,
+            CapabilityState::Experimental,
+            Ok(Some("exact selection")),
+        );
+        assert!(shortcuts.lock().unwrap().active.contains("Alt+Shift+Space"));
+        assert_eq!(
+            coordinator.capabilities().double_shift,
+            CapabilityState::Experimental
+        );
+        assert!(
+            matches!(coordinator.trigger(CaptureTrigger::DoubleShiftCapture, 1_000).unwrap(), Some(CaptureAction::CreateNote { body, .. }) if body == "exact selection")
+        );
+        assert!(coordinator
+            .trigger(CaptureTrigger::DoubleShiftCapture, 1_050)
+            .unwrap()
+            .is_none());
+        coordinator.refresh_capabilities().unwrap();
+        assert_eq!(native.lock().unwrap().starts, 1);
+        assert!(matches!(
+            coordinator
+                .trigger(CaptureTrigger::StandardShortcut, 2_000)
+                .unwrap(),
+            Some(CaptureAction::FocusComposer { .. })
+        ));
+        coordinator.shutdown();
+        assert!(shortcuts.lock().unwrap().active.is_empty());
+    }
+}
+
+#[test]
+fn wayland_never_starts_modifier_listener_or_reads_selection() {
+    let (mut coordinator, shortcuts, native) = coordinator_on(
+        PlatformKind::LinuxWayland,
+        CapabilityState::Unsupported,
+        CapabilityState::Unsupported,
+        Ok(Some("must not read")),
+    );
+    assert!(shortcuts.lock().unwrap().active.contains("Alt+Shift+Space"));
+    assert!(coordinator
+        .trigger(CaptureTrigger::DoubleShiftCapture, 1_000)
+        .unwrap()
+        .is_none());
+    let native = native.lock().unwrap();
+    assert_eq!(native.starts, 0);
+    assert_eq!(native.reads, 0);
+}
+
+#[test]
+fn failed_listener_is_not_retried_or_readvertised_on_ordinary_refresh() {
+    let (mut coordinator, _, native) = coordinator(
+        CapabilityState::Denied,
+        CapabilityState::Experimental,
+        Ok(None),
+    );
+    {
+        let mut native = native.lock().unwrap();
+        native.double_shift = CapabilityState::Experimental;
+        native.fail_listener = true;
+    }
+    for _ in 0..3 {
+        assert_eq!(
+            coordinator.refresh_capabilities().unwrap().double_shift,
+            CapabilityState::Error
+        );
+    }
+    assert_eq!(native.lock().unwrap().starts, 1);
 }

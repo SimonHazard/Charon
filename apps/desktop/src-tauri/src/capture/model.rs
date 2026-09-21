@@ -6,9 +6,16 @@ use ts_rs::TS;
 #[ts(rename_all = "camelCase")]
 pub enum CapabilityState {
     Available,
+    Experimental,
     Denied,
     Unsupported,
     Error,
+}
+
+impl CapabilityState {
+    pub fn usable(self) -> bool {
+        matches!(self, Self::Available | Self::Experimental)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
