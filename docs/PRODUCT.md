@@ -21,7 +21,7 @@ durable Note visible to users, editors, backup tools, and local agents.
 ## Jobs
 
 - Capture non-empty selected text without showing Charon or taking source focus
-  on a proved macOS adapter.
+  on macOS and experimental Windows/X11 adapters where the source exposes a readable selection.
 - Create a Note manually from an always-visible bottom composer on every
   platform.
 - Search Markdown bodies and Tags across one unified result where completed

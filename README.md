@@ -15,7 +15,7 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
 
 - One compact shelf for open and completed Notes.
 - Fast manual capture from the always-visible composer.
-- Passive double-Shift selected-text capture on macOS.
+- Passive double-Shift selected-text capture on macOS, with experimental Windows and Linux X11 adapters.
 - Search across Markdown, Tags, and managed Attachment names.
 - Markdown editing and preview, up to 16 Tags and 20 managed Attachments per
   Note.
@@ -24,10 +24,13 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
 - Explicit, confirmed permanent deletion with bounded recovery behavior.
 - English and French UI, with Light and Graphite appearances.
 
-Windows and Linux selected-text adapters are on the active roadmap. Windows and
-X11 target double Shift; Wayland uses `Alt+Shift+Space` to reveal and focus the
-composer because ordinary applications cannot observe a portable global
-modifier-only sequence there.
+Windows uses UI Automation; X11 uses AT-SPI then a bounded PRIMARY request.
+These adapters preserve focus and never synthesize Copy. Application coverage
+is experimental. Wayland uses `Alt+Shift+Space` to reveal and focus the
+composer through the GlobalShortcuts portal because ordinary applications cannot
+observe a portable global modifier-only sequence there. The desktop may assign a
+different key combination; Charon displays that assignment. Portal absence or
+refusal leaves the visible composer available.
 
 ## Download and updates
 

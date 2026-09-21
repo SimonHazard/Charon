@@ -76,3 +76,22 @@ as an exhaustive matrix before every side-project release.
 Measured search runs with 20,000 Notes remained within the checked performance
 budget. The exact implementation milestones and commit references live in
 [`IMPLEMENTATION_HISTORY.md`](IMPLEMENTATION_HISTORY.md).
+
+## Experimental Windows/X11 and Wayland checks
+
+On Linux with the Tauri prerequisites, Xvfb and a private D-Bus daemon installed:
+
+```sh
+xvfb-run -a cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture::platform::linux::x11::tests -- --ignored --test-threads=1
+dbus-run-session -- cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture::platform::linux -- --ignored --skip x11::tests --test-threads=1
+```
+
+These explicitly ignored tests use an isolated display/bus, never the operator's
+clipboard or accessibility session. X11 cases exercise real selection requests;
+D-Bus cases supply controlled AT-SPI and portal providers. The ordinary suite
+also tests the single-flight selection deadline, experimental capabilities,
+platform shortcut registration, listener failure, and gesture state machine.
+Compile/clippy-check the full app for both Linux and Windows with the pinned
+Rust toolchain. A cross-compile does not validate Windows UIA application coverage
+or a Wayland compositor's foreground policy. Use ordinary native sessions for
+that feedback, without including selected content in reports.

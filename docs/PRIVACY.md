@@ -107,9 +107,15 @@ APIs, performs OCR or screen capture, or adds application-specific extraction.
 No other input or source-application automation is permitted.
 
 Equivalent permissions on other platforms follow least privilege, just-in-time
-explanation, visible state, retry, and a working manual fallback. Linux and
-Windows have no modifier-only or synthetic-input capture claim without their
-own accepted adapter and physical evidence.
+explanation, visible state, retry, and a working manual fallback. Windows and X11
+implement ADR 0015 as experimental adapters. Windows reads only
+a bounded focused UI Automation selection and never synthesizes Copy. X11 keeps
+an ephemeral focused-object reference from AT-SPI state notifications and reads
+text only after the completed gesture; it never scans application trees. Its
+bounded PRIMARY fallback requires the owner to belong to the focused process.
+Neither adapter changes CLIPBOARD, requests elevated privileges, or logs input.
+Linux connects only to local Unix X11/D-Bus transports. Wayland registers one
+user-mediated portal shortcut and never observes a global modifier stream.
 
 Because Charon ships ad-hoc signed under ADR 0014, macOS treats each released
 version as a different application and drops its Input Monitoring and

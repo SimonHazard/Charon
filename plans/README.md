@@ -15,9 +15,9 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 - Deterministic version, compilation, privacy, data-safety, updater-signature,
   and release-asset checks remain. Exhaustive physical certification is not a
   release gate; operator use and user reports drive patch releases.
-- macOS keeps double Shift and `Cmd+Shift+Space`. Windows and Linux X11 target
-  double Shift; Windows/Linux use `Alt+Shift+Space` for composer focus. Wayland
-  never claims a global modifier-only gesture.
+- macOS keeps double Shift and `Cmd+Shift+Space`. Windows and Linux X11 implement
+  experimental double Shift and use `Alt+Shift+Space` for composer focus. Wayland
+  uses a portal-assigned composer shortcut and never claims a modifier-only gesture.
 - The repository is public. Contributions use pull requests, Simon Hazard is
   the principal maintainer, and protected `main` updates deploy the static site.
 
@@ -26,10 +26,11 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 | Plan | Title | Priority | Effort | Status |
 | --- | --- | --- | --- | --- |
 | 015 | Publish automatic Tauri releases and integrated updates | P1 | M | IN PROGRESS: implementation ready; first versioned merge pending |
-| 034 | Add pragmatic Windows/Linux capture shortcuts | P2 | L | TODO |
 
-Plan 015 can ship before the Windows/X11 adapters. Unsupported capture paths
-stay honest and the visible composer remains functional.
+The completed cross-platform capture work is recorded in
+[`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HISTORY.md) and
+[`docs/platform-support.md`](../docs/platform-support.md). The visible composer
+remains functional when experimental acquisition or portal registration is unavailable.
 
 Status values are `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED: <reason>`, and
 `REJECTED: <reason>`.
