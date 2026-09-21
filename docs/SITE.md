@@ -11,7 +11,9 @@ published on 2026-09-20 with macOS, Windows, and Linux installers; both language
 state its availability and refer to the release notes for installation instructions.
 
 The operator requested this evolution on 2026-09-19. It preserves the quiet
-visual direction, approved icon assets, and static privacy boundary.
+visual direction, approved icon assets, and static privacy boundary. ADR 0017
+changes the target of the next macOS release to Apple Silicon; it does not
+retroactively change the published v0.1.0 artifact.
 
 ## Homepage composition
 

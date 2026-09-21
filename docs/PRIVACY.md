@@ -92,9 +92,9 @@ On macOS, observing double Shift requires Input Monitoring. Reading selected
 text separately requires Accessibility; that permission also allows the single
 disclosed source-application Copy when the direct path fails. Charon explains
 and requests each permission from an explicit action in capture help, never on
-mount, and remains useful after denial through `Cmd+Shift+Space` on macOS,
-`Alt+Shift+Space` on Windows/Linux, and the
-bottom composer.
+mount, and remains useful after denial through `Cmd+Shift+Space` on macOS, the
+platform-reported portable shortcut on Windows/Linux, and the bottom composer.
+Wayland may display a different shortcut assigned by its user-mediated portal.
 
 The passive listener observes only modifier and key events needed by the
 gesture machine and never records, persists, logs, suppresses, or rewrites them.

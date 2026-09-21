@@ -201,8 +201,10 @@ opening another window. It has no permanent help sentence, pre-Note Attachment
 queue, thumbnail strip, drag and drop, or arbitrary preview; essential capture
 help remains available from Help and Preferences.
 
-Invoking `Cmd+Shift+Space` on macOS or `Alt+Shift+Space` on Windows/Linux reveals
-Charon and focuses the composer when global operating-system delivery is available.
+Invoking `Cmd+Shift+Space` on macOS or the platform-reported portable shortcut on
+Windows/Linux reveals Charon and focuses the composer when global operating-system
+delivery is available. On Wayland, the portal may assign a different shortcut,
+which Charon displays.
 Unmodified double Shift on macOS and experimental Windows/X11 adapters has no
 surface,
 creates one Note only for non-empty selected text, and never steals source
@@ -282,8 +284,9 @@ recovery behavior.
 - Unmodified `Shift`, `Shift` performs silent selected-text capture only where
   the native adapter is available or explicitly experimental and required
   permissions allow it.
-- `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux reveal Charon
-  and focus the bottom composer when global delivery is available.
+- `Cmd+Shift+Space` on macOS and the platform-reported portable shortcut on
+  Windows/Linux reveal Charon and focus the bottom composer when global delivery
+  is available. Wayland may display a portal-assigned shortcut instead.
 
 Displayed shortcut glyphs resolve from `capabilities.platform`: Charon shows
 `⌘` on macOS and `Alt` on Windows/Linux for composer focus.

@@ -125,18 +125,20 @@ private APIs, automatic Paste, arbitrary input injection, clipboard history,
 OCR, screen capture, unbounded Accessibility scans, or application-specific
 extraction. On macOS, gesture detection requires Input Monitoring and text
 acquisition separately requires Accessibility. The composer shortcut and manual
-composer remain available after denial. Windows and Linux X11 target the same
-gesture under ADR 0015; those paths remain unsupported until implemented and
-begin as experimental. Wayland makes no double-Shift claim.
+composer remain available after denial. Windows and Linux X11 implement the
+same gesture under ADR 0015 and report it as experimental at runtime. Wayland
+makes no double-Shift claim.
 
 ### Manual capture and portable fallback
 
 The composer is always visible at the bottom of the shelf. It names the active
 local Notes folder context, preserves failed input, creates exactly one open
-Note on Enter, and ignores empty input. `Cmd+Shift+Space` on macOS and
-`Alt+Shift+Space` on Windows/Linux reveal Charon and focus that composer. They do
-not open a second window or empty editor. Runtime capability reporting states
-whether the operating system delivered the shortcut globally.
+Note on Enter, and ignores empty input. `Cmd+Shift+Space` on macOS and the
+platform-reported portable shortcut on Windows/Linux reveal Charon and focus
+that composer. They do not open a second window or empty editor. On Wayland,
+the portal may assign a different shortcut, which Charon displays. Runtime
+capability reporting states whether the operating system delivered the shortcut
+globally.
 
 ### Search and visible status
 
@@ -259,8 +261,8 @@ link activation.
   current v1 surface.
 - A second capture window, compact alternate mode, generic Error destination,
   or configurable shortcut catalog.
-- A global double-Shift claim on Wayland, or a Windows/X11 claim before its
-  adapter is implemented and reported by runtime capabilities.
+- A global double-Shift claim on Wayland, or a Windows/X11 selected-text claim
+  that is not reported by runtime capabilities as experimental or available.
 - Silent updates, forced restart, background installation, rollout tracking, or
   updater requests containing user content or stable identifiers.
 - Any distribution claim that Charon is verified, trusted, or notarized. It

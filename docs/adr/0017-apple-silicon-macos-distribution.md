@@ -6,9 +6,10 @@ Accepted on 2026-09-21 by operator decision.
 
 ## Context
 
-The macOS release was built on an Intel GitHub runner and therefore produced
-an `x86_64` application. macOS now warns that Intel-based applications will
-not remain supported by a future system version. Charon is a modern side
+The existing macOS release was built on an Intel GitHub runner and therefore
+produced an `x86_64` application. On Apple Silicon, macOS 26.4 and later may
+warn when launching Intel-only applications about their future incompatibility;
+Apple describes Rosetta as available through macOS 27. Charon is a modern side
 project whose macOS audience uses Apple Silicon.
 
 ## Decision

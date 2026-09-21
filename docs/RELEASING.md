@@ -27,10 +27,11 @@ ad-hoc identity; Windows and Linux bundles are unsigned. Release notes must say:
 `SHA256SUMS.txt` accompanies every release. It is an integrity aid, not a
 platform trust claim.
 
-The macOS release is a native Apple Silicon (`arm64`) build from GitHub's
-`macos-15` arm64 runner. Intel Macs are intentionally outside the supported
-release target; the macOS updater metadata therefore contains `darwin-aarch64`
-and no `darwin-x86_64` entry.
+The next macOS release is planned as a native Apple Silicon (`arm64`) build
+from GitHub's `macos-15` arm64 runner. Intel Macs are intentionally outside the
+next release target; its updater metadata will contain `darwin-aarch64` and no
+`darwin-x86_64` entry. Existing published release metadata is unchanged until
+that version is published.
 
 ## Integrated updater
 
