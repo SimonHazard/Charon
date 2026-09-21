@@ -281,3 +281,56 @@ describe('compact Preferences', () => {
     expect(client.chooseDirectory).not.toHaveBeenCalled();
   });
 });
+
+describe('experimental platform capture', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    applyLocale('en');
+  });
+  it.each(['windows', 'linuxX11'] as const)(
+    'labels %s capture experimental without macOS permission actions',
+    async (platform) => {
+      const native = clients({
+        platform,
+        doubleShift: 'experimental',
+        selectedText: 'experimental',
+        inputMonitoring: 'experimental',
+        accessibility: 'experimental',
+        activeShortcut: 'Alt+Shift+Space',
+      });
+      render(
+        <AppProviders
+          captureClient={native.captureClient}
+          preferencesClient={native.preferencesClient}
+          workspaceClient={workspaceClient(snapshot())}
+        >
+          <ShelfActions />
+        </AppProviders>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+      expect(await screen.findByText(/Experimental selected-text capture/)).toBeTruthy();
+      expect(screen.getAllByText('Experimental')).toHaveLength(2);
+      expect(native.requestPermission).not.toHaveBeenCalled();
+    },
+  );
+  it('shows the shortcut assigned by the Wayland portal and no double Shift claim', async () => {
+    const native = clients({
+      platform: 'linuxWayland',
+      doubleShift: 'unsupported',
+      selectedText: 'unsupported',
+      activeShortcut: 'Super+Space',
+    });
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(await screen.findByText('Super+Space')).toBeTruthy();
+    expect(screen.queryByText(/Experimental selected-text capture/)).toBeNull();
+  });
+});

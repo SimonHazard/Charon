@@ -474,12 +474,12 @@
 .note-row {
   position: relative;
   overflow: hidden;
-  border: 1px solid transparent;
+  border: 1px solid var(--separator);
   border-radius: var(--radius-surface);
   background: var(--surface-elevated);
 }
 .note-row[data-expanded="true"] {
-  border-color: var(--separator);
+  border-color: var(--selection-border);
   background: var(--surface-elevated);
 }
 .note-row[data-status="done"] {
@@ -551,12 +551,14 @@
   white-space: nowrap;
 }
 .note-row-title {
-  font-size: 0.88rem;
-  font-weight: 620;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 .note-row-snippet {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 .note-row[data-status="done"] .note-row-title,
 .note-row[data-status="done"] .note-row-snippet {
@@ -615,13 +617,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tag-filter-chip:hover,
-.attachment-count:hover {
-  background: color-mix(in srgb, var(--secondary) 88%, var(--text) 12%);
-}
 .tag-filter-chip:active,
 .attachment-count:active {
-  background: color-mix(in srgb, var(--secondary) 78%, var(--text) 22%);
+  background: var(--control-pressed);
 }
 .attachment-count {
   position: relative;
@@ -630,9 +628,6 @@
   color: var(--text-muted);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-.attachment-count:hover {
-  color: var(--text);
 }
 /* The chip stays metadata-sized while its target grows past the pill. */
 .attachment-count::after {
@@ -664,13 +659,12 @@
 .note-edit-button,
 .note-delete-button {
   opacity: 0;
+  transition-property: transform, opacity;
+  transition-duration: var(--motion-duration-direct);
+  transition-timing-function: var(--motion-easing-direct);
 }
 .note-delete-button {
   color: var(--danger);
-}
-.note-delete-button:hover {
-  background: var(--danger-surface);
-  color: var(--danger-text);
 }
 .note-row:focus-within .note-row-actions [data-slot="button"],
 .note-row:hover .note-row-actions [data-slot="button"],
@@ -1020,6 +1014,25 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .preferences-toggle button:not([data-pressed]):hover,
+  .preferences-language:hover,
+  .tag-filter-chip:hover,
+  .attachment-count:hover {
+    background: var(--control-hover);
+  }
+  .preferences-language:hover {
+    border-color: var(--border-strong);
+  }
+  .preferences-row-title [data-slot="tooltip-trigger"]:hover,
+  .attachment-count:hover,
+  .attachment-name:hover {
+    color: var(--text);
+  }
+  .tag-remove-button:hover,
+  .note-delete-button:hover {
+    background: var(--danger-surface);
+    color: var(--danger-text);
+  }
   .note-row:hover {
     background: var(--surface-hover);
   }

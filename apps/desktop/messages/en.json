@@ -218,5 +218,10 @@
   "markdown_help_column": "Column",
   "markdown_help_local": "Links display their destination. Images display only their alternative text; no content is loaded.",
   "markdown_task_done": "Completed task",
-  "markdown_task_open": "Open task"
+  "markdown_task_open": "Open task",
+  "preferences_state_experimental": "Experimental",
+  "capture_experimental_description": "Experimental selected-text capture. Some apps do not expose their selection. Charon preserves focus and does not change the clipboard.",
+  "capture_double_shift_status": "Double Shift",
+  "capture_selection_status": "Selected text",
+  "capture_portal_shortcut": "System shortcut"
 }

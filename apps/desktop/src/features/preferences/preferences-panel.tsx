@@ -60,6 +60,7 @@ export function PreferencesPanel() {
   const stateLabel = (state: CapabilityState) => {
     const labels = {
       available: m.preferences_state_available(),
+      experimental: m.preferences_state_experimental(),
       denied: m.preferences_state_denied(),
       unsupported: m.preferences_state_unsupported(),
       error: m.preferences_state_error(),
@@ -108,7 +109,7 @@ export function PreferencesPanel() {
         </Tooltip>
         <span className="preferences-state">{stateLabel(state)}</span>
       </div>
-      {state !== 'available' && state !== 'unsupported' ? (
+      {state !== 'available' && state !== 'experimental' && state !== 'unsupported' ? (
         <Button
           disabled={native.pendingPermission !== null}
           onClick={() => void native.requestPermission(permission)}
@@ -275,13 +276,16 @@ export function PreferencesPanel() {
                   </Tooltip>
                 </span>
                 <kbd>
-                  {native.capabilities.platform === 'macos'
-                    ? m.preferences_shortcut_macos()
-                    : m.preferences_shortcut_other()}
+                  {native.capabilities.platform === 'linuxWayland'
+                    ? native.capabilities.activeShortcut || m.capture_portal_shortcut()
+                    : native.capabilities.platform === 'macos'
+                      ? m.preferences_shortcut_macos()
+                      : m.preferences_shortcut_other()}
                 </kbd>
                 {stateIcon(native.capabilities.standardShortcut)}
               </div>
-              {native.capabilities.standardShortcut === 'error' ||
+              {native.capabilities.standardShortcut === 'denied' ||
+              native.capabilities.standardShortcut === 'error' ||
               native.capabilities.standardShortcut === 'unsupported' ? (
                 <p className="preferences-inline-warning">
                   {m.capture_error_shortcut_registration()}
@@ -305,7 +309,25 @@ export function PreferencesPanel() {
                   )}
                 </div>
               ) : (
-                <p>{m.preferences_platform_fallback()}</p>
+                <div className="preferences-permissions">
+                  <p>
+                    {native.capabilities.doubleShift === 'experimental'
+                      ? m.capture_experimental_description()
+                      : m.preferences_platform_fallback()}
+                  </p>
+                  <div className="preferences-row-title">
+                    <span>{m.capture_double_shift_status()}</span>
+                    <span className="preferences-state">
+                      {stateLabel(native.capabilities.doubleShift)}
+                    </span>
+                  </div>
+                  <div className="preferences-row-title">
+                    <span>{m.capture_selection_status()}</span>
+                    <span className="preferences-state">
+                      {stateLabel(native.capabilities.selectedText)}
+                    </span>
+                  </div>
+                </div>
               )}
             </>
           ) : null}

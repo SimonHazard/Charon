@@ -56,10 +56,16 @@ export function ShelfActions() {
           <PopoverHeader>
             <PopoverTitle>{m.capture_help_title()}</PopoverTitle>
             <PopoverDescription className="help-shortcut-list">
-              {capabilities?.doubleShift === 'available' || capabilities?.platform === 'macos' ? (
+              {capabilities?.doubleShift === 'available' ||
+              capabilities?.doubleShift === 'experimental' ||
+              capabilities?.platform === 'macos' ? (
                 <span className="help-shortcut-row">
                   <kbd>{m.capture_help_double_shift_keys()}</kbd>
-                  <span>{m.capture_help_double_shift_description()}</span>
+                  <span>
+                    {capabilities?.doubleShift === 'experimental'
+                      ? m.capture_experimental_description()
+                      : m.capture_help_double_shift_description()}
+                  </span>
                 </span>
               ) : (
                 <span className="help-shortcut-row">
@@ -68,7 +74,11 @@ export function ShelfActions() {
               )}
               <span className="help-shortcut-row">
                 <kbd>
-                  {isMacos ? m.preferences_shortcut_macos() : m.preferences_shortcut_other()}
+                  {capabilities?.platform === 'linuxWayland'
+                    ? capabilities.activeShortcut || m.capture_portal_shortcut()
+                    : isMacos
+                      ? m.preferences_shortcut_macos()
+                      : m.preferences_shortcut_other()}
                 </kbd>
                 <span>{m.capture_help_composer_description()}</span>
               </span>

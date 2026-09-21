@@ -218,5 +218,10 @@
   "markdown_help_column": "Colonne",
   "markdown_help_local": "Les liens affichent leur destination. Les images affichent seulement leur texte alternatif ; aucun contenu n’est chargé.",
   "markdown_task_done": "Tâche terminée",
-  "markdown_task_open": "Tâche à faire"
+  "markdown_task_open": "Tâche à faire",
+  "preferences_state_experimental": "Expérimental",
+  "capture_experimental_description": "Capture de sélection expérimentale. Certaines applications ne rendent pas leur sélection accessible. Charon conserve le focus et ne modifie pas le presse-papiers.",
+  "capture_double_shift_status": "Double Shift",
+  "capture_selection_status": "Texte sélectionné",
+  "capture_portal_shortcut": "Raccourci système"
 }

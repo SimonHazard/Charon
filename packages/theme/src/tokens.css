@@ -24,6 +24,8 @@
   --surface-inset: #e2e0de;
   --surface-hover: #f8f7f6;
   --surface-pressed: #eeecea;
+  --control-hover: #eeecea;
+  --control-pressed: #e2e0de;
   --text: var(--brand-prune);
   --text-muted: #625b6b;
   --text-subtle: #6d6676;
@@ -42,6 +44,8 @@
   --danger: #a12b45;
   --danger-text: #7d1931;
   --danger-surface: #f7e3e7;
+  --danger-hover: #efd1d9;
+  --danger-pressed: #e7bdc8;
   --warning: #765000;
   --warning-text: #674400;
   --warning-surface: #f6e8c7;
@@ -63,6 +67,8 @@
   --surface-inset: #110d18;
   --surface-hover: #282033;
   --surface-pressed: #31273f;
+  --control-hover: #31273f;
+  --control-pressed: #3a2f49;
   --text: var(--brand-cream);
   --text-muted: #c6bfd0;
   --text-subtle: #a69db3;
@@ -81,6 +87,8 @@
   --danger: #ff9aaf;
   --danger-text: #ffdde4;
   --danger-surface: #45202e;
+  --danger-hover: #572839;
+  --danger-pressed: #642d42;
   --warning: #e4bd73;
   --warning-text: #ffe1a1;
   --warning-surface: #473710;

@@ -460,6 +460,56 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
   await context.close();
 });
 
+test('fine-pointer hover keeps rows, controls, and destructive actions visually distinct', async ({
+  page,
+}) => {
+  await page.goto(desktop);
+
+  const row = page.locator('.note-row').first();
+  const edit = row.locator('.note-edit-button');
+  await row.hover();
+  const rowHover = await row.evaluate((element) => getComputedStyle(element).backgroundColor);
+  await edit.hover();
+  const controlHover = await edit.evaluate((element) => getComputedStyle(element).backgroundColor);
+  expect(controlHover).not.toBe(rowHover);
+
+  const remove = row.locator('.note-delete-button');
+  await remove.hover();
+  const destructiveHover = await remove.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  expect(destructiveHover).not.toBe(controlHover);
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.locator('.preferences-popover')).toHaveCSS('opacity', '1');
+  const selectedTheme = page.getByRole('button', { name: 'Light' });
+  const otherTheme = page.getByRole('button', { name: 'Graphite' });
+  await otherTheme.hover();
+  const otherThemeHover = await otherTheme.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await selectedTheme.hover();
+  const selectedThemeHover = await selectedTheme.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  expect(selectedThemeHover).not.toBe(otherThemeHover);
+
+  await page.keyboard.press('Escape');
+  await row.hover();
+  await edit.click();
+  const preview = page.getByRole('tab', { name: 'Preview' });
+  const write = page.getByRole('tab', { name: 'Write' });
+  await preview.hover();
+  const previewHover = await preview.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await write.hover();
+  const activeTabHover = await write.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  expect(activeTabHover).not.toBe(previewHover);
+});
+
 test('site keeps only the truthful localized early access pages', async ({ page }) => {
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Keep what matters.');
