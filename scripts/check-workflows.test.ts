@@ -64,6 +64,17 @@ describe('release workflow regression checks', () => {
     expect(result.stderr).toContain('missing release contract os: macos-15');
   });
 
+  test('forwards --locked to Cargo after Tauri build options', async () => {
+    const result = await check(
+      originalRelease.replace(
+        'run: bun run --cwd apps/desktop tauri:build -- --bundles "$BUNDLE_TARGETS" -- --locked',
+        'run: bun run --cwd apps/desktop tauri:build -- --locked --bundles "$BUNDLE_TARGETS"',
+      ),
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('missing release contract run: bun run --cwd apps/desktop');
+  });
+
   test('requires the macOS and Windows Rust portability matrix', async () => {
     const result = await checkQuality(
       originalQuality.replace('os: [macos-15, windows-2025]', 'os: [macos-15]'),

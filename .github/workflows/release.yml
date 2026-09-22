@@ -155,7 +155,7 @@ jobs:
           APPLE_SIGNING_IDENTITY: '-'
           BUNDLE_TARGETS: ${{ matrix.bundles }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: bun run --cwd apps/desktop tauri:build -- --locked --bundles "$BUNDLE_TARGETS"
+        run: bun run --cwd apps/desktop tauri:build -- --bundles "$BUNDLE_TARGETS" -- --locked
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact }}

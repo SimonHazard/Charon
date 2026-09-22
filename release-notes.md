@@ -1,4 +1,4 @@
-# Charon 0.1.2 — Early Access
+# Charon 0.1.3 — Early Access
 
 Charon is a local-only capture shelf for turning selected text or short manual entries into ordinary, agent-ready Markdown files in a folder you control.
 
