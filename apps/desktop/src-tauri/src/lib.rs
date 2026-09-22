@@ -22,17 +22,9 @@ pub fn run() {
             }
         }))
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-                        ipc::capture::handle_global_shortcut(app);
-                    }
-                })
-                .build(),
-        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -52,6 +44,21 @@ pub fn run() {
             ipc::preferences::preferences_reset,
         ])
         .setup(|app| {
+            #[cfg(target_os = "linux")]
+            let register_native_shortcut = !capture::platform::linux::is_wayland();
+            #[cfg(not(target_os = "linux"))]
+            let register_native_shortcut = true;
+            if register_native_shortcut {
+                let _ = app.handle().plugin(
+                    tauri_plugin_global_shortcut::Builder::new()
+                        .with_handler(|app, _shortcut, event| {
+                            if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                                ipc::capture::handle_global_shortcut(app);
+                            }
+                        })
+                        .build(),
+                );
+            }
             ipc::capture::initialize(app.handle())?;
             Ok(())
         })

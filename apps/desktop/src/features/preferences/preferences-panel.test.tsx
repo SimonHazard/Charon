@@ -7,9 +7,14 @@ import { AppProviders } from '@/app/providers';
 import { useWorkspace } from '@/app/workspace-context';
 import type { CaptureCapabilities } from '@/bindings/capture';
 import { ShelfActions } from '@/components/shelf-chrome';
+import type { UpdateClient } from '@/features/updates/update-client';
 import type { CaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
 import { snapshot, workspaceClient } from '@/test/workspace-fixture';
+
+vi.mock('@tauri-apps/plugin-opener', () => ({
+  openUrl: vi.fn().mockResolvedValue(undefined),
+}));
 
 const capabilities = {
   platform: 'macos',
@@ -21,7 +26,10 @@ const capabilities = {
   activeShortcut: 'CmdOrCtrl+Shift+Space',
 } as const;
 
-function clients(overrides: Partial<CaptureCapabilities> = {}) {
+function clients(
+  overrides: Partial<CaptureCapabilities> = {},
+  installKind: 'appimage' | 'deb' | 'rpm' | 'nsis' | 'msi' | 'macos' | 'unknown' = 'unknown',
+) {
   const resolvedCapabilities = { ...capabilities, ...overrides };
   const requestPermission = vi.fn().mockResolvedValue(resolvedCapabilities);
   const captureClient: CaptureClient = {
@@ -37,10 +45,24 @@ function clients(overrides: Partial<CaptureCapabilities> = {}) {
       schemaVersion: 1,
       workspaceName: 'Charon Notes',
       hasRememberedWorkspace: true,
+      installKind,
     }),
     reset: vi.fn(),
   };
   return { captureClient, preferencesClient, requestPermission };
+}
+
+function availableUpdate(): UpdateClient {
+  return {
+    check: vi.fn().mockResolvedValue({
+      version: '0.2.0',
+      notes: 'A small update.',
+      download: vi.fn().mockResolvedValue(undefined),
+      install: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    }),
+    relaunch: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
 function WorkspaceActivity() {
@@ -96,7 +118,7 @@ describe('compact Preferences', () => {
     expect(document.querySelector('.preferences-section-icon')).toBeNull();
     await screen.findByText('Charon Notes');
     expect(document.body.textContent).not.toContain('/Users/');
-    expect(screen.getByText('⌘ + Shift + Space')).toBeTruthy();
+    expect(screen.getByText('⌘ + ⇧ + Space')).toBeTruthy();
     expect(screen.queryByText(/shortcut is already used/i)).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Enable update checks' }).getAttribute('aria-pressed'),
@@ -279,5 +301,118 @@ describe('compact Preferences', () => {
     expect((choose as HTMLButtonElement).disabled).toBe(true);
     await waitFor(() => expect(screen.getByText(/Finish saving/)).toBeTruthy());
     expect(client.chooseDirectory).not.toHaveBeenCalled();
+  });
+
+  it('explains manual package installation and links to GitHub Releases', async () => {
+    const native = clients({}, 'deb');
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        updateClient={availableUpdate()}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Enable update checks' }));
+    expect(await screen.findByText(/This installation was made with a package/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open GitHub Releases' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Review update' })).toBeNull();
+  });
+
+  it('warns macOS users about permission re-grants in the install dialog', async () => {
+    const native = clients();
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        updateClient={availableUpdate()}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Enable update checks' }));
+    await user.click(await screen.findByRole('button', { name: 'Review update' }));
+    expect(
+      await screen.findByText(/After the update, macOS may ask again for Input Monitoring/),
+    ).toBeTruthy();
+  });
+
+  it('does not show the macOS permission notice on Windows', async () => {
+    const native = clients({ platform: 'windows' });
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        updateClient={availableUpdate()}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Enable update checks' }));
+    await user.click(await screen.findByRole('button', { name: 'Review update' }));
+    expect(screen.queryByText(/After the update, macOS may ask again/)).toBeNull();
+  });
+});
+
+describe('experimental platform capture', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    applyLocale('en');
+  });
+  it.each(['windows', 'linuxX11'] as const)(
+    'labels %s capture experimental without macOS permission actions',
+    async (platform) => {
+      const native = clients({
+        platform,
+        doubleShift: 'experimental',
+        selectedText: 'experimental',
+        inputMonitoring: 'experimental',
+        accessibility: 'experimental',
+        activeShortcut: 'Alt+Shift+Space',
+      });
+      render(
+        <AppProviders
+          captureClient={native.captureClient}
+          preferencesClient={native.preferencesClient}
+          workspaceClient={workspaceClient(snapshot())}
+        >
+          <ShelfActions />
+        </AppProviders>,
+      );
+      await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+      expect(await screen.findByText(/Experimental selected-text capture/)).toBeTruthy();
+      expect(screen.getAllByText('Experimental')).toHaveLength(2);
+      expect(native.requestPermission).not.toHaveBeenCalled();
+    },
+  );
+  it('shows the shortcut assigned by the Wayland portal and no double Shift claim', async () => {
+    const native = clients({
+      platform: 'linuxWayland',
+      doubleShift: 'unsupported',
+      selectedText: 'unsupported',
+      activeShortcut: 'Super+Space',
+    });
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(await screen.findByText('Super + Space')).toBeTruthy();
+    expect(screen.queryByText(/Experimental selected-text capture/)).toBeNull();
   });
 });

@@ -15,7 +15,7 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
 
 - One compact shelf for open and completed Notes.
 - Fast manual capture from the always-visible composer.
-- Passive double-Shift selected-text capture on macOS.
+- Passive double-Shift selected-text capture on macOS, with experimental Windows and Linux X11 adapters.
 - Search across Markdown, Tags, and managed Attachment names.
 - Markdown editing and preview, up to 16 Tags and 20 managed Attachments per
   Note.
@@ -24,14 +24,17 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
 - Explicit, confirmed permanent deletion with bounded recovery behavior.
 - English and French UI, with Light and Graphite appearances.
 
-Windows and Linux selected-text adapters are on the active roadmap. Windows and
-X11 target double Shift; Wayland uses `Alt+Shift+Space` to reveal and focus the
-composer because ordinary applications cannot observe a portable global
-modifier-only sequence there.
+Windows uses UI Automation; X11 uses AT-SPI then a bounded PRIMARY request.
+These adapters preserve focus and never synthesize Copy. Application coverage
+is experimental. Wayland uses `Alt+Shift+Space` to reveal and focus the
+composer through the GlobalShortcuts portal because ordinary applications cannot
+observe a portable global modifier-only sequence there. The desktop may assign a
+different key combination; Charon displays that assignment. Portal absence or
+refusal leaves the visible composer available.
 
 ## Download and updates
 
-Version 0.1.0 is available in early access for macOS, Windows, and Linux on
+Early access downloads for macOS, Windows, and Linux are available on
 [GitHub Releases](https://github.com/SimonHazard/Charon/releases).
 After a protected merge to `main`, one new consistent manifest version builds
 macOS, Linux, and Windows installers. The workflow creates its `vX.Y.Z` tag,
@@ -43,7 +46,13 @@ Update checks are disabled by default. Users can enable the metadata-only check
 in Preferences, review an available version, and explicitly install it. The
 applications remain unsigned by paid platform certificates:
 
+AppImage, NSIS, and macOS installations can self-update; deb, rpm, and MSI
+installations must download the new package from GitHub Releases and install it
+the same way.
+
 - macOS may require Privacy & Security, Open Anyway, or Control-click, Open;
+- Future macOS releases target Apple Silicon (`arm64`) and do not support Intel
+  Macs;
 - macOS may ask for Input Monitoring and Accessibility again after an update;
 - Windows may show SmartScreen and require More info, Run anyway.
 

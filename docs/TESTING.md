@@ -20,15 +20,16 @@ protect version consistency, compilation, updater signatures, privacy, data
 safety, and complete release assets.
 
 The release gate builds both apps before scanning their production output for
-privacy violations. Workflow regression tests reject a missing or late build
-and a macOS runner that does not match the Intel updater target. Quality runs
+privacy violations. Workflow regression tests reject a missing or late build,
+a non-Apple-Silicon macOS runner, and a macOS artifact that does not match the
+arm64 updater target. Quality runs
 these checks on each pull request before the release workflow can start.
 
 Quality runs for pull requests and remains manually dispatchable; Security
 remains manual. Protected `main` updates deploy the site and evaluate the
-desktop manifest version. A new consistent version starts the macOS, Linux, and
-Windows release matrix, while an already-published version exits without
-rebuilding. Separate portability and unsigned review-build workflows would
+desktop manifest version. A new consistent version starts the Apple Silicon
+macOS, Linux, and Windows release matrix, while an already-published version
+exits without rebuilding. Separate portability and unsigned review-build workflows would
 duplicate the most expensive jobs without strengthening the release boundary.
 
 Use Quality once when a release candidate needs GitHub-hosted confirmation. Use
@@ -76,3 +77,23 @@ as an exhaustive matrix before every side-project release.
 Measured search runs with 20,000 Notes remained within the checked performance
 budget. The exact implementation milestones and commit references live in
 [`IMPLEMENTATION_HISTORY.md`](IMPLEMENTATION_HISTORY.md).
+
+## Experimental Windows/X11 and Wayland checks
+
+On Linux with the Tauri prerequisites, Xvfb and a private D-Bus daemon installed:
+
+```sh
+xvfb-run -a cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture::platform::linux::x11::tests -- --ignored --test-threads=1
+dbus-run-session -- cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --locked capture::platform::linux -- --ignored --skip x11::tests --test-threads=1
+```
+
+These explicitly ignored tests use an isolated display/bus, never the operator's
+clipboard or accessibility session. X11 cases exercise real selection requests;
+D-Bus cases supply controlled AT-SPI and portal providers. The ordinary suite
+also tests the single-flight selection deadline, experimental capabilities,
+platform shortcut registration, listener failure, and gesture state machine.
+Quality compiles and clippy-checks the Rust core on Linux, macOS, and Windows
+on every pull request with the pinned Rust toolchain. Physical OS matrices remain
+non-gating under ADR 0016. A cross-compile does not validate Windows UIA application coverage
+or a Wayland compositor's foreground policy. Use ordinary native sessions for
+that feedback, without including selected content in reports.

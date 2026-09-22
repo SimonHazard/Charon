@@ -16,7 +16,7 @@ async function fixture(options: { omitWindows?: boolean } = {}) {
   roots.push(root);
   const input = join(root, 'incoming');
   const groups: Record<string, string[]> = {
-    'macos-x86_64': ['Charon_0.1.0_x64.dmg', 'Charon.app.tar.gz', 'Charon.app.tar.gz.sig'],
+    'macos-aarch64': ['Charon_0.1.0_aarch64.dmg', 'Charon.app.tar.gz', 'Charon.app.tar.gz.sig'],
     'linux-x86_64': [
       'Charon_0.1.0_amd64.deb',
       'Charon-0.1.0-1.x86_64.rpm',
@@ -90,7 +90,7 @@ describe('release artifact assembly', () => {
     });
     expect(result.assets).toHaveLength(11);
     expect(Object.keys(result.latest.platforms).sort()).toEqual([
-      'darwin-x86_64',
+      'darwin-aarch64',
       'linux-x86_64',
       'windows-x86_64',
     ]);

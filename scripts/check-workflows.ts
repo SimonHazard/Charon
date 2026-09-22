@@ -67,7 +67,9 @@ if (!files.includes(releaseWorkflowName)) {
     'on:\n  push:\n    branches:\n      - main',
     'should_release:',
     'environment: release',
-    'os: macos-15-intel\n            artifact: macos-x86_64',
+    'os: macos-15\n            artifact: macos-aarch64',
+    'name: Assert Apple Silicon runner',
+    'run: test "$(uname -m)" = "arm64"',
     'ubuntu-24.04',
     'windows-2025',
     'TAURI_SIGNING_PRIVATE_KEY: $' + '{{ secrets.TAURI_SIGNING_PRIVATE_KEY }}',
@@ -127,20 +129,35 @@ if (!files.includes(qualityWorkflowName)) {
     'bun run bindings:check',
     'bun run --cwd apps/desktop playwright install --with-deps chromium',
     'test:e2e -- --project=chromium',
+    'rust-portability:',
+    'fail-fast: false',
+    'os: [macos-15, windows-2025]',
+    `runs-on: \${{ matrix.os }}`,
+    'cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings',
   ];
   for (const fragment of requiredFragments) {
     if (!qualityWorkflow.includes(fragment)) {
       failures.push(`${qualityWorkflowName}: missing bounded desktop contract ${fragment}`);
     }
   }
+  const portabilityJob =
+    qualityWorkflow.match(/^ {2}rust-portability:\n((?: {4}.*\n|\n)*)/mu)?.[1] ?? '';
+  for (const fragment of [
+    'os: [macos-15, windows-2025]',
+    `runs-on: \${{ matrix.os }}`,
+    'cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets --locked -- -D warnings',
+  ]) {
+    if (!portabilityJob.includes(fragment)) {
+      failures.push(`${qualityWorkflowName}: rust-portability job missing ${fragment}`);
+    }
+  }
   const runnerCount = qualityWorkflow.match(/^\s+runs-on:/gmu)?.length ?? 0;
-  if (runnerCount !== 1) {
-    failures.push(`${qualityWorkflowName}: routine validation must use one runner`);
+  if (runnerCount !== 2) {
+    failures.push(
+      `${qualityWorkflowName}: routine validation must use one runner plus portability matrix`,
+    );
   }
   for (const forbidden of [
-    'strategy:',
-    'macos-15',
-    'windows-2025',
     'playwright install --with-deps chromium webkit',
     '--project=webkit',
     "      - 'apps/site/**'",

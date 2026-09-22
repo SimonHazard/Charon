@@ -2,6 +2,7 @@ import {
   IconAlertCircle,
   IconCircleCheck,
   IconDownload,
+  IconExternalLink,
   IconInfoCircle,
   IconMoon,
   IconRefresh,
@@ -9,6 +10,7 @@ import {
   IconSun,
   IconX,
 } from '@tabler/icons-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { m as motion } from 'motion/react';
 import { useState } from 'react';
 
@@ -38,7 +40,10 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { useUpdates } from '@/features/updates/update-context';
+import { formatShortcut } from '@/lib/shortcut-label';
 import { usePressFeedback } from '@/motion/press';
+
+const RELEASES_URL = 'https://github.com/SimonHazard/Charon/releases/latest';
 
 export function PreferencesPanel() {
   const m = useMessages();
@@ -60,6 +65,7 @@ export function PreferencesPanel() {
   const stateLabel = (state: CapabilityState) => {
     const labels = {
       available: m.preferences_state_available(),
+      experimental: m.preferences_state_experimental(),
       denied: m.preferences_state_denied(),
       unsupported: m.preferences_state_unsupported(),
       error: m.preferences_state_error(),
@@ -108,7 +114,7 @@ export function PreferencesPanel() {
         </Tooltip>
         <span className="preferences-state">{stateLabel(state)}</span>
       </div>
-      {state !== 'available' && state !== 'unsupported' ? (
+      {state !== 'available' && state !== 'experimental' && state !== 'unsupported' ? (
         <Button
           disabled={native.pendingPermission !== null}
           onClick={() => void native.requestPermission(permission)}
@@ -275,13 +281,21 @@ export function PreferencesPanel() {
                   </Tooltip>
                 </span>
                 <kbd>
-                  {native.capabilities.platform === 'macos'
-                    ? m.preferences_shortcut_macos()
-                    : m.preferences_shortcut_other()}
+                  {native.capabilities.activeShortcut
+                    ? formatShortcut(
+                        native.capabilities.activeShortcut,
+                        native.capabilities.platform,
+                        {
+                          shift: m.shortcut_key_shift(),
+                          space: m.shortcut_key_space(),
+                        },
+                      )
+                    : m.capture_portal_shortcut()}
                 </kbd>
                 {stateIcon(native.capabilities.standardShortcut)}
               </div>
-              {native.capabilities.standardShortcut === 'error' ||
+              {native.capabilities.standardShortcut === 'denied' ||
+              native.capabilities.standardShortcut === 'error' ||
               native.capabilities.standardShortcut === 'unsupported' ? (
                 <p className="preferences-inline-warning">
                   {m.capture_error_shortcut_registration()}
@@ -305,7 +319,25 @@ export function PreferencesPanel() {
                   )}
                 </div>
               ) : (
-                <p>{m.preferences_platform_fallback()}</p>
+                <div className="preferences-permissions">
+                  <p>
+                    {native.capabilities.doubleShift === 'experimental'
+                      ? m.capture_experimental_description()
+                      : m.preferences_platform_fallback()}
+                  </p>
+                  <div className="preferences-row-title">
+                    <span>{m.capture_double_shift_status()}</span>
+                    <span className="preferences-state">
+                      {stateLabel(native.capabilities.doubleShift)}
+                    </span>
+                  </div>
+                  <div className="preferences-row-title">
+                    <span>{m.capture_selection_status()}</span>
+                    <span className="preferences-state">
+                      {stateLabel(native.capabilities.selectedText)}
+                    </span>
+                  </div>
+                </div>
               )}
             </>
           ) : null}
@@ -366,10 +398,20 @@ export function PreferencesPanel() {
           {updates.status === 'available' && updates.version ? (
             <div className="preferences-update-available" role="status">
               <p>{m.update_available({ version: updates.version })}</p>
-              <Button onClick={() => setUpdateDialogOpen(true)} size="sm" variant="outline">
-                <IconDownload aria-hidden="true" />
-                {m.update_review()}
-              </Button>
+              {updates.canSelfUpdate ? (
+                <Button onClick={() => setUpdateDialogOpen(true)} size="sm" variant="outline">
+                  <IconDownload aria-hidden="true" />
+                  {m.update_review()}
+                </Button>
+              ) : (
+                <>
+                  <p>{m.update_manual_install_description()}</p>
+                  <Button onClick={() => void openUrl(RELEASES_URL)} size="sm" variant="outline">
+                    <IconExternalLink aria-hidden="true" />
+                    {m.update_open_releases()}
+                  </Button>
+                </>
+              )}
             </div>
           ) : null}
           {updates.status === 'downloading' ? (
@@ -410,6 +452,9 @@ export function PreferencesPanel() {
             </AlertDialogTitle>
             <AlertDialogDescription>{m.update_install_description()}</AlertDialogDescription>
           </AlertDialogHeader>
+          {native.capabilities?.platform === 'macos' ? (
+            <p className="preferences-inline-warning">{m.update_macos_regrant_notice()}</p>
+          ) : null}
           {updates.notes ? <p className="update-release-notes">{updates.notes}</p> : null}
           {updates.restartBlocked ? (
             <p className="preferences-inline-warning">{m.update_install_blocked()}</p>

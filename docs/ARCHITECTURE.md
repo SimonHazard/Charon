@@ -190,10 +190,15 @@ intent.
 
 Input Monitoring independently gates the macOS event tap; Accessibility gates
 selected-text acquisition and the bounded source Copy. Tauri's global-shortcut
-plugin owns `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux.
-ADR 0015 accepts double Shift through public native adapters on Windows and X11,
-while Wayland remains composer-shortcut-only. Runtime capability reporting stays
-`Unsupported` until an adapter ships and `Experimental` during early user use.
+plugin owns `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/X11.
+Windows uses a passive WH_KEYBOARD_LL thread and a separate bounded COM MTA
+selection worker. X11 uses XI2 and AT-SPI/PRIMARY without synthesized input.
+Wayland owns a GlobalShortcuts portal session instead of initializing the X11
+shortcut plugin. Its assigned shortcut and capability are refreshed from the
+portal; denial does not prevent startup. Windows/X11 advertise `Experimental`.
+Selection availability is independent of accessibility availability so X11
+PRIMARY can work without AT-SPI. Listener failures stay errors until explicit
+retry or restart; ordinary capability refresh never accumulates new listeners.
 
 ### ClipboardComposer
 

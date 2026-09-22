@@ -50,6 +50,12 @@ describe('desktop window contract', () => {
       'core:window:allow-start-dragging',
       'core:window:allow-internal-toggle-maximize',
       'clipboard-manager:allow-write-text',
+      {
+        identifier: 'opener:allow-open-url',
+        scope: {
+          allow: [{ url: 'https://github.com/SimonHazard/Charon/releases/latest' }],
+        },
+      },
       'process:allow-restart',
       'updater:allow-check',
       'updater:allow-download',
@@ -90,6 +96,7 @@ describe('desktop window contract', () => {
         'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBQjExRENFRTEyRjQ0NzgKUldSNFJDL2h6aDJ4NnBQSDNLNGJZSUlIWFZ4Q29XYzBXV1NIZE9ONWV0M3pKT3NLNWw5M1FZN3oK',
     });
     expect(tauriBootstrap).toContain('.plugin(tauri_plugin_updater::Builder::new().build())');
+    expect(tauriBootstrap).toContain('.plugin(tauri_plugin_opener::init())');
     expect(tauriBootstrap).toContain('.plugin(tauri_plugin_process::init())');
   });
 });

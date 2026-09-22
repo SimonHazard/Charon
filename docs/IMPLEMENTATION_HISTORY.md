@@ -61,3 +61,29 @@ available in Git history; active work lives only in `plans/`.
   Security, and site deployment remain explicit operator tools.
 - On 2026-09-06, the operator replaced the source-visible, no-reuse terms with
   the standard MIT License before making the repository public.
+- On 2026-09-21, ADR 0017 changed the future macOS release policy from Intel to
+  native Apple Silicon (`arm64`) artifacts. The existing published Intel
+  release remains unchanged; the next versioned release must use the new
+  target. macOS 14 remains the minimum OS, and universal artifacts are not
+  planned.
+
+## Experimental cross-platform capture and control polish (2026-09-21)
+
+- Plan 034 adds passive Windows WH_KEYBOARD_LL and X11 XI2 adapters using the
+  existing double-Shift machine. Windows reads UI Automation only; X11 reads
+  focused AT-SPI then bounded PRIMARY. Neither new adapter synthesizes Copy.
+- Windows/X11 start as experimental, fail without creating a Note, and preserve
+  source focus and CLIPBOARD. Results are limited to 500 ms and 1 MiB, with at
+  most one outstanding provider worker. AT-SPI focus metadata avoids scanning
+  background application trees. macOS acquisition remains unchanged.
+- Windows/X11 register Alt+Shift+Space. Wayland owns a GlobalShortcuts portal
+  session, displays the granted key, handles denial and changes, and never
+  starts the X11 shortcut plugin or advertises double Shift. Compositor focus
+  restrictions remain a native compatibility limit.
+- Desktop controls now consistently use semantic hover/pressed/selection roles,
+  control radii and focus rings; Note borders and text hierarchy are refined.
+  Charon Lavender remains #8f8be8, with the same Light/Graphite appearances.
+- Validation includes the full local check and Rust suite, 44 Chromium/WebKit
+  cases, full Linux/Windows cross-platform compilation and Clippy, plus isolated
+  Xvfb and mocked D-Bus adapter tests. This is not physical Windows/Wayland
+  certification; no release or version change accompanies the work.

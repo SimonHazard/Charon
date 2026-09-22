@@ -46,6 +46,7 @@ impl PersistedPreferences {
             schema_version: self.schema_version,
             workspace_name: self.last_workspace_path.as_deref().and_then(workspace_name),
             has_remembered_workspace: self.last_workspace_path.is_some(),
+            install_kind: InstallKind::Unknown,
         }
     }
 }
@@ -60,6 +61,19 @@ fn workspace_name(path: &str) -> Option<String> {
                 && !value.chars().any(char::is_control)
         })
         .map(str::to_owned)
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(rename_all = "lowercase")]
+pub enum InstallKind {
+    Appimage,
+    Deb,
+    Rpm,
+    Nsis,
+    Msi,
+    Macos,
+    Unknown,
 }
 
 #[cfg(test)]
@@ -83,4 +97,5 @@ pub struct PreferencesSnapshot {
     pub schema_version: u32,
     pub workspace_name: Option<String>,
     pub has_remembered_workspace: bool,
+    pub install_kind: InstallKind,
 }

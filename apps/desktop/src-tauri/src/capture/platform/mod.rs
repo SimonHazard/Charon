@@ -5,8 +5,10 @@ use super::PlatformCapturePort;
 use super::PlatformKind;
 use crate::capture::gesture::CaptureGestureIntent;
 
+#[cfg(any(target_os = "windows", target_os = "linux", test))]
+mod bounded;
 #[cfg(target_os = "linux")]
-mod linux;
+pub(crate) mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "windows")]
@@ -21,13 +23,11 @@ pub fn create(callback: DoubleShiftCallback) -> Box<dyn PlatformCapturePort> {
     }
     #[cfg(target_os = "linux")]
     {
-        let _ = callback;
-        Box::new(linux::LinuxCaptureAdapter::new())
+        Box::new(linux::LinuxCaptureAdapter::new(callback))
     }
     #[cfg(target_os = "windows")]
     {
-        let _ = callback;
-        Box::new(windows::WindowsCaptureAdapter)
+        Box::new(windows::WindowsCaptureAdapter::new(callback))
     }
     #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     {

@@ -10,8 +10,9 @@ Physical development testing proved that the previous single-permission model
 was incorrect. macOS exposes two independent protected capabilities:
 
 - a passive session `CGEventTap` that observes global modifier events requires
-  Input Monitoring, represented by the public
-  `CGPreflightListenEventAccess` and `CGRequestListenEventAccess` APIs;
+  Input Monitoring, represented independently by the public
+  `IOHIDCheckAccess` and `IOHIDRequestAccess` APIs with
+  `kIOHIDRequestTypeListenEvent`;
 - querying the foreground Accessibility tree for selected text requires
 Accessibility, represented by `AXIsProcessTrusted` and
 `AXIsProcessTrustedWithOptions`. ADR 0009 defines the primary public direct,
@@ -42,11 +43,15 @@ It checks both without prompting on launch.
   fallback. Without both, it creates nothing.
 
 Shortcut help exposes localized, explicit actions for each missing permission.
-Input Monitoring is requested with `CGRequestListenEventAccess`; Accessibility
-is requested with `AXIsProcessTrustedWithOptions`. After either system flow,
-Charon re-preflights the capability and starts exactly one listener only after
-Input Monitoring is confirmed. Denial remains a usable state with the standard
-accelerator and main Notes input.
+Input Monitoring is requested with `IOHIDRequestAccess` and checked with
+`IOHIDCheckAccess`; Accessibility is requested with
+`AXIsProcessTrustedWithOptions`. The Core Graphics listen preflight is not used
+as the Input Monitoring state because a separate Accessibility grant can also
+make a listen-only event tap usable without registering Charon in the Input
+Monitoring list. After either system flow, Charon re-preflights the capability
+and starts exactly one listener only after the explicit Input Monitoring grant
+is confirmed. Denial remains a usable state with the standard accelerator and
+main Notes input.
 
 The event-tap listener stays session-scoped, passive (`listenOnly`), and
 observes only flags and key events needed by the pure gesture machine. It never

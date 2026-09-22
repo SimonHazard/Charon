@@ -201,9 +201,12 @@ opening another window. It has no permanent help sentence, pre-Note Attachment
 queue, thumbnail strip, drag and drop, or arbitrary preview; essential capture
 help remains available from Help and Preferences.
 
-Invoking `Cmd+Shift+Space` on macOS or `Alt+Shift+Space` on Windows/Linux reveals
-Charon and focuses the composer when global operating-system delivery is available.
-Unmodified double Shift on a proved macOS adapter has no surface,
+Invoking `Cmd+Shift+Space` on macOS or the platform-reported portable shortcut on
+Windows/Linux reveals Charon and focuses the composer when global operating-system
+delivery is available. On Wayland, the portal may assign a different shortcut,
+which Charon displays.
+Unmodified double Shift on macOS and experimental Windows/X11 adapters has no
+surface,
 creates one Note only for non-empty selected text, and never steals source
 focus. Permission denial keeps the portable shortcut and composer usable.
 
@@ -279,9 +282,11 @@ recovery behavior.
   row when focus is not inside editable text.
 - Escape closes the topmost surface first and preserves predictable focus.
 - Unmodified `Shift`, `Shift` performs silent selected-text capture only where
-  the native adapter and required permissions are proved.
-- `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux reveal Charon
-  and focus the bottom composer when global delivery is available.
+  the native adapter is available or explicitly experimental and required
+  permissions allow it.
+- `Cmd+Shift+Space` on macOS and the platform-reported portable shortcut on
+  Windows/Linux reveal Charon and focus the bottom composer when global delivery
+  is available. Wayland may display a portal-assigned shortcut instead.
 
 Displayed shortcut glyphs resolve from `capabilities.platform`: Charon shows
 `⌘` on macOS and `Alt` on Windows/Linux for composer focus.
@@ -364,3 +369,16 @@ Any new motion is reviewed at normal speed, in slow motion, and while reversed
 mid-animation. The review confirms pointer/key-down feedback, input during
 settling, focus restoration, crossfade/static reduced-motion behavior, and no
 layout clipping with large French text.
+
+### Shared control polish
+
+Lavender remains `#8f8be8`; primary controls use the semantic action, hover, and
+pressed roles rather than opacity mixtures. Compact buttons and toggle items use
+the 8px control radius; fields retain 12px. Tabs and pressed toggles use the
+same selection surface/border/text roles and a distinct two-pixel focus ring.
+Fine-pointer hover keeps three distinct levels: a quiet row surface, a clearer
+control surface, and an explicit destructive surface. Active tabs and toggles
+retain their selected surface when hovered, while coarse pointers expose direct
+actions without sticky hover styling. Note surfaces have a quiet separator
+border, with the selection border on the expanded editor. Disabled fields use
+the inset surface and muted text.

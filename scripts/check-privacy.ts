@@ -23,6 +23,8 @@ const desktopNetworkPatterns = [
 // Static dependency metadata and DOM namespace constants are not network sinks.
 const desktopNetworkAllowlist = [
   'fetch(e.href,n)', // React DOM stylesheet preloading; Charon emits no preload links.
+  // Explicit user-triggered release link opened through Tauri's opener plugin.
+  'https://github.com/SimonHazard/Charon/releases/latest',
   'https://react.dev/errors/',
   'https://base-ui.com/production-error',
   'https://paraglidejs.com/errors#no-locale-found',

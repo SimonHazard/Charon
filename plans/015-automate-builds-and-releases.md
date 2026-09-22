@@ -30,9 +30,9 @@
 The work started from a macOS-only, manually dispatched draft workflow with no
 updater artifacts or app integration. Charon needs one cheap operator flow:
 choose a version in the four manifests, merge the release preparation, let
-GitHub build and publish macOS, Linux, and Windows downloads plus the matching
-tag, then let opted-in installations discover and explicitly install the signed
-update.
+GitHub build and publish Apple Silicon macOS, Linux, and Windows downloads plus
+the matching tag, then let opted-in installations discover and explicitly
+install the signed update.
 
 ## Target behavior
 
@@ -40,8 +40,8 @@ update.
    validated pull request into protected `main`.
 2. `release.yml` validates manifest consistency and exits successfully when the
    matching version is already published.
-3. macOS, Linux, and Windows jobs build normal bundles plus Tauri updater
-   artifacts and signatures.
+3. Apple Silicon macOS, Linux, and Windows jobs build normal bundles plus Tauri
+   updater artifacts and signatures.
 4. Build jobs upload private workflow artifacts; they do not mutate a public
    release in parallel.
 5. One final job verifies all expected OS families, creates `SHA256SUMS.txt` and
@@ -168,7 +168,7 @@ signature/error, progress, and dirty-draft restart states without network calls.
 
 Use the current supported GitHub runner matrix:
 
-- macOS: `.app`, `.dmg`, and signed updater archive with ad-hoc identity `-`;
+- Apple Silicon macOS: `.app`, `.dmg`, and signed updater archive with ad-hoc identity `-`;
 - Ubuntu: `.deb`, AppImage, `.rpm`, and the supported Linux updater artifact;
 - Windows: NSIS, MSI, and the selected updater installer/signature.
 

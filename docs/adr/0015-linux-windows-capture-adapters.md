@@ -2,15 +2,17 @@
 
 ## Status
 
-Accepted on 2026-09-05. The mechanisms are accepted for implementation; Windows
-and Linux capability reporting stays `Unsupported` until the corresponding code
-ships, then starts as `Experimental` while ordinary use establishes coverage.
+Accepted on 2026-09-05. Implemented experimentally on 2026-09-21 for Windows
+and Linux X11. Windows and X11 remain `Experimental` while ordinary use
+establishes coverage; Wayland remains without a modifier-only capture claim.
 
 ## Context
 
-Charon implements passive double-Shift selected-text capture on macOS. Windows
-and Linux currently expose only the visible composer and a conventional global
-shortcut. Cross-platform capture must preserve ADR 0010's bounded Copy ceiling:
+At acceptance, Charon implemented passive double-Shift selected-text capture on
+macOS while Windows and Linux exposed only the visible composer and a
+conventional global shortcut. The implementation described by this ADR now
+ships experimentally on Windows and Linux X11. Cross-platform capture must
+preserve ADR 0010's bounded Copy ceiling:
 no Paste, arbitrary input injection, private APIs, OCR, screen capture,
 clipboard-history monitoring, privileged helper, or content logging.
 

@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import { useWorkspace } from '@/app/workspace-context';
+import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { isTauriRuntime } from '@/lib/platform';
 import {
   tauriUpdateClient,
@@ -32,6 +33,7 @@ export type UpdateStatus =
 
 type UpdateValue = {
   enabled: boolean;
+  canSelfUpdate: boolean;
   status: UpdateStatus;
   version: string | null;
   notes: string;
@@ -69,6 +71,8 @@ export function UpdateProvider({
   enabled = isTauriRuntime(),
 }: PropsWithChildren<{ client?: UpdateClient; enabled?: boolean }>) {
   const workspace = useWorkspace();
+  const native = useNativePreferences();
+  const canSelfUpdate = !['deb', 'rpm', 'msi'].includes(native.preferences.installKind);
   const [checksEnabled, setChecksEnabled] = useState(readEnabled);
   const [status, setStatus] = useState<UpdateStatus>('idle');
   const [candidate, setCandidate] = useState<UpdateCandidate | null>(null);
@@ -140,7 +144,7 @@ export function UpdateProvider({
 
   const downloadAndInstall = useCallback(async () => {
     const update = candidateRef.current;
-    if (!update || workspace.isWorkspaceSwitchBlocked) return;
+    if (!update || !canSelfUpdate || workspace.isWorkspaceSwitchBlocked) return;
     setStatus('downloading');
     setDownloadedBytes(0);
     setTotalBytes(null);
@@ -160,7 +164,7 @@ export function UpdateProvider({
     } catch {
       setStatus('error');
     }
-  }, [workspace.isWorkspaceSwitchBlocked]);
+  }, [canSelfUpdate, workspace.isWorkspaceSwitchBlocked]);
 
   const restart = useCallback(async () => {
     if (status !== 'ready' || workspace.isWorkspaceSwitchBlocked) return;
@@ -174,6 +178,7 @@ export function UpdateProvider({
   const value = useMemo<UpdateValue>(
     () => ({
       enabled: checksEnabled,
+      canSelfUpdate,
       status,
       version: candidate?.version ?? null,
       notes: candidate?.notes ?? '',
@@ -187,6 +192,7 @@ export function UpdateProvider({
     }),
     [
       candidate,
+      canSelfUpdate,
       checkNow,
       checksEnabled,
       downloadAndInstall,

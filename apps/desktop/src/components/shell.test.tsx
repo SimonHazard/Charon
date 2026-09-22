@@ -9,7 +9,12 @@ import { ShelfActions } from '@/components/shelf-chrome';
 import type { CaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
 
-function platformClients(platform: CaptureCapabilities['platform']) {
+function platformClients(
+  platform: CaptureCapabilities['platform'],
+  activeShortcut = platform === 'windows' || platform === 'linuxX11' || platform === 'linuxWayland'
+    ? 'Alt+Shift+Space'
+    : 'CmdOrCtrl+Shift+Space',
+) {
   const capabilities: CaptureCapabilities = {
     platform,
     standardShortcut: 'available',
@@ -17,7 +22,7 @@ function platformClients(platform: CaptureCapabilities['platform']) {
     accessibility: platform === 'macos' ? 'denied' : 'unsupported',
     doubleShift: platform === 'macos' ? 'denied' : 'unsupported',
     selectedText: platform === 'macos' ? 'denied' : 'unsupported',
-    activeShortcut: 'CmdOrCtrl+Shift+Space',
+    activeShortcut,
   };
   const captureClient: CaptureClient = {
     capabilities: async () => capabilities,
@@ -32,11 +37,13 @@ function platformClients(platform: CaptureCapabilities['platform']) {
       schemaVersion: 1,
       workspaceName: null,
       hasRememberedWorkspace: false,
+      installKind: 'unknown',
     }),
     reset: async () => ({
       schemaVersion: 1,
       workspaceName: null,
       hasRememberedWorkspace: false,
+      installKind: 'unknown',
     }),
   };
   return { captureClient, preferencesClient };
@@ -81,7 +88,7 @@ describe('single shelf shell', () => {
     await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
     expect(await screen.findByText('Capture text')).toBeTruthy();
     expect(screen.getByText('Shift Shift').tagName).toBe('KBD');
-    expect(screen.getByText('⌘ + Shift + Space').tagName).toBe('KBD');
+    expect(screen.getByText('⌘ + ⇧ + Space').tagName).toBe('KBD');
     expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
@@ -102,7 +109,7 @@ describe('single shelf shell', () => {
     expect(document.querySelector('.window-drag-region')).toBeNull();
   });
 
-  it('shows the portable fallback and Ctrl shortcut on Windows', async () => {
+  it('shows the portable fallback and registered Alt shortcut on Windows', async () => {
     const user = userEvent.setup();
     const native = platformClients('windows');
     render(
@@ -115,8 +122,41 @@ describe('single shelf shell', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
-    expect(await screen.findByText('Ctrl + Shift + Space')).toBeTruthy();
+    expect(await screen.findByText('Alt + Shift + Space')).toBeTruthy();
+    expect(screen.queryByText(/Ctrl \+ Shift \+ Space/)).toBeNull();
     expect(screen.queryByText('Shift Shift')).toBeNull();
     expect(screen.getByText(/Selected-text capture is not claimed/)).toBeTruthy();
+  });
+
+  it('shows the registered Alt shortcut on Linux X11', async () => {
+    const user = userEvent.setup();
+    const native = platformClients('linuxX11');
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(await screen.findByText('Alt + Shift + Space')).toBeTruthy();
+  });
+
+  it('shows the portal fallback when Wayland has not assigned a shortcut', async () => {
+    const user = userEvent.setup();
+    const native = platformClients('linuxWayland', '');
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Keyboard shortcuts' }));
+    expect(await screen.findByText('System shortcut')).toBeTruthy();
   });
 });

@@ -4,17 +4,31 @@ use super::{
 };
 
 pub const DEFAULT_CAPTURE_SHORTCUT: &str = "CmdOrCtrl+Shift+Space";
+pub fn composer_shortcut(platform: PlatformKind) -> &'static str {
+    match platform {
+        PlatformKind::Windows | PlatformKind::LinuxX11 | PlatformKind::LinuxWayland => {
+            "Alt+Shift+Space"
+        }
+        _ => DEFAULT_CAPTURE_SHORTCUT,
+    }
+}
 const DUPLICATE_TRIGGER_WINDOW_MS: u64 = 100;
 
 pub trait ShortcutPort: Send {
     fn register(&mut self, shortcut: &str) -> Result<(), CaptureError>;
     fn unregister(&mut self, shortcut: &str) -> Result<(), CaptureError>;
+    fn current_state(&self) -> Option<(CapabilityState, String)> {
+        None
+    }
 }
 
 pub trait PlatformCapturePort: Send {
     fn platform(&self) -> PlatformKind;
     fn input_monitoring_state(&self) -> CapabilityState;
     fn accessibility_state(&self) -> CapabilityState;
+    fn selected_text_state(&self) -> CapabilityState {
+        self.accessibility_state()
+    }
     fn start(&mut self) -> Result<(), CaptureError>;
     fn request_permission(&mut self, permission: CapturePermissionKind)
         -> Result<(), CaptureError>;
@@ -29,6 +43,7 @@ pub struct CaptureCoordinator {
     capabilities: CaptureCapabilities,
     initialized: bool,
     listener_started: bool,
+    listener_attempted: bool,
     shutdown: bool,
     next_request_id: u32,
     last_trigger_at: Option<u64>,
@@ -43,7 +58,7 @@ impl CaptureCoordinator {
             accessibility: platform.accessibility_state(),
             double_shift: CapabilityState::Unsupported,
             selected_text: CapabilityState::Unsupported,
-            active_shortcut: DEFAULT_CAPTURE_SHORTCUT.to_owned(),
+            active_shortcut: composer_shortcut(platform.platform()).to_owned(),
         };
         Self {
             shortcut,
@@ -51,6 +66,7 @@ impl CaptureCoordinator {
             capabilities,
             initialized: false,
             listener_started: false,
+            listener_attempted: false,
             shutdown: false,
             next_request_id: 1,
             last_trigger_at: None,
@@ -88,6 +104,9 @@ impl CaptureCoordinator {
     ) -> Result<CaptureCapabilities, CaptureError> {
         self.ensure_active()?;
         self.platform.request_permission(permission)?;
+        if !self.listener_started {
+            self.listener_attempted = false;
+        }
         self.refresh_platform_states();
         self.start_listener_if_available();
         Ok(self.capabilities())
@@ -102,8 +121,7 @@ impl CaptureCoordinator {
         if trigger == CaptureTrigger::StandardShortcut {
             self.platform.reset_gesture();
         }
-        if trigger == CaptureTrigger::DoubleShiftCapture
-            && self.capabilities.double_shift != CapabilityState::Available
+        if trigger == CaptureTrigger::DoubleShiftCapture && !self.capabilities.double_shift.usable()
         {
             return Ok(None);
         }
@@ -134,15 +152,13 @@ impl CaptureCoordinator {
             return;
         }
         self.shutdown = true;
-        if self.capabilities.standard_shortcut == CapabilityState::Available {
-            let _ = self.shortcut.unregister(&self.capabilities.active_shortcut);
-        }
+        let _ = self.shortcut.unregister(&self.capabilities.active_shortcut);
         self.platform.shutdown();
         self.capabilities.standard_shortcut = CapabilityState::Unsupported;
     }
 
     fn capture_selection(&mut self) -> Result<Option<CaptureAction>, CaptureError> {
-        if self.capabilities.selected_text != CapabilityState::Available {
+        if !self.capabilities.selected_text.usable() {
             return Ok(None);
         }
         match self.platform.selected_text() {
@@ -174,16 +190,24 @@ impl CaptureCoordinator {
     }
 
     fn refresh_platform_states(&mut self) {
+        if let Some((state, shortcut)) = self.shortcut.current_state() {
+            self.capabilities.standard_shortcut = state;
+            self.capabilities.active_shortcut = shortcut;
+        }
         self.capabilities.input_monitoring = self.platform.input_monitoring_state();
         self.capabilities.accessibility = self.platform.accessibility_state();
         self.capabilities.double_shift = self.capabilities.input_monitoring;
-        self.capabilities.selected_text = self.capabilities.accessibility;
+        if self.listener_attempted && !self.listener_started {
+            self.capabilities.double_shift = CapabilityState::Error;
+        }
+        self.capabilities.selected_text = self.platform.selected_text_state();
     }
 
     fn start_listener_if_available(&mut self) {
-        if self.listener_started || self.capabilities.double_shift != CapabilityState::Available {
+        if self.listener_attempted || !self.capabilities.double_shift.usable() {
             return;
         }
+        self.listener_attempted = true;
         match self.platform.start() {
             Ok(()) => self.listener_started = true,
             Err(_) => self.capabilities.double_shift = CapabilityState::Error,

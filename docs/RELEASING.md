@@ -9,9 +9,9 @@
 Charon is a free side project distributed through public GitHub Releases. A
 protected update to `main` starts the only automatic desktop workflow. It reads
 the root package, desktop package, Cargo, and Tauri versions. If all four contain
-one new SemVer, it builds macOS, Linux, and Windows artifacts, signs the Tauri
-updater bundles, creates the matching `vX.Y.Z` tag on that merged commit, and
-publishes only after every platform succeeds. If the version already has a
+one new SemVer, it builds Apple Silicon macOS, Linux, and Windows artifacts,
+signs the Tauri updater bundles, creates the matching `vX.Y.Z` tag on that merged
+commit, and publishes only after every platform succeeds. If the version already has a
 published release, the workflow exits without rebuilding.
 
 The application is not signed by paid platform certificates. macOS uses Tauri's
@@ -26,6 +26,12 @@ ad-hoc identity; Windows and Linux bundles are unsigned. Release notes must say:
 
 `SHA256SUMS.txt` accompanies every release. It is an integrity aid, not a
 platform trust claim.
+
+The next macOS release is planned as a native Apple Silicon (`arm64`) build
+from GitHub's `macos-15` arm64 runner. Intel Macs are intentionally outside the
+next release target; its updater metadata will contain `darwin-aarch64` and no
+`darwin-x86_64` entry. Existing published release metadata is unchanged until
+that version is published.
 
 ## Integrated updater
 
@@ -42,6 +48,10 @@ until editor and composer drafts are safe.
 Tauri verifies updater artifacts with the public key committed in
 `tauri.conf.json`. This updater signature is separate from Apple or Microsoft
 code signing.
+
+AppImage, NSIS, and macOS installations can self-update. deb, rpm, and MSI
+installations must download the new package from GitHub Releases and install it
+the same way.
 
 ## GitHub environment and secrets
 

@@ -51,6 +51,8 @@ const requiredSemanticTokens = [
   '--surface-inset',
   '--surface-hover',
   '--surface-pressed',
+  '--control-hover',
+  '--control-pressed',
   '--text',
   '--text-muted',
   '--text-subtle',
@@ -69,6 +71,8 @@ const requiredSemanticTokens = [
   '--danger',
   '--danger-text',
   '--danger-surface',
+  '--danger-hover',
+  '--danger-pressed',
   '--warning',
   '--warning-text',
   '--warning-surface',
@@ -164,6 +168,10 @@ describe('theme token contract', () => {
       ['--text-muted', '--surface-hover'],
       ['--text', '--surface-pressed'],
       ['--text-muted', '--surface-pressed'],
+      ['--text', '--control-hover'],
+      ['--text-muted', '--control-hover'],
+      ['--text', '--control-pressed'],
+      ['--text-muted', '--control-pressed'],
       ['--text', '--field-surface'],
       ['--text-muted', '--field-surface'],
       ['--text', '--selection-subtle'],
@@ -174,6 +182,8 @@ describe('theme token contract', () => {
       ['--selection-text', '--selection-surface'],
       ['--danger', '--canvas'],
       ['--danger-text', '--danger-surface'],
+      ['--danger-text', '--danger-hover'],
+      ['--danger-text', '--danger-pressed'],
       ['--warning', '--canvas'],
       ['--warning-text', '--warning-surface'],
       ['--success', '--canvas'],
@@ -194,6 +204,8 @@ describe('theme token contract', () => {
       ['--focus', '--selection-surface'],
       ['--focus', '--surface-hover'],
       ['--focus', '--surface-pressed'],
+      ['--focus', '--control-hover'],
+      ['--focus', '--control-pressed'],
       ['--focus', '--selection-subtle'],
       ['--selection-border', '--selection-surface'],
       ['--selection-border', '--selection-subtle'],
@@ -241,7 +253,7 @@ describe('theme token contract', () => {
     }
   });
 
-  it('allows only explicit event, window lifecycle, and clipboard commands', () => {
+  it('allows only explicit event, window lifecycle, clipboard, and release-link commands', () => {
     expect(mainCapability.permissions).toEqual([
       'core:event:allow-listen',
       'core:event:allow-unlisten',
@@ -249,6 +261,12 @@ describe('theme token contract', () => {
       'core:window:allow-start-dragging',
       'core:window:allow-internal-toggle-maximize',
       'clipboard-manager:allow-write-text',
+      {
+        identifier: 'opener:allow-open-url',
+        scope: {
+          allow: [{ url: 'https://github.com/SimonHazard/Charon/releases/latest' }],
+        },
+      },
       'process:allow-restart',
       'updater:allow-check',
       'updater:allow-download',
