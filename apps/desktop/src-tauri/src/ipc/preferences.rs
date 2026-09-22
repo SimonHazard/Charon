@@ -128,12 +128,7 @@ mod tests {
             InstallKind::Appimage
         );
         assert_eq!(
-            detect_linux_install_kind(
-                None,
-                Some(Path::new("/usr/bin/Charon")),
-                true,
-                true,
-            ),
+            detect_linux_install_kind(None, Some(Path::new("/usr/bin/Charon")), true, true,),
             InstallKind::Deb
         );
         assert_eq!(
