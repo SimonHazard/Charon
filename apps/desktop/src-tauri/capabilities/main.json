@@ -10,6 +10,12 @@
     "core:window:allow-start-dragging",
     "core:window:allow-internal-toggle-maximize",
     "clipboard-manager:allow-write-text",
+    {
+      "identifier": "opener:allow-open-url",
+      "scope": {
+        "allow": [{ "url": "https://github.com/SimonHazard/Charon/releases/latest" }]
+      }
+    },
     "process:allow-restart",
     "updater:allow-check",
     "updater:allow-download",

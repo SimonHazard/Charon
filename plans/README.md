@@ -29,7 +29,7 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 | 015 | Publish automatic Tauri releases and integrated updates | Automatic three-OS release on a new manifest version plus signed updater | P1 | M | — | IN PROGRESS: implementation ready; first versioned merge pending |
 | 035 | Show the registered composer shortcut on every platform | Adds a pure accelerator formatter, renders formatted `activeShortcut` in Help and Preferences, and covers Windows, X11, Wayland, macOS, and localized labels | P1 | S | — | DONE |
 | 036 | Compile and lint the Rust core on macOS and Windows in Quality | Adds a macOS/Windows clippy+test matrix, aligns `rust-version`, locks the release build, guards Rust message keys, and fills the missing localized Workspace-health message | P1 | S | — | DONE |
-| 037 | Make the updater and installers honest per bundle type | Reports install kind, explains deb/rpm/MSI manual updates, warns macOS re-grant, drops tray/xdo Linux deps | P1 | M | 036 | TODO |
+| 037 | Make the updater and installers honest per bundle type | Reports install kind, explains deb/rpm/MSI manual updates, warns macOS re-grant, drops tray/xdo Linux deps | P1 | M | 036 | DONE |
 | 038 | Follow the OS appearance and paint before the webview loads | Adds a System theme default, pre-paint canvas colour, window `backgroundColor`, platform attribute | P1 | M | — | TODO |
 | 039 | Keep Charon reachable across hide, close and relaunch | Persists only size/position/maximized; macOS close hides and Dock reopen restores | P2 | M | 036 | TODO |
 | 040 | Build the Lavender token foundation | Lavender ramp, contrast checker, per-theme elevation, type/weight/space scales, selection/caret/scrollbar polish | P1 | M | 038 | TODO |

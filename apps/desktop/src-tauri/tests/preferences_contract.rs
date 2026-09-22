@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use charon_desktop_lib::preferences::{PreferencesIpcError, PreferencesSnapshot};
+use charon_desktop_lib::preferences::{InstallKind, PreferencesIpcError, PreferencesSnapshot};
 use ts_rs::{Config, TS};
 
 #[test]
@@ -10,6 +10,7 @@ fn export_preferences_bindings() {
         .expect("CHARON_PREFERENCES_BINDINGS_OUT");
     let config = Config::default();
     let declarations = [
+        InstallKind::decl(&config),
         PreferencesSnapshot::decl(&config),
         PreferencesIpcError::decl(&config),
     ]

@@ -253,7 +253,7 @@ describe('theme token contract', () => {
     }
   });
 
-  it('allows only explicit event, window lifecycle, and clipboard commands', () => {
+  it('allows only explicit event, window lifecycle, clipboard, and release-link commands', () => {
     expect(mainCapability.permissions).toEqual([
       'core:event:allow-listen',
       'core:event:allow-unlisten',
@@ -261,6 +261,12 @@ describe('theme token contract', () => {
       'core:window:allow-start-dragging',
       'core:window:allow-internal-toggle-maximize',
       'clipboard-manager:allow-write-text',
+      {
+        identifier: 'opener:allow-open-url',
+        scope: {
+          allow: [{ url: 'https://github.com/SimonHazard/Charon/releases/latest' }],
+        },
+      },
       'process:allow-restart',
       'updater:allow-check',
       'updater:allow-download',

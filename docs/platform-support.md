@@ -17,6 +17,10 @@ Workspace persistence, path containment, managed Attachment storage, and
 `Copy as Markdown` path composition are separator- and Windows-verbatim-prefix-
 agnostic. Build portability does not imply native capture support.
 
+AppImage, NSIS, and macOS installations can self-update. deb, rpm, and MSI
+installations must download the new package from GitHub Releases and install it
+the same way.
+
 ## macOS evidence and limits
 
 The next published macOS installers target Apple Silicon (`arm64`) only. Intel

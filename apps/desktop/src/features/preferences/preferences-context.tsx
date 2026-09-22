@@ -22,6 +22,7 @@ const defaultPreferences: PreferencesSnapshot = {
   schemaVersion: 1,
   workspaceName: null,
   hasRememberedWorkspace: false,
+  installKind: 'unknown',
 };
 
 type NativePreferencesValue = {

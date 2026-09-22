@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useWorkspace, WorkspaceProvider } from '@/app/workspace-context';
+import type { CaptureCapabilities } from '@/bindings/capture';
+import { NativePreferencesProvider } from '@/features/preferences/preferences-context';
+import type { CaptureClient } from '@/lib/ipc/capture-client';
+import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
 import { snapshot, workspaceClient } from '@/test/workspace-fixture';
 import type { UpdateCandidate, UpdateClient } from './update-client';
 import { UpdateProvider, useUpdates } from './update-context';
@@ -30,12 +34,48 @@ function client(result: UpdateCandidate | null = null): UpdateClient {
   };
 }
 
+const captureCapabilities: CaptureCapabilities = {
+  platform: 'macos',
+  standardShortcut: 'available',
+  inputMonitoring: 'available',
+  accessibility: 'available',
+  doubleShift: 'available',
+  selectedText: 'available',
+  activeShortcut: 'CmdOrCtrl+Shift+Space',
+};
+
+function nativeClients(installKind: string): {
+  captureClient: CaptureClient;
+  preferencesClient: NativePreferencesClient;
+} {
+  return {
+    captureClient: {
+      capabilities: vi.fn().mockResolvedValue(captureCapabilities),
+      open: vi.fn().mockResolvedValue(captureCapabilities),
+      requestPermission: vi.fn().mockResolvedValue(captureCapabilities),
+      composerReady: vi.fn().mockResolvedValue(undefined),
+      subscribeComposerFocus: vi.fn().mockResolvedValue(() => undefined),
+      subscribeStatus: vi.fn().mockResolvedValue(() => undefined),
+    },
+    preferencesClient: {
+      read: vi.fn().mockResolvedValue({
+        schemaVersion: 1,
+        workspaceName: null,
+        hasRememberedWorkspace: false,
+        installKind,
+      }),
+      reset: vi.fn(),
+    },
+  };
+}
+
 function Harness() {
   const updates = useUpdates();
   const workspace = useWorkspace();
   return (
     <div>
       <output>{updates.status}</output>
+      <output>{String(updates.canSelfUpdate)}</output>
       <output>{updates.version}</output>
       <output>{updates.downloadedBytes}</output>
       <button onClick={() => updates.setEnabled(true)} type="button">
@@ -60,12 +100,19 @@ function Harness() {
   );
 }
 
-function renderUpdates(updateClient: UpdateClient) {
+function renderUpdates(updateClient: UpdateClient, installKind = 'unknown') {
+  const native = nativeClients(installKind);
   return render(
     <WorkspaceProvider client={workspaceClient(snapshot())}>
-      <UpdateProvider client={updateClient} enabled>
-        <Harness />
-      </UpdateProvider>
+      <NativePreferencesProvider
+        captureClient={native.captureClient}
+        enabled
+        preferencesClient={native.preferencesClient}
+      >
+        <UpdateProvider client={updateClient} enabled>
+          <Harness />
+        </UpdateProvider>
+      </NativePreferencesProvider>
     </WorkspaceProvider>,
   );
 }
@@ -132,4 +179,31 @@ describe('signed update flow', () => {
     await waitFor(() => expect(screen.getByText('error')).toBeTruthy());
     expect(invalid.install).not.toHaveBeenCalled();
   });
+
+  it.each(['deb', 'rpm', 'msi'])(
+    'disables self-install for %s installations while retaining update checks',
+    async (installKind) => {
+      const updateClient = client(candidate());
+      renderUpdates(updateClient, installKind);
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: 'enable' }));
+      await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
+      expect(screen.getByText('false')).toBeTruthy();
+      await user.click(screen.getByRole('button', { name: 'install' }));
+      expect(screen.getByText('available')).toBeTruthy();
+      expect(updateClient.check).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['appimage', 'nsis', 'macos', 'unknown'])(
+    'allows self-install for %s installations',
+    async (installKind) => {
+      const updateClient = client(candidate());
+      renderUpdates(updateClient, installKind);
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: 'enable' }));
+      await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
+      expect(screen.getByText('true')).toBeTruthy();
+    },
+  );
 });

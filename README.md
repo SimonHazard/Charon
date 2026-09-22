@@ -46,6 +46,10 @@ Update checks are disabled by default. Users can enable the metadata-only check
 in Preferences, review an available version, and explicitly install it. The
 applications remain unsigned by paid platform certificates:
 
+AppImage, NSIS, and macOS installations can self-update; deb, rpm, and MSI
+installations must download the new package from GitHub Releases and install it
+the same way.
+
 - macOS may require Privacy & Security, Open Anyway, or Control-click, Open;
 - Future macOS releases target Apple Silicon (`arm64`) and do not support Intel
   Macs;

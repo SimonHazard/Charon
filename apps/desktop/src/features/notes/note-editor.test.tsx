@@ -53,11 +53,13 @@ const preferencesClient: NativePreferencesClient = {
     schemaVersion: 1,
     workspaceName: null,
     hasRememberedWorkspace: false,
+    installKind: 'unknown',
   }),
   reset: async () => ({
     schemaVersion: 1,
     workspaceName: null,
     hasRememberedWorkspace: false,
+    installKind: 'unknown',
   }),
 };
 

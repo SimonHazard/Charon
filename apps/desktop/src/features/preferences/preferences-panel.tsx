@@ -2,6 +2,7 @@ import {
   IconAlertCircle,
   IconCircleCheck,
   IconDownload,
+  IconExternalLink,
   IconInfoCircle,
   IconMoon,
   IconRefresh,
@@ -9,6 +10,7 @@ import {
   IconSun,
   IconX,
 } from '@tabler/icons-react';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { m as motion } from 'motion/react';
 import { useState } from 'react';
 
@@ -40,6 +42,8 @@ import { useNativePreferences } from '@/features/preferences/preferences-context
 import { useUpdates } from '@/features/updates/update-context';
 import { formatShortcut } from '@/lib/shortcut-label';
 import { usePressFeedback } from '@/motion/press';
+
+const RELEASES_URL = 'https://github.com/SimonHazard/Charon/releases/latest';
 
 export function PreferencesPanel() {
   const m = useMessages();
@@ -394,10 +398,20 @@ export function PreferencesPanel() {
           {updates.status === 'available' && updates.version ? (
             <div className="preferences-update-available" role="status">
               <p>{m.update_available({ version: updates.version })}</p>
-              <Button onClick={() => setUpdateDialogOpen(true)} size="sm" variant="outline">
-                <IconDownload aria-hidden="true" />
-                {m.update_review()}
-              </Button>
+              {updates.canSelfUpdate ? (
+                <Button onClick={() => setUpdateDialogOpen(true)} size="sm" variant="outline">
+                  <IconDownload aria-hidden="true" />
+                  {m.update_review()}
+                </Button>
+              ) : (
+                <>
+                  <p>{m.update_manual_install_description()}</p>
+                  <Button onClick={() => void openUrl(RELEASES_URL)} size="sm" variant="outline">
+                    <IconExternalLink aria-hidden="true" />
+                    {m.update_open_releases()}
+                  </Button>
+                </>
+              )}
             </div>
           ) : null}
           {updates.status === 'downloading' ? (
@@ -438,6 +452,9 @@ export function PreferencesPanel() {
             </AlertDialogTitle>
             <AlertDialogDescription>{m.update_install_description()}</AlertDialogDescription>
           </AlertDialogHeader>
+          {native.capabilities?.platform === 'macos' ? (
+            <p className="preferences-inline-warning">{m.update_macos_regrant_notice()}</p>
+          ) : null}
           {updates.notes ? <p className="update-release-notes">{updates.notes}</p> : null}
           {updates.restartBlocked ? (
             <p className="preferences-inline-warning">{m.update_install_blocked()}</p>

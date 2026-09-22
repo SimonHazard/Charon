@@ -49,6 +49,10 @@ Tauri verifies updater artifacts with the public key committed in
 `tauri.conf.json`. This updater signature is separate from Apple or Microsoft
 code signing.
 
+AppImage, NSIS, and macOS installations can self-update. deb, rpm, and MSI
+installations must download the new package from GitHub Releases and install it
+the same way.
+
 ## GitHub environment and secrets
 
 Create a GitHub Actions environment named `release` with no required reviewer.

@@ -72,18 +72,18 @@ export function AppProviders({
     <PreferencesContext.Provider value={preferences}>
       <MotionSystem>
         <WorkspaceProvider client={workspaceClient}>
-          <UpdateProvider client={updateClient} enabled={updaterEnabled}>
-            <NativePreferencesProvider
-              captureClient={activeCaptureClient}
-              enabled={nativePreferencesEnabled}
-              preferencesClient={preferencesClient}
-            >
+          <NativePreferencesProvider
+            captureClient={activeCaptureClient}
+            enabled={nativePreferencesEnabled}
+            preferencesClient={preferencesClient}
+          >
+            <UpdateProvider client={updateClient} enabled={updaterEnabled}>
               <ComposerFocusProvider>
                 <CaptureBridge client={activeCaptureClient} enabled={nativePreferencesEnabled} />
                 {children}
               </ComposerFocusProvider>
-            </NativePreferencesProvider>
-          </UpdateProvider>
+            </UpdateProvider>
+          </NativePreferencesProvider>
         </WorkspaceProvider>
       </MotionSystem>
     </PreferencesContext.Provider>
