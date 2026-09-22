@@ -70,6 +70,7 @@ if (!files.includes(releaseWorkflowName)) {
     'os: macos-15\n            artifact: macos-aarch64',
     'name: Assert Apple Silicon runner',
     'run: test "$(uname -m)" = "arm64"',
+    'run: bun run --cwd apps/desktop tauri:build -- --bundles "$BUNDLE_TARGETS" -- --locked',
     'ubuntu-24.04',
     'windows-2025',
     'TAURI_SIGNING_PRIVATE_KEY: $' + '{{ secrets.TAURI_SIGNING_PRIVATE_KEY }}',
