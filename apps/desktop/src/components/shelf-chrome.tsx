@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { MarkdownHelp } from '@/features/notes/markdown-help';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { PreferencesPanel } from '@/features/preferences/preferences-panel';
+import { formatShortcut } from '@/lib/shortcut-label';
 import { usePressFeedback } from '@/motion/press';
 
 export function WindowDragRegion() {
@@ -26,6 +27,21 @@ export function ShelfActions() {
   const helpPress = usePressFeedback();
   const isMacos =
     capabilities?.platform === 'macos' || (!capabilities && navigator.platform.startsWith('Mac'));
+  const shortcutLabel = capabilities
+    ? capabilities.activeShortcut
+      ? formatShortcut(capabilities.activeShortcut, capabilities.platform, {
+          shift: m.shortcut_key_shift(),
+          space: m.shortcut_key_space(),
+        })
+      : m.capture_portal_shortcut()
+    : formatShortcut(
+        isMacos ? 'CmdOrCtrl+Shift+Space' : 'Alt+Shift+Space',
+        isMacos ? 'macos' : 'unknown',
+        {
+          shift: m.shortcut_key_shift(),
+          space: m.shortcut_key_space(),
+        },
+      );
   return (
     <div className="shelf-actions">
       <Popover>
@@ -73,13 +89,7 @@ export function ShelfActions() {
                 </span>
               )}
               <span className="help-shortcut-row">
-                <kbd>
-                  {capabilities?.platform === 'linuxWayland'
-                    ? capabilities.activeShortcut || m.capture_portal_shortcut()
-                    : isMacos
-                      ? m.preferences_shortcut_macos()
-                      : m.preferences_shortcut_other()}
-                </kbd>
+                <kbd>{shortcutLabel}</kbd>
                 <span>{m.capture_help_composer_description()}</span>
               </span>
             </PopoverDescription>

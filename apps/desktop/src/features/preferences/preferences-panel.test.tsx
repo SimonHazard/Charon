@@ -96,7 +96,7 @@ describe('compact Preferences', () => {
     expect(document.querySelector('.preferences-section-icon')).toBeNull();
     await screen.findByText('Charon Notes');
     expect(document.body.textContent).not.toContain('/Users/');
-    expect(screen.getByText('⌘ + Shift + Space')).toBeTruthy();
+    expect(screen.getByText('⌘ + ⇧ + Space')).toBeTruthy();
     expect(screen.queryByText(/shortcut is already used/i)).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Enable update checks' }).getAttribute('aria-pressed'),
@@ -330,7 +330,7 @@ describe('experimental platform capture', () => {
       </AppProviders>,
     );
     await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(await screen.findByText('Super+Space')).toBeTruthy();
+    expect(await screen.findByText('Super + Space')).toBeTruthy();
     expect(screen.queryByText(/Experimental selected-text capture/)).toBeNull();
   });
 });

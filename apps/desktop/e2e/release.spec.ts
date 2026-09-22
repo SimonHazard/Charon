@@ -435,7 +435,7 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
   await help.press('Enter');
   await expect(page.getByText('Capture text')).toBeVisible();
   const portableShortcut = await page.evaluate(() =>
-    navigator.platform.startsWith('Mac') ? '⌘ + Shift + Space' : 'Ctrl + Shift + Space',
+    navigator.platform.startsWith('Mac') ? '⌘ + ⇧ + Space' : 'Alt + Shift + Space',
   );
   await expect(page.getByText(portableShortcut)).toBeVisible();
   await expect(page.getByText(/Selected-text capture is not claimed/)).toBeVisible();

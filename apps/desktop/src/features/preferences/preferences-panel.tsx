@@ -38,6 +38,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { useUpdates } from '@/features/updates/update-context';
+import { formatShortcut } from '@/lib/shortcut-label';
 import { usePressFeedback } from '@/motion/press';
 
 export function PreferencesPanel() {
@@ -276,11 +277,16 @@ export function PreferencesPanel() {
                   </Tooltip>
                 </span>
                 <kbd>
-                  {native.capabilities.platform === 'linuxWayland'
-                    ? native.capabilities.activeShortcut || m.capture_portal_shortcut()
-                    : native.capabilities.platform === 'macos'
-                      ? m.preferences_shortcut_macos()
-                      : m.preferences_shortcut_other()}
+                  {native.capabilities.activeShortcut
+                    ? formatShortcut(
+                        native.capabilities.activeShortcut,
+                        native.capabilities.platform,
+                        {
+                          shift: m.shortcut_key_shift(),
+                          space: m.shortcut_key_space(),
+                        },
+                      )
+                    : m.capture_portal_shortcut()}
                 </kbd>
                 {stateIcon(native.capabilities.standardShortcut)}
               </div>
