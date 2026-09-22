@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Charon",
   "mainBinaryName": "Charon",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "dev.simonhazard.charon",
   "build": {
     "frontendDist": "../dist",

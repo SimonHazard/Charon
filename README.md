@@ -34,7 +34,7 @@ refusal leaves the visible composer available.
 
 ## Download and updates
 
-Version 0.1.0 is available in early access for macOS, Windows, and Linux on
+Early access downloads for macOS, Windows, and Linux are available on
 [GitHub Releases](https://github.com/SimonHazard/Charon/releases).
 After a protected merge to `main`, one new consistent manifest version builds
 macOS, Linux, and Windows installers. The workflow creates its `vX.Y.Z` tag,

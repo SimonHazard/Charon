@@ -1,19 +1,21 @@
-# Charon 0.1.1 — Early Access
+# Charon 0.1.2 — Early Access
 
 Charon is a local-only capture shelf for turning selected text or short manual entries into ordinary, agent-ready Markdown files in a folder you control.
 
 ## Highlights
 
-- Remove the extra Windows title-bar gap and unused space beside Notes and the deletion dialog footer.
-- Keep Preferences opaque in both themes, with sun/moon appearance controls and a native language dropdown.
-- Open an existing Workspace or create one in an empty folder. Failed folder changes preserve the active Workspace and keep an actionable error visible in Preferences; existing Notes are never moved.
-- Preview headings, emphasis, lists, tasks, quotes, code, and tables with TanStack Markdown. Links and images stay inert text without network or file access.
-- Consult the English or French Markdown help from the editor or general Help without changing your draft.
-- Keep Copy as Markdown unchanged: managed Attachment paths are copied, not media bytes.
+- Try experimental selected-text capture on Windows and Linux X11, alongside the
+  macOS capture path. Wayland provides a portal-registered composer shortcut.
+- See the shortcut actually registered by the platform in Help and Preferences.
+- Install native Apple Silicon (`arm64`) macOS builds; Intel Macs are outside
+  this release target.
+- Use honest update guidance for each installer type, including manual updates
+  for deb, rpm, and MSI packages.
 
 ## Early Access limits
 
-- Selected-text capture is implemented on macOS 14 and newer. Windows and Linux currently use the manual composer; their selected-text adapters remain experimental roadmap work.
+- Windows and Linux X11 selected-text capture is experimental. Compatibility
+  depends on the source application and platform accessibility support.
 - Wayland does not claim double-Shift capture. Use `Alt+Shift+Space` to reveal and focus the composer.
 - Charon is an experimental side project. Native compatibility is improved through normal use and user reports rather than a formal certification programme.
 
