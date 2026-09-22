@@ -92,7 +92,8 @@ clipboard or accessibility session. X11 cases exercise real selection requests;
 D-Bus cases supply controlled AT-SPI and portal providers. The ordinary suite
 also tests the single-flight selection deadline, experimental capabilities,
 platform shortcut registration, listener failure, and gesture state machine.
-Compile/clippy-check the full app for both Linux and Windows with the pinned
-Rust toolchain. A cross-compile does not validate Windows UIA application coverage
+Quality compiles and clippy-checks the Rust core on Linux, macOS, and Windows
+on every pull request with the pinned Rust toolchain. Physical OS matrices remain
+non-gating under ADR 0016. A cross-compile does not validate Windows UIA application coverage
 or a Wayland compositor's foreground policy. Use ordinary native sessions for
 that feedback, without including selected content in reports.

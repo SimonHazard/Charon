@@ -30,6 +30,7 @@
   "workspace_warning": "Showing the last valid workspace while a recoverable issue needs attention.",
   "workspace_health_missing_note": "A note body is missing. The note is quarantined until its file returns or you delete the note.",
   "workspace_health_invalid_note": "A note body is invalid. The note is quarantined until its file is repaired or you delete the note.",
+  "workspace_health_invalid_manifest": "The Workspace manifest is invalid. Charon kept the last valid state and did not write changes.",
   "workspace_health_missing_attachment": "A managed attachment file is missing.",
   "workspace_health_import_candidate": "An unknown Markdown file is waiting for an explicit import decision.",
   "note_search_label": "Search notes",
