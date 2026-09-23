@@ -42,6 +42,25 @@
     font-optical-sizing: auto;
     line-height: 1.45;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--selection-surface);
+    color: var(--selection-text);
+  }
+  input,
+  textarea {
+    caret-color: var(--focus);
+  }
+  /* Thin standard scrollbars only: a ::-webkit-scrollbar block would replace overlay scrollbars with a gutter. */
+  .note-list,
+  .preferences-popover,
+  .markdown-help,
+  .note-preview,
+  .note-editor-inline textarea,
+  .update-release-notes {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-subtle) transparent;
   }
   body {
     margin: 0;
@@ -83,8 +102,8 @@
 }
 .shelf-actions button {
   position: relative;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: var(--size-control-sm);
+  height: var(--size-control-sm);
 }
 .shelf-action-button::after {
   content: "";
@@ -115,8 +134,8 @@
   background: var(--field-surface);
   color: var(--text);
   font-family: var(--font-monospace);
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--type-2xs);
+  font-weight: var(--weight-medium);
 }
 
 .preferences-popover {
@@ -137,14 +156,14 @@
   border-bottom: 1px solid var(--separator);
 }
 .preferences-heading [data-slot="popover-title"] {
-  font-size: 0.95rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: var(--type-base);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--letter-tight);
 }
 .preferences-heading [data-slot="popover-description"],
 .preferences-group p {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--type-xs);
   line-height: 1.45;
 }
 .preferences-group {
@@ -162,9 +181,9 @@
   gap: 0.4rem;
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.055em;
+  font-size: var(--type-2xs);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--letter-caps);
   text-transform: uppercase;
 }
 .preferences-toggle {
@@ -184,8 +203,8 @@
   border-radius: calc(var(--radius-control) - 1px);
   background: var(--field-surface);
   color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 520;
+  font-size: var(--type-xs);
+  font-weight: var(--weight-medium);
 }
 .preferences-toggle button[data-pressed] {
   background: var(--selection);
@@ -193,14 +212,14 @@
 }
 .preferences-language {
   width: 100%;
-  min-height: 2.25rem;
+  min-height: var(--size-control-sm);
   padding: 0.35rem 0.6rem;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-control);
   background: var(--field-surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--type-sm);
 }
 .preferences-language:focus-visible {
   outline: 2px solid var(--focus);
@@ -219,8 +238,8 @@
   gap: 0.75rem;
 }
 .preferences-workspace-row strong {
-  font-size: 0.82rem;
-  font-weight: 620;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-strong);
 }
 .preferences-workspace-copy {
   min-width: 0;
@@ -240,7 +259,7 @@
 .preferences-shortcut-row {
   justify-content: space-between;
   color: var(--text);
-  font-size: 0.8rem;
+  font-size: var(--type-sm);
 }
 .preferences-shortcut-row kbd {
   padding: 0.16rem 0.4rem;
@@ -249,7 +268,7 @@
   background: var(--field-surface);
   color: var(--text-muted);
   font-family: var(--font-monospace);
-  font-size: 0.68rem;
+  font-size: var(--type-2xs);
 }
 .preferences-permissions {
   display: grid;
@@ -258,7 +277,7 @@
 }
 .preferences-permission-help {
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: var(--type-2xs);
 }
 .preferences-error {
   display: flex;
@@ -286,8 +305,8 @@
 }
 .preferences-row-title {
   gap: 0.35rem;
-  font-size: 0.8rem;
-  font-weight: 580;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
 }
 .preferences-row-title [data-slot="tooltip-trigger"] {
   flex: none;
@@ -296,8 +315,8 @@
 .preferences-state {
   margin-left: auto;
   color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 450;
+  font-size: var(--type-2xs);
+  font-weight: var(--weight-regular);
 }
 .capability-state-icon {
   width: 0.95rem;
@@ -423,18 +442,18 @@
 .inline-error {
   padding: 0.35rem 0;
   color: var(--destructive);
-  font-size: 0.8rem;
+  font-size: var(--type-sm);
 }
 .inline-success {
   padding: 0.35rem 0;
   color: var(--success);
-  font-size: 0.8rem;
-  font-weight: 580;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
 }
 .copy-disclosure,
 .delete-boundary {
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: var(--type-2xs);
   line-height: 1.4;
 }
 .copy-disclosure {
@@ -502,15 +521,15 @@
   position: relative;
   display: grid;
   min-height: 4.75rem;
-  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  grid-template-columns: var(--size-control-md) minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.2rem;
   padding: 0.35rem 0.3rem;
 }
 .note-row-leading {
   display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--size-control-md);
+  height: var(--size-control-md);
   place-items: center;
 }
 .note-row-content {
@@ -555,13 +574,13 @@
   white-space: nowrap;
 }
 .note-row-title {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--type-base);
+  font-weight: var(--weight-medium);
   line-height: 1.4;
 }
 .note-row-snippet {
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--type-sm);
   line-height: 1.5;
 }
 .note-row[data-status="done"] .note-row-title,
@@ -573,8 +592,8 @@
 
 .note-status-button {
   position: relative;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--size-control-md);
+  height: var(--size-control-md);
 }
 .note-status-dot {
   display: grid;
@@ -611,7 +630,7 @@
   border: 0;
   border-radius: 999px;
   background: var(--secondary);
-  font-size: 0.7rem;
+  font-size: var(--type-2xs);
   line-height: 1.1;
 }
 .tag-filter-chip {
@@ -630,7 +649,7 @@
   gap: 0.24rem;
   padding-inline: 0.36rem 0.46rem;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: var(--weight-medium);
   font-variant-numeric: tabular-nums;
 }
 /* The chip stays metadata-sized while its target grows past the pill. */
@@ -656,8 +675,8 @@
 }
 .note-row-actions [data-slot="button"],
 .note-copy-button {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--size-control-md);
+  height: var(--size-control-md);
 }
 .note-copy-button,
 .note-edit-button,
@@ -702,7 +721,7 @@
 .note-editor-heading [data-slot="tabs-list"] {
   flex: none;
   height: auto;
-  min-height: 2.25rem;
+  min-height: var(--size-control-sm);
   gap: 0.125rem;
   padding: 0.2rem;
   border: 0;
@@ -713,7 +732,7 @@
   min-height: 1.75rem;
   padding-inline: 0.65rem;
   border-radius: calc(var(--radius-control) - 2px);
-  font-size: 0.78rem;
+  font-size: var(--type-xs);
 }
 .note-editor-heading [data-slot="tabs-trigger"][data-active] {
   border-color: var(--selection-border);
@@ -726,7 +745,7 @@
   margin-left: auto;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: var(--type-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -752,13 +771,13 @@
   margin: 0 0 0.65rem;
 }
 .note-preview :is(h2, h3, h4, h5, h6) {
-  font-weight: 650;
+  font-weight: var(--weight-strong);
 }
 .note-preview h2 {
-  font-size: 1.25rem;
+  font-size: var(--type-xl);
 }
 .note-preview h3 {
-  font-size: 1.1rem;
+  font-size: var(--type-lg);
 }
 .note-preview ul {
   list-style: disc;
@@ -815,7 +834,7 @@
   margin: 0;
 }
 .markdown-help dt {
-  font-weight: 600;
+  font-weight: var(--weight-medium);
 }
 .markdown-help dd {
   margin: 0.2rem 0 0;
@@ -828,7 +847,7 @@
 }
 .markdown-help > p {
   color: var(--text-muted);
-  font-size: 0.75rem;
+  font-size: var(--type-xs);
 }
 .note-editor-metadata {
   display: grid;
@@ -845,9 +864,9 @@
 }
 .tag-editor-input input {
   width: 100%;
-  min-height: 2.25rem;
+  min-height: var(--size-control-sm);
   padding-inline: 0.75rem;
-  font-size: 0.875rem;
+  font-size: var(--type-base);
   line-height: 1.25;
 }
 .tag-editor-chips [data-slot="badge"] button {
@@ -878,8 +897,8 @@
 }
 .attachment-heading h3 {
   margin: 0;
-  font-size: 0.84rem;
-  font-weight: 620;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-strong);
 }
 .attachment-heading h3:focus-visible {
   border-radius: var(--radius-control);
@@ -896,8 +915,8 @@
 }
 .attachment-list li {
   display: grid;
-  min-height: 2.75rem;
-  grid-template-columns: auto minmax(0, 1fr) 2.75rem;
+  min-height: var(--size-control-md);
+  grid-template-columns: auto minmax(0, 1fr) var(--size-control-md);
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
@@ -918,7 +937,7 @@
   text-overflow: ellipsis;
   text-align: left;
   white-space: nowrap;
-  font-size: 0.8rem;
+  font-size: var(--type-sm);
 }
 .attachment-name:focus-visible {
   border-radius: var(--radius-control);
@@ -926,18 +945,18 @@
   outline-offset: 2px;
 }
 .attachment-list [data-slot="button"] {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--size-control-md);
+  height: var(--size-control-md);
 }
 .attachment-empty {
   margin-top: 0.4rem;
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--type-sm);
 }
 .attachment-status {
   min-height: 1.15rem;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: var(--type-2xs);
 }
 .attachment-error {
   display: flex;
@@ -960,8 +979,8 @@
   display: flex;
   align-items: center;
   min-width: 0;
-  height: 3rem;
-  min-height: 3rem;
+  height: var(--size-control-lg);
+  min-height: var(--size-control-lg);
   margin: 0;
   padding: 0 0.35rem 0 0.15rem;
   border: 1px solid transparent;
@@ -1057,7 +1076,7 @@
     display: none;
   }
   .note-row-main {
-    grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+    grid-template-columns: var(--size-control-md) minmax(0, 1fr) auto;
   }
   .note-row-actions {
     gap: 0;

@@ -37,6 +37,17 @@ Surface radius is 16px, field radius is 12px, and compact-control radius is
 Borders, alignment, spacing, and restrained surface contrast establish
 hierarchy; shadows appear only when a layer genuinely floats.
 
+`tokens.css` alone references the Lavender ramp (`--lavender-50` to
+`--lavender-900`, anchored on `--brand-lavender` at step 400); components
+consume its semantic roles, including `--action-border` for a Lavender
+control's silhouette. Two per-theme shadows exist: `--shadow-floating` for
+transient surfaces (Popovers, Tooltips, Select, toasts) and `--shadow-modal`
+for dialogs; Note rows and the composer stay shadowless. Text uses the
+`--type-2xs` to `--type-xl` steps and the regular (450), medium (560), and
+strong (650) weights; hit targets use the `--size-control-*` steps. These names
+stay outside Tailwind's `--text-*`, `--tracking-*`, and `--leading-*`
+namespaces.
+
 ## Single-shelf layout
 
 There is one compact vertical utility shelf and no persistent navigation rail.

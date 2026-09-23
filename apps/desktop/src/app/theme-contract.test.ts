@@ -62,6 +62,7 @@ const requiredSemanticTokens = [
   '--action-hover',
   '--action-pressed',
   '--action-text',
+  '--action-border',
   '--selection-surface',
   '--selection-subtle',
   '--selection-text',
@@ -89,6 +90,7 @@ const requiredSemanticTokens = [
   '--radius-field',
   '--radius-control',
   '--shadow-floating',
+  '--shadow-modal',
   '--shadow-transient',
 ] as const;
 
@@ -163,6 +165,8 @@ describe('theme token contract', () => {
       expect(tokensCss).not.toContain(`--${removedFamily}-`);
     }
     expect(tokensCss).not.toContain(['--focus', 'ring'].join('-'));
+    // Unlayered tokens in Tailwind v4 theme namespaces would silently resize its utilities.
+    expect(tokensCss).not.toMatch(/--(text|tracking|leading)-(2xs|xs|sm|base|lg|xl|tight)\b/);
   });
 
   it.each(['light', 'dark'] as const)('%s meets the required WCAG contrast fixtures', (theme) => {
@@ -171,6 +175,13 @@ describe('theme token contract', () => {
       ['--text', '--canvas'],
       ['--text-muted', '--canvas'],
       ['--text-subtle', '--canvas'],
+      ['--text', '--surface'],
+      ['--text-muted', '--surface'],
+      ['--text', '--surface-elevated'],
+      ['--text-muted', '--surface-elevated'],
+      ['--text', '--surface-inset'],
+      ['--text-muted', '--surface-inset'],
+      ['--text-muted', '--selection-surface'],
       ['--text', '--surface-hover'],
       ['--text-muted', '--surface-hover'],
       ['--text', '--surface-pressed'],
@@ -216,12 +227,31 @@ describe('theme token contract', () => {
       ['--focus', '--selection-subtle'],
       ['--selection-border', '--selection-surface'],
       ['--selection-border', '--selection-subtle'],
+      ['--action-border', '--canvas'],
+      ['--action-border', '--surface'],
+      ['--action-border', '--surface-elevated'],
+      ['--selection-border', '--surface'],
+      ['--selection-border', '--surface-elevated'],
+      ['--selection-border', '--field-surface'],
+      ['--border-strong', '--surface'],
+      ['--border-strong', '--field-surface'],
     ] as const;
     for (const [foreground, background] of nonTextPairs) {
       expect(
         contrast(token(foreground), token(background)),
         `${foreground} on ${background}`,
       ).toBeGreaterThanOrEqual(3);
+    }
+
+    // Interaction steps must be perceptible against their resting state.
+    const stepPairs = [
+      ['--action-pressed', '--action', 1.25],
+      ['--surface-hover', '--surface-elevated', 1.1],
+    ] as const;
+    for (const [step, resting, minimum] of stepPairs) {
+      expect(contrast(token(step), token(resting)), `${step} vs ${resting}`).toBeGreaterThanOrEqual(
+        minimum,
+      );
     }
   });
 

@@ -3,6 +3,18 @@
   --brand-lavender: #8f8be8;
   --brand-cream: #f5f2ea;
 
+  /* Lavender ramp, OKLCH hue 284.1 anchored on --brand-lavender. Only this file uses it. */
+  --lavender-50: #f5f6ff;
+  --lavender-100: #e9eaff;
+  --lavender-200: #d5d6ff;
+  --lavender-300: #b9b8ff;
+  --lavender-400: var(--brand-lavender);
+  --lavender-500: #7a73d9;
+  --lavender-600: #635cb7;
+  --lavender-700: #4f479a;
+  --lavender-800: #38336f;
+  --lavender-900: #25224c;
+
   --font-system:
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Ubuntu,
     Cantarell, "Noto Sans", sans-serif;
@@ -11,8 +23,28 @@
   --radius-surface: 16px;
   --radius-field: 12px;
   --radius-control: 8px;
-  --shadow-floating: 0 16px 42px rgb(23 18 33 / 18%);
   --shadow-transient: var(--shadow-floating);
+
+  /* Scales stay outside Tailwind v4 theme namespaces (--text-*, --tracking-*, --leading-*). */
+  --type-2xs: 0.7rem;
+  --type-xs: 0.75rem;
+  --type-sm: 0.8125rem;
+  --type-base: 0.9rem;
+  --type-lg: 1.1rem;
+  --type-xl: 1.25rem;
+  --weight-regular: 450;
+  --weight-medium: 560;
+  --weight-strong: 650;
+  --letter-tight: -0.012em;
+  --letter-caps: 0.06em;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --size-control-sm: 2.25rem;
+  --size-control-md: 2.75rem;
+  --size-control-lg: 3rem;
 }
 
 [data-theme="light"] {
@@ -22,7 +54,7 @@
   --surface-elevated: #ffffff;
   --field-surface: #ffffff;
   --surface-inset: #e2e0de;
-  --surface-hover: #f8f7f6;
+  --surface-hover: #f1f0ee;
   --surface-pressed: #eeecea;
   --control-hover: #eeecea;
   --control-pressed: #e2e0de;
@@ -31,15 +63,16 @@
   --text-subtle: #6d6676;
   --border-subtle: #c9c5cd;
   --border-strong: #77717f;
-  --action: var(--brand-lavender);
+  --action: var(--lavender-400);
   --action-hover: #847fe0;
-  --action-pressed: #7b76d5;
+  --action-pressed: var(--lavender-500);
   --action-text: var(--brand-prune);
-  --selection-surface: #e8e6fa;
-  --selection-subtle: #f1f0fb;
+  --action-border: var(--lavender-600);
+  --selection-surface: var(--lavender-200);
+  --selection-subtle: var(--lavender-100);
   --selection-text: var(--brand-prune);
-  --selection-border: #625cb7;
-  --focus: #625cb7;
+  --selection-border: var(--lavender-600);
+  --focus: var(--lavender-600);
   --separator: #d8d5da;
   --danger: #a12b45;
   --danger-text: #7d1931;
@@ -56,6 +89,8 @@
   --material-transient-solid: var(--surface-elevated);
   --material-scrim: rgb(23 18 33 / 14%);
   --material-scrim-solid: rgb(23 18 33 / 32%);
+  --shadow-floating: 0 8px 24px rgb(23 18 33 / 14%), 0 1px 2px rgb(23 18 33 / 8%);
+  --shadow-modal: 0 24px 48px rgb(23 18 33 / 22%), 0 2px 4px rgb(23 18 33 / 10%);
 }
 
 [data-theme="dark"] {
@@ -65,7 +100,7 @@
   --surface-elevated: #2a2236;
   --field-surface: var(--surface-elevated);
   --surface-inset: #110d18;
-  --surface-hover: #282033;
+  --surface-hover: #342b41;
   --surface-pressed: #31273f;
   --control-hover: #31273f;
   --control-pressed: #3a2f49;
@@ -74,15 +109,16 @@
   --text-subtle: #a69db3;
   --border-subtle: #4a4059;
   --border-strong: #9187a1;
-  --action: var(--brand-lavender);
-  --action-hover: #9b97ec;
-  --action-pressed: #847fe0;
+  --action: var(--lavender-400);
+  --action-hover: var(--lavender-300);
+  --action-pressed: var(--lavender-200);
   --action-text: var(--brand-prune);
-  --selection-surface: #39315d;
-  --selection-subtle: #2c2644;
+  --action-border: var(--lavender-300);
+  --selection-surface: var(--lavender-800);
+  --selection-subtle: var(--lavender-900);
   --selection-text: var(--brand-cream);
-  --selection-border: var(--brand-lavender);
-  --focus: #b0acff;
+  --selection-border: var(--lavender-300);
+  --focus: var(--lavender-300);
   --separator: #3a3147;
   --danger: #ff9aaf;
   --danger-text: #ffdde4;
@@ -99,6 +135,8 @@
   --material-transient-solid: var(--surface-elevated);
   --material-scrim: rgb(0 0 0 / 32%);
   --material-scrim-solid: rgb(0 0 0 / 52%);
+  --shadow-floating: 0 12px 32px rgb(0 0 0 / 55%), inset 0 1px 0 rgb(245 242 234 / 6%);
+  --shadow-modal: 0 24px 56px rgb(0 0 0 / 65%), inset 0 1px 0 rgb(245 242 234 / 8%);
 }
 
 :root {
