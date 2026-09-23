@@ -144,10 +144,17 @@ const approvedChecksums = {
 } as const;
 
 describe('theme token contract', () => {
-  it('paints Light before React when no valid preference exists', () => {
+  it('paints the resolved canvas before React', () => {
+    const lightCanvas = readTheme('light')('--canvas');
+    const darkCanvas = readTheme('dark')('--canvas');
+
+    expect(desktopHtml).toContain("value === null ? 'system'");
     expect(desktopHtml).toContain("? value : 'light'");
-    expect(desktopHtml).toContain("dataset.theme = 'light'");
+    expect(desktopHtml).toContain('prefers-color-scheme: dark');
+    expect(desktopHtml).toContain(`'${lightCanvas}'`);
+    expect(desktopHtml).toContain(`'${darkCanvas}'`);
     expect(desktopHtml).not.toContain('solarized');
+    expect(tauriConfig.app.windows[0].backgroundColor).toBe(lightCanvas);
   });
 
   it('exposes the complete semantic system and removes obsolete roles', () => {

@@ -7,17 +7,26 @@
     <title>Charon</title>
     <script>
       (() => {
+        const root = document.documentElement;
+        const paint = (preference) => {
+          const dark =
+            preference === 'dark' ||
+            (preference === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          root.dataset.theme = dark ? 'dark' : 'light';
+          // The resolved --canvas values; applyTheme hands the canvas back to the stylesheet.
+          root.style.backgroundColor = dark ? '#171221' : '#ebeae8';
+        };
         try {
           const value = localStorage.getItem('charon:theme:v1');
-          const theme = ['light', 'dark'].includes(value) ? value : 'light';
-          document.documentElement.dataset.theme = theme;
+          paint(
+            value === null ? 'system' : ['system', 'light', 'dark'].includes(value) ? value : 'light',
+          );
           const storedLocale = localStorage.getItem('PARAGLIDE_LOCALE');
-          document.documentElement.lang = ['en', 'fr'].includes(storedLocale)
-            ? storedLocale
-            : 'en';
+          root.lang = ['en', 'fr'].includes(storedLocale) ? storedLocale : 'en';
         } catch {
-          document.documentElement.dataset.theme = 'light';
-          document.documentElement.lang = 'en';
+          paint('system');
+          root.lang = 'en';
         }
       })();
     </script>
