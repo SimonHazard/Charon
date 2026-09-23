@@ -37,8 +37,8 @@ durable Note visible to users, editors, backup tools, and local agents.
   with an honest account of what Charon can and cannot erase.
 - Keep content in readable local files and recover safely from invalid data,
   interrupted transactions, migration, external edits, or lost permissions.
-- Choose English or French, or the Light and Graphite appearances without
-  changing command meaning.
+- Choose English or French, and follow the system appearance or pin Light or
+  Graphite, without changing command meaning.
 - Inspect the current Notes folder and choose another validated local Workspace.
 - Opt into signed update checks, review an available version, and explicitly
   download, install, and restart without sending Workspace content.
@@ -207,9 +207,10 @@ removes the bounded recovery record before normal mutation resumes.
 
 ### Theme, language, and folder choice
 
-Light is the first-run theme and maps the approved Charon Prune, Lavender, and
-Cream identity through quiet neutral semantic roles. Graphite remains the dark
-choice, and a persisted legacy Solarized value resolves to Light. Theme and
+The appearance follows the operating system by default (ADR 0019). Light and
+Graphite, the dark appearance, map the approved Charon Prune, Lavender, and
+Cream identity through quiet neutral semantic roles and stay fixed once
+chosen; a persisted legacy Solarized value resolves to Light. Theme and
 English/French language changes update the current surface without restart or
 focus loss.
 Preferences shows the active Workspace and remembers a new

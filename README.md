@@ -22,7 +22,8 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
 - Deterministic `Copy as Markdown` with optional Tags and disclosed local
   Attachment paths.
 - Explicit, confirmed permanent deletion with bounded recovery behavior.
-- English and French UI, with Light and Graphite appearances.
+- English and French UI, with Light and Graphite appearances that follow the
+  system by default.
 
 Windows uses UI Automation; X11 uses AT-SPI then a bounded PRIMARY request.
 These adapters preserve focus and never synthesize Copy. Application coverage

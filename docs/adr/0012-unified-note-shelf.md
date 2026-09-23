@@ -4,6 +4,10 @@
 
 Accepted on 2026-08-13 after operator review of the compact desktop shelf.
 
+Amended on 2026-09-23 by ADR 0019: the first-run appearance follows the
+operating system; Light and Graphite remain explicit choices, and a legacy
+`solarized` value still resolves to Light.
+
 ## Context
 
 The compact shelf implemented the Open/Done filter and one Actions menu per
