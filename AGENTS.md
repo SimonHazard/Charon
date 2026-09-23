@@ -52,8 +52,10 @@ Use the vocabulary exactly:
   `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux as the
   reveal-and-focus-composer fallback. Never claim an unimplemented capability;
   new Windows/X11 adapters begin as experimental and Wayland never claims
-  double Shift. Charon ships unsigned under ADR 0014; never reintroduce a
-  Developer ID, notarization, or paid-certificate gate.
+  double Shift. Charon ships without paid signing under ADR 0014; macOS
+  releases use the stable self-signed identity of ADR 0018, and a release must
+  never fall back to ad-hoc. Never reintroduce a Developer ID, notarization,
+  or paid-certificate gate.
 - The only permitted desktop network request is the default-off Tauri update
   check accepted by ADR 0016. It sends no user content or stable identifier,
   verifies signed artifacts, installs only after explicit action, and defers

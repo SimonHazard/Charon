@@ -126,6 +126,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     environment: release
+    env:
+      MACOS_SIGNING_IDENTITY: Charon Release Signing
     steps:
       - uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
         with:
@@ -149,13 +151,62 @@ jobs:
       - name: Assert Apple Silicon runner
         if: runner.os == 'macOS'
         run: test "$(uname -m)" = "arm64"
+      # ADR 0018: one stable self-signed identity keeps TCC grants across updates.
+      # Tauri's own certificate import only accepts Apple-issued names, so the
+      # workflow imports and trusts the certificate itself on this ephemeral runner.
+      - name: Import the stable macOS signing identity
+        if: runner.os == 'macOS'
+        env:
+          MACOS_SIGNING_P12: ${{ secrets.MACOS_SIGNING_P12 }}
+          MACOS_SIGNING_P12_PASSWORD: ${{ secrets.MACOS_SIGNING_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$MACOS_SIGNING_P12" || -z "$MACOS_SIGNING_P12_PASSWORD" ]]; then
+            echo "macOS signing secrets are missing; refusing an ad-hoc release" >&2
+            exit 1
+          fi
+          work="$RUNNER_TEMP/macos-signing"
+          keychain="$RUNNER_TEMP/charon-signing.keychain-db"
+          keychain_password="$(/usr/bin/openssl rand -hex 24)"
+          mkdir -p "$work"
+          printf '%s' "$MACOS_SIGNING_P12" | base64 --decode > "$work/identity.p12"
+          /usr/bin/openssl pkcs12 -in "$work/identity.p12" -clcerts -nokeys -passin env:MACOS_SIGNING_P12_PASSWORD -out "$work/identity.pem"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$work/identity.p12" -k "$keychain" -P "$MACOS_SIGNING_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$work/identity.pem"
+          if ! security find-identity -v -p codesigning "$keychain" | grep -Fq "\"$MACOS_SIGNING_IDENTITY\""; then
+            echo "the imported certificate is not a valid code-signing identity named $MACOS_SIGNING_IDENTITY" >&2
+            exit 1
+          fi
+          fingerprint="$(/usr/bin/openssl x509 -in "$work/identity.pem" -noout -fingerprint -sha1 | sed 's/.*=//; s/://g')"
+          echo "MACOS_SIGNING_SHA1=$fingerprint" >> "$GITHUB_ENV"
+          rm -f "$work/identity.p12"
       - name: Build installers and signed updater artifacts
         shell: bash
         env:
-          APPLE_SIGNING_IDENTITY: '-'
+          APPLE_SIGNING_IDENTITY: ${{ env.MACOS_SIGNING_IDENTITY }}
           BUNDLE_TARGETS: ${{ matrix.bundles }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: bun run --cwd apps/desktop tauri:build -- --bundles "$BUNDLE_TARGETS" -- --locked
+      - name: Verify the stable macOS designated requirement
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          app="$(find apps/desktop/src-tauri/target/release/bundle/macos -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          requirement="$(codesign -d -r - "$app" 2>&1)"
+          echo "$requirement"
+          if grep -q 'cdhash' <<< "$requirement"; then
+            echo "the app has an ad-hoc designated requirement; TCC grants would not survive updates" >&2
+            exit 1
+          fi
+          grep -Fq 'identifier "dev.simonhazard.charon"' <<< "$requirement"
+          grep -Fqi "$MACOS_SIGNING_SHA1" <<< "$requirement"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.artifact }}

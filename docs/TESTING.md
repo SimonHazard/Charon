@@ -21,9 +21,11 @@ safety, and complete release assets.
 
 The release gate builds both apps before scanning their production output for
 privacy violations. Workflow regression tests reject a missing or late build,
-a non-Apple-Silicon macOS runner, and a macOS artifact that does not match the
-arm64 updater target. Quality runs
-these checks on each pull request before the release workflow can start.
+a non-Apple-Silicon macOS runner, a macOS artifact that does not match the
+arm64 updater target, an ad-hoc macOS release identity, Tauri
+certificate-import variables, and a missing designated-requirement check
+before upload. Quality runs these checks on each pull request before the
+release workflow can start.
 
 Quality runs for pull requests and remains manually dispatchable; Security
 remains manual. Protected `main` updates deploy the site and evaluate the
@@ -94,6 +96,7 @@ also tests the single-flight selection deadline, experimental capabilities,
 platform shortcut registration, listener failure, and gesture state machine.
 Quality compiles and clippy-checks the Rust core on Linux, macOS, and Windows
 on every pull request with the pinned Rust toolchain. Physical OS matrices remain
-non-gating under ADR 0016. A cross-compile does not validate Windows UIA application coverage
-or a Wayland compositor's foreground policy. Use ordinary native sessions for
+non-gating under ADR 0016. Compiling and unit-testing on hosted runners does
+not validate Windows UIA application coverage or a Wayland compositor's
+foreground policy. Use ordinary native sessions for
 that feedback, without including selected content in reports.

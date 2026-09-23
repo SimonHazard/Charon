@@ -11,6 +11,9 @@ Amended on 2026-09-19: the operator made the repository public, moved static-sit
 deployment to protected `main` updates after pull-request validation, then made
 one new consistent manifest version on `main` the desktop publication trigger.
 
+Amended on 2026-09-23 by ADR 0018: in Decision 6, macOS is signed with a stable
+self-signed certificate rather than ad-hoc; Windows and Linux stay unsigned.
+
 ## Context
 
 Charon is a free side project maintained by one operator. Earlier release

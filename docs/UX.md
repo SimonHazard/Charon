@@ -263,6 +263,12 @@ Every flow and reusable control defines:
 - permission-denied: affected capture capability, purpose, settings path, retry,
   and the functional portable shortcut and composer fallback.
 
+On macOS, each permission action requests access for the current build and opens
+its matching System Settings pane. If a previous ad-hoc build still appears
+enabled while the current process is denied, Preferences explains how to remove
+the old entry, add the current app, and relaunch. Charon reports only the native
+permission checks as ready.
+
 Coverage also includes success, external conflict, migration, interrupted
 recovery, offline update checks, large files, import collisions, and Attachment
 validation. Color alone never communicates state. Removing a generic Error page

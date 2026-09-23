@@ -256,6 +256,10 @@
   gap: 0.35rem;
   padding-top: 0.15rem;
 }
+.preferences-permission-help {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
 .preferences-error {
   display: flex;
   flex-wrap: wrap;
