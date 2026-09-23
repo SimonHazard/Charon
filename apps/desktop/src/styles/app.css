@@ -413,7 +413,8 @@
 }
 .note-search:has(input:focus) {
   border-color: var(--focus);
-  box-shadow: 0 0 0 1px var(--focus);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .note-search > svg {
   width: 1rem;
@@ -973,6 +974,7 @@
   position: relative;
   z-index: 2;
   padding: 0.5rem 0 max(0.5rem, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--separator);
   background: var(--canvas);
 }
 .capture-field {
@@ -990,7 +992,8 @@
 }
 .capture-field:focus-within {
   border-color: var(--focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--focus) 90%, transparent);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 .capture-field-input {
   flex: 1;

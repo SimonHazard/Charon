@@ -96,7 +96,7 @@ export const CaptureInput = forwardRef<
             disabled={!body || pending}
             size="icon-xs"
             type="submit"
-            variant="ghost"
+            variant={body ? 'default' : 'ghost'}
           >
             <IconArrowUp aria-hidden="true" />
           </Button>

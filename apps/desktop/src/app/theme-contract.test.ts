@@ -263,7 +263,9 @@ describe('theme token contract', () => {
       expect(buttonSource).toContain('focus-visible:ring-ring ');
       expect(inputSource).toContain('focus-visible:ring-ring ');
       expect(textareaSource).toContain('focus-visible:ring-ring ');
-      expect(appCss).toContain('var(--focus) 90%');
+      expect(appCss).toMatch(
+        /\.capture-field:focus-within\s*\{[^}]*outline: 2px solid var\(--focus\)/,
+      );
     },
   );
 
