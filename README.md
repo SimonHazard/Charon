@@ -43,17 +43,19 @@ only after every platform succeeds. A merge whose version already has a release
 does not publish again.
 
 Update checks are disabled by default. Users can enable the metadata-only check
-in Preferences, review an available version, and explicitly install it. The
-applications remain unsigned by paid platform certificates:
-
+in Preferences, review an available version, and explicitly install it.
 AppImage, NSIS, and macOS installations can self-update; deb, rpm, and MSI
 installations must download the new package from GitHub Releases and install it
-the same way.
+the same way. macOS v0.1.0 and v0.1.1 were Intel builds and cannot self-update
+to the Apple Silicon releases; install the current `.dmg` once by hand.
+
+The applications remain unsigned by paid platform certificates:
 
 - macOS may require Privacy & Security, Open Anyway, or Control-click, Open;
-- Future macOS releases target Apple Silicon (`arm64`) and do not support Intel
-  Macs;
-- macOS may ask for Input Monitoring and Accessibility again after an update;
+- macOS releases target Apple Silicon (`arm64`) and do not support Intel Macs;
+- macOS releases are signed with a stable self-signed certificate (ADR 0018),
+  so Input Monitoring and Accessibility survive updates; the first such
+  release asks one last time;
 - Windows may show SmartScreen and require More info, Run anyway.
 
 Release notes and `SHA256SUMS.txt` describe the exact artifacts. Charon never

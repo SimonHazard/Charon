@@ -117,11 +117,12 @@ Neither adapter changes CLIPBOARD, requests elevated privileges, or logs input.
 Linux connects only to local Unix X11/D-Bus transports. Wayland registers one
 user-mediated portal shortcut and never observes a global modifier stream.
 
-Because Charon ships ad-hoc signed under ADR 0014, macOS treats each released
-version as a different application and drops its Input Monitoring and
-Accessibility grants. Charon regains no permission silently: the user grants
-each one again through the same explicit, purpose-specific flow after every
-update.
+Since ADR 0018, macOS releases are signed with one stable self-signed
+certificate, so macOS keeps Input Monitoring and Accessibility across updates.
+Leaving the earlier ad-hoc builds, or a future certificate replacement after
+loss or compromise, asks once more. Charon never regains a permission
+silently: the user grants each one through the same explicit,
+purpose-specific flow.
 
 ## Irreversible deletion limits
 

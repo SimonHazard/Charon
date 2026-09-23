@@ -74,6 +74,14 @@ if (!files.includes(releaseWorkflowName)) {
     'ubuntu-24.04',
     'windows-2025',
     'TAURI_SIGNING_PRIVATE_KEY: $' + '{{ secrets.TAURI_SIGNING_PRIVATE_KEY }}',
+    'MACOS_SIGNING_IDENTITY: Charon Release Signing',
+    'name: Import the stable macOS signing identity',
+    'MACOS_SIGNING_P12: $' + '{{ secrets.MACOS_SIGNING_P12 }}',
+    'MACOS_SIGNING_P12_PASSWORD: $' + '{{ secrets.MACOS_SIGNING_P12_PASSWORD }}',
+    'sudo security add-trusted-cert -d -r trustRoot -p codeSign',
+    'APPLE_SIGNING_IDENTITY: $' + '{{ env.MACOS_SIGNING_IDENTITY }}',
+    'name: Verify the stable macOS designated requirement',
+    "if grep -q 'cdhash'",
     'actions/upload-artifact@',
     'actions/download-artifact@',
     'bun scripts/check-release-version.ts',
@@ -93,14 +101,37 @@ if (!files.includes(releaseWorkflowName)) {
     'workflow_dispatch:',
     'tags:',
     'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
+    "APPLE_SIGNING_IDENTITY: '-'",
+    'APPLE_CERTIFICATE',
+    'APPLE_ID',
+    'APPLE_PASSWORD',
+    'APPLE_API_KEY',
   ]) {
     if (releaseWorkflow.includes(forbidden)) {
-      failures.push(`${releaseWorkflowName}: forbidden trigger or unused secret ${forbidden}`);
+      failures.push(
+        `${releaseWorkflowName}: forbidden trigger, unused secret, or Apple credential ${forbidden}`,
+      );
     }
   }
   const contentsWriteCount = releaseWorkflow.match(/contents:\s+write/gu)?.length ?? 0;
   if (contentsWriteCount !== 1) {
     failures.push(`${releaseWorkflowName}: exactly one final job may receive contents write`);
+  }
+  const build = releaseWorkflow.match(/^ {2}build:\n((?: {4}.*\n|\n)*)/mu)?.[1] ?? '';
+  const importIndex = build.indexOf('name: Import the stable macOS signing identity');
+  const tauriBuildIndex = build.indexOf('name: Build installers and signed updater artifacts');
+  const verifyIndex = build.indexOf('name: Verify the stable macOS designated requirement');
+  const uploadIndex = build.indexOf('actions/upload-artifact@');
+  if (
+    importIndex === -1 ||
+    tauriBuildIndex === -1 ||
+    verifyIndex === -1 ||
+    uploadIndex === -1 ||
+    !(importIndex < tauriBuildIndex && tauriBuildIndex < verifyIndex && verifyIndex < uploadIndex)
+  ) {
+    failures.push(
+      `${releaseWorkflowName}: macOS must import the stable identity, build, then verify its requirement before upload`,
+    );
   }
   const gate = releaseWorkflow.match(/^ {2}gate:\n((?: {4}.*\n|\n)*)/mu)?.[1] ?? '';
   const buildIndex = gate.indexOf('      - run: bun run build\n');

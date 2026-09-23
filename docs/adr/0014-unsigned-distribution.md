@@ -4,6 +4,11 @@
 
 Accepted on 2026-08-17 after an operator distribution decision.
 
+Amended on 2026-09-23 by ADR 0018: macOS releases are signed with one stable
+self-signed certificate instead of the ad-hoc identity, so TCC grants survive
+updates, and the `release` environment also holds that certificate. No Apple
+or Microsoft credential, notarization, or paid certificate is added.
+
 ## Context
 
 ADR 0008 made a stable Apple Developer ID signature the gate that promotes a
