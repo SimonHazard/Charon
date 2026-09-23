@@ -29,6 +29,6 @@ describe('compact transient primitive contract', () => {
     expect(button).toContain('var(--control-pressed)');
     expect(toggleGroup).toContain('var(--selection-surface)');
     expect(toggleGroup).toContain('data-pressed:hover:bg-[var(--selection-surface)]');
-    expect(toggleGroup).not.toContain('transition-colors');
+    expect(toggleGroup).not.toContain('transition-all');
   });
 });

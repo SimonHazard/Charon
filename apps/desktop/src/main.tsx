@@ -62,7 +62,7 @@ if (rootElement && !rootElement.innerHTML) {
     <StrictMode>
       <AppErrorBoundary>
         <Toaster>
-          <TooltipProvider>
+          <TooltipProvider closeDelay={0} delay={350}>
             <AppProviders workspaceClient={demoWorkspaceClient}>
               <DemoComposerBridge />
               <AppShell>

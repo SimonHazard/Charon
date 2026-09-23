@@ -41,6 +41,23 @@ describe('flat capture input', () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
+  it('accents the submit button only while there is text to add', async () => {
+    const user = userEvent.setup();
+    render(
+      <AppProviders>
+        <CaptureInput onCreate={vi.fn().mockResolvedValue(undefined)} />
+      </AppProviders>,
+    );
+    const input = screen.getByRole('textbox', { name: 'Capture a note' });
+    const submit = screen.getByRole('button', { name: 'Add note' });
+    expect(submit.className).not.toContain('bg-primary');
+    await user.type(input, 'a thought');
+    expect(submit.className).toContain('bg-primary');
+    await user.clear(input);
+    await user.type(input, '   ');
+    expect(submit.className).not.toContain('bg-primary');
+  });
+
   it('preserves and refocuses failed text for retry', async () => {
     const user = userEvent.setup();
     const onCreate = vi

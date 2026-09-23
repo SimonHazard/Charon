@@ -30,7 +30,7 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 | --- | --- | --- | --- | --- | --- | --- |
 | 038 | Follow the OS appearance and paint before the webview loads | Adds a System appearance default (new ADR amending ADR 0012), a pre-paint canvas colour, and a window `backgroundColor` | P1 | M | — | IN PROGRESS: PR #64, awaiting operator test |
 | 040 | Build the Lavender token foundation | Lavender ramp, extended contrast fixture, per-theme floating/modal shadows, type/weight/space scales outside Tailwind namespaces, selection and caret polish | P1 | M | — | IN PROGRESS: PR #65, awaiting operator test |
-| 041 | Apply the accent and polish components | New ADR allowing paint-only feedback transitions; Lavender composer submit; transitioned hover/pressed/selected states; one CSS press implementation | P1 | M | 040 | TODO: ADR approved 2026-09-23 |
+| 041 | Apply the accent and polish components | New ADR allowing paint-only feedback transitions; Lavender composer submit; transitioned hover/pressed/selected states; one CSS press implementation | P1 | M | 040 | IN PROGRESS: PR #66, awaiting operator test |
 | 044 | Accept multi-line Markdown in the composer | Auto-growing textarea with a WebKit fallback, Enter creates, Shift+Enter newline, IME guard kept, UX contract amended | P1 | M | 041 | TODO |
 | 042 | Give row actions immediate feedback | Sequence-safe optimistic status with check-in cue, in-place copy confirmation, busy tag removal and close | P1 | M | 041 | TODO |
 | 043 | Keep toasts off the composer and reduced-motion safe | Top-anchored toast stack with flipped swipe, travel token, reduced-motion exit crossfade | P2 | S | — | TODO |

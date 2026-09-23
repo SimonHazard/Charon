@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 const desktop = '/?fixture=demo';
 const site = 'http://127.0.0.1:4321/';
@@ -473,24 +473,33 @@ test('changed compact controls preserve keyboard focus and coarse-pointer action
   await context.close();
 });
 
+// Feedback colours transition on the direct tokens (ADR 0020); read them once settled.
+async function settledBackground(locator: Locator) {
+  return locator.evaluate(async (element) => {
+    await Promise.all(
+      element.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+    );
+    return getComputedStyle(element).backgroundColor;
+  });
+}
+
 test('fine-pointer hover keeps rows, controls, and destructive actions visually distinct', async ({
   page,
 }) => {
   await page.goto(desktop);
+  await expect(page.locator('.composer-dock')).toHaveCSS('border-top-style', 'solid');
 
   const row = page.locator('.note-row').first();
   const edit = row.locator('.note-edit-button');
   await row.hover();
-  const rowHover = await row.evaluate((element) => getComputedStyle(element).backgroundColor);
+  const rowHover = await settledBackground(row);
   await edit.hover();
-  const controlHover = await edit.evaluate((element) => getComputedStyle(element).backgroundColor);
+  const controlHover = await settledBackground(edit);
   expect(controlHover).not.toBe(rowHover);
 
   const remove = row.locator('.note-delete-button');
   await remove.hover();
-  const destructiveHover = await remove.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
+  const destructiveHover = await settledBackground(remove);
   expect(destructiveHover).not.toBe(controlHover);
 
   await page.getByRole('button', { name: 'Settings' }).click();
@@ -498,14 +507,13 @@ test('fine-pointer hover keeps rows, controls, and destructive actions visually 
   const selectedTheme = page.getByRole('button', { name: 'System' });
   const otherTheme = page.getByRole('button', { name: 'Graphite' });
   await otherTheme.hover();
-  const otherThemeHover = await otherTheme.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
+  const otherThemeHover = await settledBackground(otherTheme);
   await selectedTheme.hover();
-  const selectedThemeHover = await selectedTheme.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
+  const selectedThemeHover = await settledBackground(selectedTheme);
   expect(selectedThemeHover).not.toBe(otherThemeHover);
+  expect(await selectedTheme.evaluate((element) => getComputedStyle(element).boxShadow)).toContain(
+    'inset',
+  );
 
   await page.keyboard.press('Escape');
   await row.hover();
@@ -513,13 +521,9 @@ test('fine-pointer hover keeps rows, controls, and destructive actions visually 
   const preview = page.getByRole('tab', { name: 'Preview' });
   const write = page.getByRole('tab', { name: 'Write' });
   await preview.hover();
-  const previewHover = await preview.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
+  const previewHover = await settledBackground(preview);
   await write.hover();
-  const activeTabHover = await write.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
+  const activeTabHover = await settledBackground(write);
   expect(activeTabHover).not.toBe(previewHover);
 });
 
