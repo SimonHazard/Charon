@@ -15,6 +15,7 @@
   "toast_close_label": "Close notification",
   "navigation_settings": "Settings",
   "theme_menu_label": "Choose theme",
+  "theme_system": "System",
   "theme_light": "Light",
   "theme_dark": "Graphite",
   "locale_menu_label": "Choose language",

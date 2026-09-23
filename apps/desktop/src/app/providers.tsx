@@ -1,4 +1,4 @@
-import type { ThemeName } from '@charon/theme/theme-contract';
+import type { ThemePreference } from '@charon/theme/theme-contract';
 import {
   createContext,
   type PropsWithChildren,
@@ -11,7 +11,12 @@ import {
 import { captureStatusTone } from '@/app/capture-status';
 import { ComposerFocusProvider, useComposerFocus } from '@/app/composer-focus-context';
 import { type AppLocale, applyLocale, readLocale } from '@/app/locale';
-import { readTheme, saveTheme } from '@/app/theme';
+import {
+  applyTheme,
+  readThemePreference,
+  saveThemePreference,
+  watchSystemTheme,
+} from '@/app/theme';
 import { WorkspaceProvider } from '@/app/workspace-context';
 import { toast } from '@/components/ui/toast';
 import { NativePreferencesProvider } from '@/features/preferences/preferences-context';
@@ -25,9 +30,9 @@ import { MotionSystem } from '@/motion/system';
 import { m } from '@/paraglide/messages.js';
 
 type Preferences = {
-  theme: ThemeName;
+  theme: ThemePreference;
   locale: AppLocale;
-  setTheme(theme: ThemeName): void;
+  setTheme(theme: ThemePreference): void;
   setLocale(locale: AppLocale): void;
 };
 
@@ -45,14 +50,14 @@ export function AppProviders({
   preferencesClient?: NativePreferencesClient;
   updateClient?: UpdateClient;
 }>) {
-  const [theme, updateTheme] = useState(readTheme);
+  const [theme, updateTheme] = useState(readThemePreference);
   const [locale, updateLocale] = useState(readLocale);
   const activeCaptureClient = captureClient ?? tauriCaptureClient;
   const nativePreferencesEnabled = isTauriRuntime() || Boolean(captureClient || preferencesClient);
   const updaterEnabled = isTauriRuntime() || Boolean(updateClient);
 
-  const setTheme = useCallback((next: ThemeName) => {
-    saveTheme(next);
+  const setTheme = useCallback((next: ThemePreference) => {
+    saveThemePreference(next);
     updateTheme(next);
   }, []);
   const setLocale = useCallback((next: AppLocale) => {
@@ -67,6 +72,12 @@ export function AppProviders({
   useEffect(() => {
     applyLocale(readLocale());
   }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    if (theme !== 'system') return;
+    return watchSystemTheme(() => applyTheme('system'));
+  }, [theme]);
 
   return (
     <PreferencesContext.Provider value={preferences}>
