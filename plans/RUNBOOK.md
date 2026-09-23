@@ -125,8 +125,8 @@ state" excerpts with the live code and continue when they still match.
 
 | Question | Answer | Date |
 | --- | --- | --- |
-| Permission work landed by | PR #58, `feat(macos): open the matching privacy pane from Preferences` (operator asked to commit it) | 2026-09-23 |
-| Signing PR allowed | Yes: PR #59 | 2026-09-23 |
+| Permission work landed by | PR #61, `feat(macos): open the matching privacy pane from Preferences` (operator asked to commit it) | 2026-09-23 |
+| Signing PR allowed | Yes: PR #62 | 2026-09-23 |
 | Signing certificate and secrets created (SHA-1) | Not yet; the operator creates them before the `0.2.0` release PR, ask for the SHA-1 then | 2026-09-23 |
 | Plan queue PR allowed | Yes; branches, PRs and squash merges on fully green CI, per the ground rules | 2026-09-23 |
 | 038 ADR approved | Yes | 2026-09-23 |
@@ -172,7 +172,8 @@ Repeat for each plan of the current batch, in order.
    message; body = the repository template (`.github/pull_request_template.md`)
    filled with: plan number and link, what changed, every verification run
    with its result, native steps done or deferred to the operator, and any
-   contract/ADR change. Follow your harness's attribution rules.
+   contract/ADR change. Add no assistant attribution: no "generated with"
+   line in PR bodies and no co-author trailer in commits (operator rule).
 10. **Wait for CI.** `gh pr checks <n> --watch`. Every check must be green, not
     only the required `desktop` job (the macOS/Windows Rust matrix counts).
 11. **If CI fails.** Read the failure (`gh run view <run-id> --log-failed`),
