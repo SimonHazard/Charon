@@ -34,7 +34,8 @@ quand la source ne fournit pas de représentation exploitable.
 `CaptureCoordinator`, le contenu reste local, et le texte brut doit rester le
 fallback déterministe.
 
-**Statut** : idée à étudier, faisabilité native à prouver.
+**Statut** : planifié — plan 062 (ADR amendant l'ADR 0010, puis essai natif ;
+  macOS via le repli Copy en premier, Windows/X11 en recherche seulement).
 
 ### P2 — Réduire l'application dans la zone de notification à la fermeture
 
@@ -56,8 +57,9 @@ notification / menu bar.
 **Contraintes** : aucune capture ou action supplémentaire ne doit devenir
   implicite. Le mode background doit rester local, explicite et désactivable.
 
-**Statut** : idée à étudier, nécessite une décision UX et une validation
-  physique par plateforme.
+**Statut** : planifié — plan 059 (ADR puis essai natif, option désactivée par
+  défaut). Le plan 039 couvre d'abord le cas macOS sans icône : fermer la
+  fenêtre la masque, le Dock la rouvre et `Cmd+Q` quitte.
 
 ### P2 — Reconfigurer les raccourcis de capture
 
@@ -77,7 +79,10 @@ notification / menu bar.
   prétendre supporter une séquence que l'OS ne livre pas, et conserver le
   fallback composer utilisable même après refus de permission.
 
-**Statut** : idée à étudier, probablement soumise à un nouvel ADR.
+**Statut** : planifié — plan 061, limité au raccourci de révélation du
+  composer (le double Maj reste fixe). `docs/PRODUCT.md` exclut aujourd'hui un
+  « configurable shortcut catalog » : le plan commence par un ADR qui le
+  restreint, soumis à validation.
 
 ### P2 — Notifications système à la création d'une Note
 
@@ -99,7 +104,9 @@ notification / menu bar.
   synchronisation. Le clic doit cibler un UUID de Note local valide et rester
   sans effet destructif.
 
-**Statut** : idée à étudier, nécessite un choix privacy/UX avant code.
+**Statut** : planifié — plan 060 (ADR puis essai natif). Le plan 045 fournit
+  l'événement `capture_note_created` ; le clic vers la Note n'est pas fourni
+  par le plugin officiel sur desktop et reste soumis à l'essai.
 
 ### P3 — Ajouter le lien GitHub dans Preferences
 
@@ -109,7 +116,7 @@ Preferences : [github.com/SimonHazard/Charon](https://github.com/SimonHazard/Cha
 **Contraintes** : ouverture uniquement après activation explicite du lien,
   sans iframe, tracking ou requête automatique depuis l'application.
 
-**Statut** : petite amélioration de découverte, facilement implémentable.
+**Statut** : planifié — plan 057, avec l'élément suivant.
 
 ### P3 — Rendre visible le caractère open source et contribuable
 
@@ -124,7 +131,7 @@ code de conduite et la licence MIT.
 **Contraintes** : rester informatif, sans transformer la shelf en page de
 marketing ni ajouter de route produit.
 
-**Statut** : petite amélioration de découverte, facilement implémentable.
+**Statut** : planifié — plan 057 (section « À propos » dans Preferences).
 
 ### P1 — Corriger et systématiser les Tooltips
 
@@ -145,7 +152,8 @@ noms de fichiers tronqués.
   une action ou d'accéder à son nom. Il ne doit pas bloquer le focus, la saisie,
   Escape ou les autres surfaces transitoires.
 
-**Statut** : audit UX/accessibilité à faire avant correction ciblée.
+**Statut** : planifié — plan 056 (inventaire, règle, corrections). Le plan
+  041 fixe le délai d'ouverture et le plan 050 la durée de sortie.
 
 ### P3 — Améliorer le cheat sheet Markdown
 
@@ -166,16 +174,13 @@ l'édition, sans surcharger la shelf.
   requête réseau ou présenter une syntaxe que le preview ne rend pas de manière
   sûre.
 
-**Statut** : amélioration de finition ; vérifier d'abord la couverture de
-  l'aide Markdown déjà présente dans la branche courante.
+**Statut** : planifié — plan 058 (exemples testés contre le rendu réel,
+  correction du masquage de contenu par le front-matter).
 
-## Ordre de qualification suggéré
+## Planification
 
-1. Auditer les Tooltips et le cheat sheet Markdown, car ces sujets ont une
-   portée locale et peuvent être vérifiés sans nouvelle architecture.
-2. Décider du lien GitHub et du message open source/contributions dans
-   Preferences/Help.
-3. Prototyper les notifications et le comportement tray sur chaque plateforme
-   avant d'accepter leur contrat UX/privacy.
-4. Mesurer la faisabilité du formatage capturé et des raccourcis configurables
-   avant de rédiger les ADR et plans correspondants.
+Toutes les idées ci-dessus sont planifiées dans [`plans/README.md`](../plans/README.md)
+et enchaînées par [`plans/RUNBOOK.md`](../plans/RUNBOOK.md) : 056-058 dans le
+lot C (`0.3.0`), 059-060 dans le lot E (`0.4.0` proposé), 061-062 dans le lot F
+(`0.5.0` proposé). Les plans 059-062 s'arrêtent sur un ADR et un essai natif à
+valider avant tout code. Une nouvelle idée s'ajoute ici avant d'être planifiée.

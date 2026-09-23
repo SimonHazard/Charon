@@ -12,8 +12,10 @@ state its availability and refer to the release notes for installation instructi
 
 The operator requested this evolution on 2026-09-19. It preserves the quiet
 visual direction, approved icon assets, and static privacy boundary. ADR 0017
-changes the target of the next macOS release to Apple Silicon; it does not
-retroactively change the published v0.1.0 artifact.
+moved macOS releases to Apple Silicon starting with v0.1.3; it does not
+retroactively change the published v0.1.0 artifact. The homepage still names
+v0.1.0 although v0.1.3 is the latest release; bump the localized copy and its
+assertions together when the operator chooses to announce a newer version.
 
 ## Homepage composition
 

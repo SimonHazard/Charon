@@ -47,25 +47,29 @@ available in Git history; active work lives only in `plans/`.
   consistent manifest version merged to protected `main` publishes a
   three-platform release and its tag automatically. The signed Tauri updater
   uses public GitHub Release assets.
-- `07dbb48` is the pre-automation workflow baseline. The active release plan
-  replaces only the desktop release trigger; unrelated workflows remain manual.
+- `07dbb48` is the pre-automation workflow baseline. Plan 015 replaced only the
+  desktop release trigger; unrelated workflows remain manual.
 - On 2026-09-06, Plan 015 added the operator-owned updater trust root, the
   default-off signed updater client, deterministic release metadata/checksums,
   and one three-platform publication workflow. On 2026-09-19 the operator moved
   its trigger from a manually pushed tag to a new manifest version merged into
   protected `main`; the workflow creates the tag only after every artifact is
-  complete. The first versioned merge remains the hosted-runner validation
-  point.
+  complete. The first versioned merge published v0.1.0 on 2026-09-20 and
+  validated the three hosted runners; v0.1.1 (`2e5cebc`) followed the same day.
 - The same release cleanup removed separate portability and unsigned
   review-build workflows after the release matrix made both redundant. Quality,
   Security, and site deployment remain explicit operator tools.
 - On 2026-09-06, the operator replaced the source-visible, no-reuse terms with
   the standard MIT License before making the repository public.
-- On 2026-09-21, ADR 0017 changed the future macOS release policy from Intel to
-  native Apple Silicon (`arm64`) artifacts. The existing published Intel
-  release remains unchanged; the next versioned release must use the new
-  target. macOS 14 remains the minimum OS, and universal artifacts are not
-  planned.
+- On 2026-09-21, ADR 0017 changed the macOS release policy from Intel to
+  native Apple Silicon (`arm64`) artifacts. v0.1.0 and v0.1.1 remain published
+  as Intel (`x86_64`) builds; v0.1.3 is the first `darwin-aarch64` release.
+  macOS 14 remains the minimum OS, and universal artifacts are not planned.
+- On 2026-09-23, ADR 0018 replaced macOS ad-hoc signing with one stable
+  self-signed certificate imported and trusted only on the release runner, so
+  Input Monitoring and Accessibility survive updates. The release workflow now
+  fails closed on an ad-hoc designated requirement; the first signed release
+  asks users once more.
 
 ## Experimental cross-platform capture and control polish (2026-09-21)
 
@@ -87,3 +91,22 @@ available in Git history; active work lives only in `plans/`.
   cases, full Linux/Windows cross-platform compilation and Clippy, plus isolated
   Xvfb and mocked D-Bus adapter tests. This is not physical Windows/Wayland
   certification; no release or version change accompanies the work.
+
+## Honest distribution and shortcut labels (2026-09-22)
+
+- `cd79fd9` (#56) shipped Plan 034 with Plans 035-037 from the 2026-09-21
+  audit. Help and Preferences render the Rust-reported `activeShortcut` through
+  one accelerator formatter, so Windows and X11 show `Alt+Shift+Space` and
+  Wayland shows its portal assignment; the hardcoded shortcut messages are gone.
+- Quality now runs Clippy and the Rust suite on `macos-15` and `windows-2025`
+  in addition to Linux, `rust-version` matches the pinned toolchain, and
+  `messages:check` rejects Rust message keys missing from the Paraglide
+  catalogs.
+- Preferences reports the installed bundle type. deb, rpm, and MSI
+  installations explain the manual update path instead of failing inside the
+  updater, macOS install confirmation warns about the permission regrant, and
+  the unused tray/xdo Linux package dependencies were removed.
+- The v0.1.2 release run failed before publication because `--locked` reached
+  the Tauri CLI instead of Cargo; no tag or partial release appeared. `242d51e`
+  (#57) forwarded the flag correctly and published v0.1.3 for Apple Silicon
+  macOS, Linux, and Windows.
