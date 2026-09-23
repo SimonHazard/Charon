@@ -317,6 +317,12 @@ export function PreferencesPanel() {
                     m.capture_accessibility_description(),
                     m.capture_accessibility_details(),
                   )}
+                  {native.capabilities.inputMonitoring === 'denied' ||
+                  native.capabilities.accessibility === 'denied' ? (
+                    <p className="preferences-permission-help">
+                      {m.preferences_permission_regrant_help()}
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="preferences-permissions">
@@ -343,10 +349,16 @@ export function PreferencesPanel() {
           ) : null}
           {native.errorKey ? (
             <div className="preferences-error" role="alert">
-              <p className="preferences-inline-warning">{m.preferences_error()}</p>
-              <Button onClick={() => void native.refresh()} size="sm" variant="outline">
-                {m.common_retry()}
-              </Button>
+              <p className="preferences-inline-warning">
+                {native.errorKey === 'capture_error_settings_open_failed'
+                  ? m.capture_error_settings_open_failed()
+                  : m.preferences_error()}
+              </p>
+              {native.errorKey !== 'capture_error_settings_open_failed' ? (
+                <Button onClick={() => void native.refresh()} size="sm" variant="outline">
+                  {m.common_retry()}
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </section>
