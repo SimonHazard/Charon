@@ -133,6 +133,11 @@ fn capture_error_conversion_is_complete_and_content_free() {
             "capture_error_permission_denied",
         ),
         (
+            CaptureError::SettingsOpenFailed,
+            "settings_open_failed",
+            "capture_error_settings_open_failed",
+        ),
+        (
             CaptureError::SelectionUnsupported,
             "selection_unsupported",
             "capture_error_selection_unsupported",

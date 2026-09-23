@@ -47,6 +47,7 @@ struct FakePlatformState {
     warning: Option<CaptureWarning>,
     grant_input_on_request: bool,
     grant_accessibility_on_request: bool,
+    fail_settings_open: bool,
     starts: usize,
     fail_listener: bool,
     reads: usize,
@@ -93,7 +94,11 @@ impl PlatformCapturePort for FakePlatform {
             }
             _ => {}
         }
-        Ok(())
+        if state.fail_settings_open {
+            Err(CaptureError::SettingsOpenFailed)
+        } else {
+            Ok(())
+        }
     }
 
     fn selected_text(&mut self) -> Result<CapturedSelection, CaptureError> {
@@ -148,6 +153,7 @@ fn coordinator_on(
         warning: None,
         grant_input_on_request: false,
         grant_accessibility_on_request: false,
+        fail_settings_open: false,
         starts: 0,
         fail_listener: false,
         reads: 0,
@@ -338,6 +344,38 @@ fn permission_retry_starts_listener_once() {
         .expect("accessibility retry");
     assert_eq!(capabilities.selected_text, CapabilityState::Available);
     assert_eq!(capabilities.accessibility, CapabilityState::Available);
+    assert_eq!(platform.lock().expect("platform").starts, 1);
+}
+
+#[test]
+fn settings_open_failure_preserves_the_fresh_permission_state_and_one_listener() {
+    let (mut coordinator, _, platform) = coordinator(
+        CapabilityState::Denied,
+        CapabilityState::Denied,
+        Ok(Some("selection")),
+    );
+    {
+        let mut state = platform.lock().expect("platform");
+        state.grant_input_on_request = true;
+        state.fail_settings_open = true;
+    }
+
+    assert!(matches!(
+        coordinator.request_permission(CapturePermissionKind::InputMonitoring),
+        Err(CaptureError::SettingsOpenFailed)
+    ));
+    assert_eq!(
+        coordinator.capabilities().input_monitoring,
+        CapabilityState::Available
+    );
+    assert_eq!(platform.lock().expect("platform").starts, 1);
+    assert_eq!(
+        coordinator
+            .refresh_capabilities()
+            .expect("refresh")
+            .double_shift,
+        CapabilityState::Available
+    );
     assert_eq!(platform.lock().expect("platform").starts, 1);
 }
 
