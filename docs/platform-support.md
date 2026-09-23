@@ -23,9 +23,10 @@ the same way.
 
 ## macOS evidence and limits
 
-The next published macOS installers target Apple Silicon (`arm64`) only. Intel
-Macs are outside the supported release target and do not receive a macOS updater
-artifact. macOS 14 remains the minimum supported operating-system version.
+Published macOS installers target Apple Silicon (`arm64`) only, starting with
+v0.1.3. Intel Macs are outside the supported release target and do not receive a
+macOS updater artifact; v0.1.0 and v0.1.1 Intel installations must reinstall
+manually. macOS 14 remains the minimum supported operating-system version.
 
 Development testing established the following behavior on the macOS adapter:
 
@@ -45,9 +46,14 @@ Development testing established the following behavior on the macOS adapter:
 - Charon never posts Paste, reads clipboard history, logs selected content, or
   steals focus.
 
-Because macOS releases use an ad-hoc identity, each build can appear as a new
-application to TCC. Users may need to grant Input Monitoring and Accessibility
-again after every update. This is a disclosed cost of unsigned distribution.
+Up to v0.1.3, macOS releases used an ad-hoc identity, so each build appeared
+to TCC as a new application and users granted Input Monitoring and
+Accessibility again after every update. ADR 0018 signs releases with one stable
+self-signed certificate: the designated requirement names that certificate
+instead of the binary's `cdhash`, so grants survive updates. The first signed
+release asks one last time. Launch and grant persistence on a Mac that does not
+trust the certificate are confirmed on the first two signed releases and
+recorded here.
 
 ## Windows implementation
 

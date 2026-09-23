@@ -75,6 +75,42 @@ describe('release workflow regression checks', () => {
     expect(result.stderr).toContain('missing release contract run: bun run --cwd apps/desktop');
   });
 
+  test('rejects an ad-hoc macOS release identity', async () => {
+    const result = await check(
+      originalRelease.replace(
+        'APPLE_SIGNING_IDENTITY: $' + '{{ env.MACOS_SIGNING_IDENTITY }}',
+        "APPLE_SIGNING_IDENTITY: '-'",
+      ),
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain("Apple credential APPLE_SIGNING_IDENTITY: '-'");
+  });
+
+  test('rejects Tauri certificate import variables for the self-signed identity', async () => {
+    const result = await check(
+      originalRelease.replace(
+        '          MACOS_SIGNING_P12: $' + '{{ secrets.MACOS_SIGNING_P12 }}\n',
+        '          MACOS_SIGNING_P12: $' +
+          '{{ secrets.MACOS_SIGNING_P12 }}\n          APPLE_CERTIFICATE: $' +
+          '{{ secrets.MACOS_SIGNING_P12 }}\n',
+      ),
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('Apple credential APPLE_CERTIFICATE');
+  });
+
+  test('requires the designated requirement check before upload', async () => {
+    const start = originalRelease.indexOf(
+      '      - name: Verify the stable macOS designated requirement\n',
+    );
+    const end = originalRelease.indexOf('      - uses: actions/upload-artifact@', start);
+    const result = await check(originalRelease.slice(0, start) + originalRelease.slice(end));
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain(
+      'macOS must import the stable identity, build, then verify its requirement before upload',
+    );
+  });
+
   test('requires the macOS and Windows Rust portability matrix', async () => {
     const result = await checkQuality(
       originalQuality.replace('os: [macos-15, windows-2025]', 'os: [macos-15]'),
