@@ -13,7 +13,6 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { m as motion } from 'motion/react';
 import { useState } from 'react';
 
 import { useMessages, usePreferences } from '@/app/providers';
@@ -43,7 +42,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { useUpdates } from '@/features/updates/update-context';
 import { formatShortcut } from '@/lib/shortcut-label';
-import { usePressFeedback } from '@/motion/press';
 
 const RELEASES_URL = 'https://github.com/SimonHazard/Charon/releases/latest';
 const themeIcons = { system: IconDeviceDesktop, light: IconSun, dark: IconMoon } as const;
@@ -54,7 +52,6 @@ export function PreferencesPanel() {
   const workspace = useWorkspace();
   const native = useNativePreferences();
   const updates = useUpdates();
-  const press = usePressFeedback();
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
 
   const chooseWorkspace = async () => {
@@ -138,20 +135,11 @@ export function PreferencesPanel() {
             <PopoverTrigger
               aria-label={m.navigation_settings()}
               className="shelf-action-button"
-              onBlur={press.onBlur}
-              onKeyDown={press.onKeyDown}
-              onKeyUp={press.onKeyUp}
-              onPointerCancel={press.onPointerCancel}
-              onPointerDown={press.onPointerDown}
-              onPointerLeave={press.onPointerLeave}
-              onPointerUp={press.onPointerUp}
               render={<Button size="icon-sm" variant="ghost" />}
             />
           }
         >
-          <motion.span aria-hidden style={press.style}>
-            <IconSettings />
-          </motion.span>
+          <IconSettings aria-hidden="true" />
         </TooltipTrigger>
         <TooltipContent>{m.navigation_settings()}</TooltipContent>
       </Tooltip>

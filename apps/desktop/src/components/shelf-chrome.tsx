@@ -1,5 +1,4 @@
 import { IconHelp } from '@tabler/icons-react';
-import { m as motion } from 'motion/react';
 import { useMessages } from '@/app/providers';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +14,6 @@ import { MarkdownHelp } from '@/features/notes/markdown-help';
 import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { PreferencesPanel } from '@/features/preferences/preferences-panel';
 import { formatShortcut } from '@/lib/shortcut-label';
-import { usePressFeedback } from '@/motion/press';
 
 export function WindowDragRegion() {
   return <div aria-hidden="true" className="window-drag-region" data-tauri-drag-region />;
@@ -24,7 +22,6 @@ export function WindowDragRegion() {
 export function ShelfActions() {
   const m = useMessages();
   const { capabilities } = useNativePreferences();
-  const helpPress = usePressFeedback();
   const isMacos =
     capabilities?.platform === 'macos' || (!capabilities && navigator.platform.startsWith('Mac'));
   const shortcutLabel = capabilities
@@ -51,20 +48,11 @@ export function ShelfActions() {
               <PopoverTrigger
                 aria-label={m.shortcut_help_title()}
                 className="shelf-action-button"
-                onBlur={helpPress.onBlur}
-                onKeyDown={helpPress.onKeyDown}
-                onKeyUp={helpPress.onKeyUp}
-                onPointerCancel={helpPress.onPointerCancel}
-                onPointerDown={helpPress.onPointerDown}
-                onPointerLeave={helpPress.onPointerLeave}
-                onPointerUp={helpPress.onPointerUp}
                 render={<Button size="icon-sm" variant="ghost" />}
               />
             }
           >
-            <motion.span aria-hidden style={helpPress.style}>
-              <IconHelp />
-            </motion.span>
+            <IconHelp aria-hidden="true" />
           </TooltipTrigger>
           <TooltipContent>{m.shortcut_help_title()}</TooltipContent>
         </Tooltip>
