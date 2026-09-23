@@ -362,7 +362,9 @@ The Note list and confirmation dialogs reserve no empty scrollbar gutter.
 Dialog content and footer own their spacing; the footer spans the entire inner
 width even with classic Windows scrollbars.
 
-Only transform and opacity animate. Translucency is limited to transient
+Only transform and opacity animate spatially; paint-only colour transitions on
+the direct motion tokens are allowed for feedback states (ADR 0020).
+Translucency is limited to transient
 Popovers, menus, Tooltips, dialogs, and toasts where it communicates hierarchy,
 is never stacked, and has solid semantic fallbacks. The drag region, shelf,
 search, Notes, and composer stay solid. With `prefers-reduced-motion`, shared

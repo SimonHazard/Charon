@@ -4,7 +4,8 @@
 
 Accepted for desktop interaction design. ADR 0011 removes product surfaces used
 by some examples but preserves these motion, material, and accessibility
-invariants for the single shelf and expanded editor.
+invariants for the single shelf and expanded editor. ADR 0020 permits
+paint-only feedback transitions and exempts list virtualization.
 
 ## Context
 
