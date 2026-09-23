@@ -71,7 +71,7 @@ impl PlatformCapturePort for MacosCaptureAdapter {
         permission: CapturePermissionKind,
     ) -> Result<(), CaptureError> {
         permissions::request(permission);
-        Ok(())
+        permissions::open_settings(permission)
     }
 
     fn selected_text(&mut self) -> Result<CapturedSelection, CaptureError> {

@@ -141,8 +141,8 @@ describe('compact Preferences', () => {
     expect(await screen.findByText(/shortcut is already used/i)).toBeTruthy();
   });
 
-  it('applies immediate theme/language and requests each permission explicitly', async () => {
-    const native = clients();
+  it('applies immediate theme/language and requests each macOS permission explicitly', async () => {
+    const native = clients({ accessibility: 'denied', selectedText: 'denied' });
     render(
       <AppProviders
         captureClient={native.captureClient}
@@ -158,12 +158,46 @@ describe('compact Preferences', () => {
     expect(document.documentElement.dataset.theme).toBe('dark');
     await user.selectOptions(screen.getByRole('combobox', { name: 'Language' }), 'fr');
     expect(document.documentElement.lang).toBe('fr');
-    await user.click(screen.getByRole('button', { name: 'Ouvrir Réglages' }));
-    expect(native.requestPermission).toHaveBeenCalledWith('inputMonitoring');
+    expect(screen.getByText(/ajoutez le Charon.app actuel/)).toBeTruthy();
+    const settingsButtons = screen.getAllByRole('button', { name: 'Ouvrir Réglages' });
+    await user.click(settingsButtons[0]);
+    await user.click(settingsButtons[1]);
+    expect(native.requestPermission).toHaveBeenNthCalledWith(1, 'inputMonitoring');
+    expect(native.requestPermission).toHaveBeenNthCalledWith(2, 'accessibility');
+  });
+
+  it('reports a macOS Settings opening failure beside the permission actions', async () => {
+    const native = clients();
+    native.captureClient.requestPermission = vi
+      .fn()
+      .mockRejectedValueOnce({
+        code: 'settings_open_failed',
+        messageKey: 'capture_error_settings_open_failed',
+      })
+      .mockResolvedValue(capabilities);
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(await screen.findByRole('button', { name: 'Open Settings' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'System Settings could not be opened. Try Open Settings again.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Open Settings' }));
+    expect(native.captureClient.requestPermission).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('rechecks macOS permissions when Charon regains focus', async () => {
-    const native = clients();
+    const native = clients({ accessibility: 'denied', selectedText: 'denied' });
     render(
       <AppProviders
         captureClient={native.captureClient}
@@ -175,18 +209,21 @@ describe('compact Preferences', () => {
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Settings' }));
-    expect(await screen.findByRole('button', { name: 'Open Settings' })).toBeTruthy();
+    expect(await screen.findAllByRole('button', { name: 'Open Settings' })).toHaveLength(2);
 
     const refreshedCapabilities = vi.fn().mockResolvedValue({
       ...capabilities,
       inputMonitoring: 'available',
+      accessibility: 'available',
       doubleShift: 'available',
     });
     native.captureClient.capabilities = refreshedCapabilities;
     window.dispatchEvent(new Event('focus'));
     document.dispatchEvent(new Event('visibilitychange'));
 
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Settings' })).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryAllByRole('button', { name: 'Open Settings' })).toHaveLength(0),
+    );
     expect(refreshedCapabilities).toHaveBeenCalledTimes(1);
     expect(screen.getAllByText('Ready')).toHaveLength(2);
   });

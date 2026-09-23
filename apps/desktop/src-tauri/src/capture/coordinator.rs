@@ -103,12 +103,13 @@ impl CaptureCoordinator {
         permission: CapturePermissionKind,
     ) -> Result<CaptureCapabilities, CaptureError> {
         self.ensure_active()?;
-        self.platform.request_permission(permission)?;
+        let request_result = self.platform.request_permission(permission);
         if !self.listener_started {
             self.listener_attempted = false;
         }
         self.refresh_platform_states();
         self.start_listener_if_available();
+        request_result?;
         Ok(self.capabilities())
     }
 

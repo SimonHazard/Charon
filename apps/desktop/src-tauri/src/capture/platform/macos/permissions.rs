@@ -1,4 +1,4 @@
-use crate::capture::CapturePermissionKind;
+use crate::capture::{CaptureError, CapturePermissionKind};
 use core_foundation::base::TCFType;
 use core_foundation::boolean::CFBoolean;
 use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
@@ -15,6 +15,10 @@ type IOHIDAccessType = i32;
 
 const IOHID_REQUEST_TYPE_LISTEN_EVENT: IOHIDRequestType = 1;
 const IOHID_ACCESS_TYPE_GRANTED: IOHIDAccessType = 0;
+const INPUT_MONITORING_SETTINGS_URL: &str =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent";
+const ACCESSIBILITY_SETTINGS_URL: &str =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility";
 
 #[link(name = "IOKit", kind = "framework")]
 unsafe extern "C" {
@@ -52,6 +56,18 @@ pub(super) fn request(permission: CapturePermissionKind) {
     }
 }
 
+pub(super) fn open_settings(permission: CapturePermissionKind) -> Result<(), CaptureError> {
+    tauri_plugin_opener::open_url(settings_url(permission), None::<&str>)
+        .map_err(|_| CaptureError::SettingsOpenFailed)
+}
+
+fn settings_url(permission: CapturePermissionKind) -> &'static str {
+    match permission {
+        CapturePermissionKind::InputMonitoring => INPUT_MONITORING_SETTINGS_URL,
+        CapturePermissionKind::Accessibility => ACCESSIBILITY_SETTINGS_URL,
+    }
+}
+
 fn input_monitoring_granted(access: IOHIDAccessType) -> bool {
     access == IOHID_ACCESS_TYPE_GRANTED
 }
@@ -59,9 +75,10 @@ fn input_monitoring_granted(access: IOHIDAccessType) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        input_monitoring_granted, IOHIDRequestType, IOHID_ACCESS_TYPE_GRANTED,
+        input_monitoring_granted, settings_url, IOHIDRequestType, IOHID_ACCESS_TYPE_GRANTED,
         IOHID_REQUEST_TYPE_LISTEN_EVENT,
     };
+    use crate::capture::CapturePermissionKind;
 
     #[test]
     fn input_monitoring_requires_the_explicit_hid_grant() {
@@ -69,5 +86,17 @@ mod tests {
         assert!(input_monitoring_granted(IOHID_ACCESS_TYPE_GRANTED));
         assert!(!input_monitoring_granted(1));
         assert!(!input_monitoring_granted(2));
+    }
+
+    #[test]
+    fn permission_settings_target_the_matching_macos_panels() {
+        assert_eq!(
+            settings_url(CapturePermissionKind::InputMonitoring),
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+        );
+        assert_eq!(
+            settings_url(CapturePermissionKind::Accessibility),
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        );
     }
 }

@@ -16,6 +16,8 @@ pub enum CaptureError {
     WorkerUnavailable,
     #[error("Accessibility permission is denied")]
     PermissionDenied,
+    #[error("macOS permission settings could not be opened")]
+    SettingsOpenFailed,
     #[error("selected-text capture is unsupported")]
     SelectionUnsupported,
     #[error("selected-text capture failed")]
@@ -56,6 +58,9 @@ impl From<CaptureError> for CaptureIpcError {
             }
             CaptureError::PermissionDenied => {
                 ("permission_denied", "capture_error_permission_denied")
+            }
+            CaptureError::SettingsOpenFailed => {
+                ("settings_open_failed", "capture_error_settings_open_failed")
             }
             CaptureError::SelectionUnsupported => (
                 "selection_unsupported",
