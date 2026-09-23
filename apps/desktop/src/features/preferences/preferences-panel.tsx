@@ -1,6 +1,8 @@
+import { isThemePreference, themePreferences } from '@charon/theme/theme-contract';
 import {
   IconAlertCircle,
   IconCircleCheck,
+  IconDeviceDesktop,
   IconDownload,
   IconExternalLink,
   IconInfoCircle,
@@ -44,6 +46,7 @@ import { formatShortcut } from '@/lib/shortcut-label';
 import { usePressFeedback } from '@/motion/press';
 
 const RELEASES_URL = 'https://github.com/SimonHazard/Charon/releases/latest';
+const themeIcons = { system: IconDeviceDesktop, light: IconSun, dark: IconMoon } as const;
 
 export function PreferencesPanel() {
   const m = useMessages();
@@ -165,26 +168,23 @@ export function PreferencesPanel() {
             className="preferences-toggle"
             onValueChange={(values) => {
               const value = values[0];
-              if (value === 'light' || value === 'dark') {
-                appearance.setTheme(value);
-              }
+              if (isThemePreference(value)) appearance.setTheme(value);
             }}
             value={[appearance.theme]}
           >
-            {(['light', 'dark'] as const).map((theme) => (
-              <Tooltip key={theme}>
-                <TooltipTrigger
-                  render={<ToggleGroupItem aria-label={m[`theme_${theme}`]()} value={theme} />}
-                >
-                  {theme === 'light' ? (
-                    <IconSun aria-hidden="true" />
-                  ) : (
-                    <IconMoon aria-hidden="true" />
-                  )}
-                </TooltipTrigger>
-                <TooltipContent>{m[`theme_${theme}`]()}</TooltipContent>
-              </Tooltip>
-            ))}
+            {themePreferences.map((theme) => {
+              const Icon = themeIcons[theme];
+              return (
+                <Tooltip key={theme}>
+                  <TooltipTrigger
+                    render={<ToggleGroupItem aria-label={m[`theme_${theme}`]()} value={theme} />}
+                  >
+                    <Icon aria-hidden="true" />
+                  </TooltipTrigger>
+                  <TooltipContent>{m[`theme_${theme}`]()}</TooltipContent>
+                </Tooltip>
+              );
+            })}
           </ToggleGroup>
         </section>
 

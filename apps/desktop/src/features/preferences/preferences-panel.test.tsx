@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { themeMediaQuery, themeStorageKey } from '@charon/theme/theme-contract';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,6 +11,7 @@ import { ShelfActions } from '@/components/shelf-chrome';
 import type { UpdateClient } from '@/features/updates/update-client';
 import type { CaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
+import { setMediaQuery } from '@/test/setup';
 import { snapshot, workspaceClient } from '@/test/workspace-fixture';
 
 vi.mock('@tauri-apps/plugin-opener', () => ({
@@ -164,6 +166,41 @@ describe('compact Preferences', () => {
     await user.click(settingsButtons[1]);
     expect(native.requestPermission).toHaveBeenNthCalledWith(1, 'inputMonitoring');
     expect(native.requestPermission).toHaveBeenNthCalledWith(2, 'accessibility');
+  });
+
+  it('offers System, Light, and Graphite and follows the OS only while System is chosen', async () => {
+    localStorage.setItem(themeStorageKey, 'dark');
+    const native = clients();
+    render(
+      <AppProviders
+        captureClient={native.captureClient}
+        preferencesClient={native.preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <ShelfActions />
+      </AppProviders>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    const appearance = screen.getByRole('group', { name: 'Choose theme' });
+    expect(
+      within(appearance)
+        .getAllByRole('button')
+        .map((item) => item.getAttribute('aria-label')),
+    ).toEqual(['System', 'Light', 'Graphite']);
+    expect(document.documentElement.dataset.theme).toBe('dark');
+
+    await user.click(within(appearance).getByRole('button', { name: 'System' }));
+    expect(localStorage.getItem(themeStorageKey)).toBe('system');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    setMediaQuery(themeMediaQuery, true);
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'));
+
+    await user.click(within(appearance).getByRole('button', { name: 'Light' }));
+    setMediaQuery(themeMediaQuery, false);
+    setMediaQuery(themeMediaQuery, true);
+    expect(localStorage.getItem(themeStorageKey)).toBe('light');
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   it('reports a macOS Settings opening failure beside the permission actions', async () => {

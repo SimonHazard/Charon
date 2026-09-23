@@ -16,7 +16,8 @@ deletion.
 
 ## Visual language
 
-Light is the first-run default and Graphite is the dark user choice. The
+The appearance follows the OS by default (ADR 0019); Light and Graphite (the
+dark appearance) are explicit choices that never flip with the OS. The
 approved Charon Prune, Lavender, and Cream primitives map through semantic theme
 roles; product components never use raw palette values or theme conditionals.
 Lavender is the interaction accent for focus and active controls.
@@ -101,9 +102,10 @@ secondary Tag metadata collapses before title, preview, status, row actions,
 search, errors, or the composer become unusable. French strings wrap or compact
 without clipping or horizontal scrolling. Preferences is a focused transient surface
 containing the active Notes folder, an explicit validated chooser, compact
-sun/moon appearance buttons with localized accessible names and Tooltips, a
-native language select (English/Français), capture permission state, and the
-disclosed default-off update setting; it is not a product destination.
+System, sun, and moon appearance buttons with localized accessible names and
+Tooltips, a native language select (English/Français), capture permission
+state, and the disclosed default-off update setting; it is not a product
+destination.
 
 ## Compact feature map
 

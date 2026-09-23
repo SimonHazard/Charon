@@ -93,9 +93,9 @@ Use the vocabulary exactly:
 
 ## UI and motion
 
-- Light is the first-run default; Graphite is the dark choice. Use semantic
-  roles mapped from Charon Prune, Lavender, and Cream. Product components never
-  contain raw palette values or theme conditionals.
+- The appearance follows the OS by default; Light and Graphite are explicit
+  choices. Use semantic roles mapped from Charon Prune, Lavender, and Cream.
+  Product components never contain raw palette values or theme conditionals.
 - Keep one single-column shelf: minimal drag region; search with trailing Help
   and Preferences; one virtualized unified Note stack with direct per-Note
   actions; always-visible bottom composer. No navigation rail or product routes.

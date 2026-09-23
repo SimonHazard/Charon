@@ -271,11 +271,24 @@ test('portable focus reveals the existing bottom composer without a draft Note',
 test('compact Preferences applies themes and locale without leaving the shelf', async ({
   page,
 }) => {
+  const html = page.locator('html');
+  await page.emulateMedia({ colorScheme: 'dark' });
   await page.goto(desktop);
+  await expect(html).toHaveAttribute('data-theme', 'dark');
+  await expect(html).not.toHaveAttribute('style', /background/);
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(html).toHaveAttribute('data-theme', 'light');
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Preferences' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'System' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await page.getByRole('button', { name: 'Graphite' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(html).toHaveAttribute('data-theme', 'dark');
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.emulateMedia({ colorScheme: 'light' });
+  await expect(html).toHaveAttribute('data-theme', 'dark');
   await page.getByRole('combobox', { name: 'Language' }).selectOption('fr');
   await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
   await expect(page.getByRole('heading', { name: 'Préférences' })).toBeVisible();
@@ -482,7 +495,7 @@ test('fine-pointer hover keeps rows, controls, and destructive actions visually 
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('.preferences-popover')).toHaveCSS('opacity', '1');
-  const selectedTheme = page.getByRole('button', { name: 'Light' });
+  const selectedTheme = page.getByRole('button', { name: 'System' });
   const otherTheme = page.getByRole('button', { name: 'Graphite' });
   await otherTheme.hover();
   const otherThemeHover = await otherTheme.evaluate(
