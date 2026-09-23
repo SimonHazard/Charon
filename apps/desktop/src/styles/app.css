@@ -207,8 +207,9 @@
   font-weight: var(--weight-medium);
 }
 .preferences-toggle button[data-pressed] {
-  background: var(--selection);
+  background: var(--selection-surface);
   color: var(--selection-text);
+  box-shadow: inset 0 0 0 1px var(--selection-border);
 }
 .preferences-language {
   width: 100%;
@@ -502,6 +503,16 @@
   border-radius: var(--radius-surface);
   background: var(--surface-elevated);
 }
+/* ADR 0020: feedback colours blend on the direct tokens; nothing spatial animates here. */
+.note-row,
+.note-status-dot,
+.tag-filter-chip,
+.attachment-count,
+.preferences-toggle button {
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--motion-duration-direct);
+  transition-timing-function: var(--motion-easing-direct);
+}
 .note-row[data-expanded="true"] {
   border-color: var(--selection-border);
   background: var(--surface-elevated);
@@ -737,7 +748,7 @@
 }
 .note-editor-heading [data-slot="tabs-trigger"][data-active] {
   border-color: var(--selection-border);
-  background: var(--selection-subtle);
+  background: var(--selection-surface);
   color: var(--selection-text);
   box-shadow: none;
 }
@@ -1145,6 +1156,11 @@
 :root[data-input-modality="keyboard"] [data-slot="popover-content"],
 :root[data-input-modality="keyboard"] [data-slot="tooltip-content"],
 :root[data-input-modality="keyboard"] [data-slot="alert-dialog-content"],
-:root[data-input-modality="keyboard"] [data-slot="alert-dialog-overlay"] {
+:root[data-input-modality="keyboard"] [data-slot="alert-dialog-overlay"],
+:root[data-input-modality="keyboard"] .note-row,
+:root[data-input-modality="keyboard"] .note-status-dot,
+:root[data-input-modality="keyboard"] .tag-filter-chip,
+:root[data-input-modality="keyboard"] .attachment-count,
+:root[data-input-modality="keyboard"] .preferences-toggle button {
   transition-duration: 0s;
 }
