@@ -4,11 +4,15 @@
   --motion-press-scale: 0.98;
 
   --motion-duration-transient: 160ms;
+  /* Leaving follows the entrance path in reverse, only faster: the decision is already made. */
+  --motion-duration-transient-exit: 110ms;
   --motion-easing-transient: cubic-bezier(0.2, 0, 0, 1);
   --motion-transient-scale: 0.985;
 
   --motion-duration-surface: 360ms;
   --motion-easing-surface: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Distance a travelling transient surface (a toast) moves in or out. */
+  --motion-surface-travel: 150%;
 
   --material-blur: 18px;
 }
@@ -18,8 +22,10 @@
     --motion-duration-direct: 0ms;
     --motion-press-scale: 1;
     --motion-duration-transient: 120ms;
+    --motion-duration-transient-exit: 100ms;
     --motion-transient-scale: 1;
     --motion-duration-surface: 120ms;
+    --motion-surface-travel: 0%;
   }
 }
 

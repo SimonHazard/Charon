@@ -1,6 +1,7 @@
 'use client';
 
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
+import { useRef } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -8,12 +9,32 @@ function TooltipProvider(props: TooltipPrimitive.Provider.Props) {
   return <TooltipPrimitive.Provider data-slot="tooltip-provider" {...props} />;
 }
 
-function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
+function Tooltip({ actionsRef, onOpenChange, ...props }: TooltipPrimitive.Root.Props) {
+  const ownActionsRef = useRef<TooltipPrimitive.Root.Actions>(null);
+  const actions = actionsRef ?? ownActionsRef;
+  return (
+    <TooltipPrimitive.Root
+      actionsRef={actions}
+      data-slot="tooltip"
+      onOpenChange={(open, details) => {
+        if (!open && details.reason === 'escape-key') {
+          // A Tooltip never claims Escape (docs/UX.md): it closes, and the surface behind it
+          // (Preferences, the editor, a dialog) still receives the key, unprevented.
+          details.cancel();
+          details.allowPropagation();
+          actions.current?.close();
+          return;
+        }
+        onOpenChange?.(open, details);
+      }}
+      {...props}
+    />
+  );
 }
 
 function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+  // The rendered control keeps its own data-slot (Button's "button"), which CSS keys on.
+  return <TooltipPrimitive.Trigger data-tooltip-trigger="" {...props} />;
 }
 
 function TooltipContent({
@@ -38,7 +59,7 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
-            'inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-[var(--shadow-transient)] transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] [transition-timing-function:var(--motion-easing-transient)] has-data-[slot=kbd]:pr-1.5 data-closed:invisible data-instant:transition-none data-starting-style:transform-[scale(var(--motion-transient-scale))] data-starting-style:opacity-0 data-ending-style:transform-[scale(var(--motion-transient-scale))] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:transition-opacity **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:rounded-sm',
+            'inline-flex w-fit max-w-xs origin-(--transform-origin) items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background shadow-[var(--shadow-transient)] transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] data-ending-style:[transition-duration:var(--motion-duration-transient-exit)] [transition-timing-function:var(--motion-easing-transient)] has-data-[slot=kbd]:pr-1.5 data-closed:invisible data-instant:transition-none data-starting-style:transform-[scale(var(--motion-transient-scale))] data-starting-style:opacity-0 data-ending-style:transform-[scale(var(--motion-transient-scale))] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:[transition-property:opacity] **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:rounded-sm',
             className,
           )}
           {...props}
