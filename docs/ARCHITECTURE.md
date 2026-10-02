@@ -50,8 +50,11 @@ default under Documents in the application layer, then delegates all creation,
 opening, validation, and folder switching to the same Workspace boundary.
 An explicit choice accepts an empty directory or an existing valid Workspace;
 nonempty unrelated directories return a content-free `directory_not_empty`
-error. Candidate validation and preference persistence precede the runtime
-replacement under the switch lock, so either failure keeps the active Workspace.
+error. The native folder picker runs in Rust and returns only a short-lived,
+single-use token; React opens or creates the chosen Workspace by that token and
+never sends a filesystem path. Candidate validation and preference persistence
+precede the runtime replacement under the switch lock, so either failure keeps
+the active Workspace.
 Folder-choice errors have separate UI state from Note command/snapshot errors.
 Schema v2 has this direction:
 
@@ -177,6 +180,18 @@ Workspace command. It maps the portable accelerator to a main-window focus
 event. This keeps `CaptureCoordinator` independent from persistence and React
 view state.
 
+The composer accelerator is the platform default or the user's one chosen
+replacement (ADR 0025). `capture::shortcut` validates and canonicalizes it with
+content-free errors and a reserved list. `CaptureCoordinator` registers a new
+accelerator before releasing the previous one, so a refusal leaves the previous
+one active, and reports the origin (default, custom, default after a failed
+stored choice, or the Wayland desktop). The application layer reads the stored
+choice from native preferences before `initialize`, runs `capture_set_shortcut`
+on the main thread, where the global-shortcut plugin registers, stores the
+choice only after it registered, and restores the previous accelerator when
+storing fails. Every composer press is handled on the main thread, so a press
+delivered on another thread never waits for a change waiting for that thread.
+
 The macOS modifier adapter remains the public, passive Core Graphics event tap
 defined by ADRs 0008-0010. It forwards normalized events into the pure double-
 Shift state machine and never suppresses or rewrites an operating-system event.
@@ -188,9 +203,23 @@ It never posts Paste or another key, monitors clipboard history, persists a
 snapshot, overwrites a concurrent clipboard change, or runs without explicit
 intent.
 
+With the opt-in formatted capture (ADR 0026), that transaction also reads the
+single-item payload's `public.html` once (at most 1 MiB) after the string and
+before restoration, keeps it only while the transaction still owns the change
+count, and converts it after restoration. `capture::formatting` is a pure,
+capture-owned function on html5ever: a bounded flat arena (nodes, depth, time
+checked between 4 KiB parser chunks), iterative walks, a content and line
+parity check against the plain string, and the exact plain text on any doubt.
+It performs no I/O and returns only Markdown or nothing. The adapter receives
+the choice through `PlatformCapturePort::set_rich_capture` (a default no-op
+that reports `unsupported` on Windows and Linux); `preferences_set_rich_capture`
+persists it and applies it to the running coordinator. `ClipboardComposer` is
+unchanged.
+
 Input Monitoring independently gates the macOS event tap; Accessibility gates
 selected-text acquisition and the bounded source Copy. Tauri's global-shortcut
-plugin owns `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/X11.
+plugin owns the composer accelerator: `Cmd+Shift+Space` on macOS and
+`Alt+Shift+Space` on Windows/X11 by default, or the user's validated choice.
 Windows uses a passive WH_KEYBOARD_LL thread and a separate bounded COM MTA
 selection worker. X11 uses XI2 and AT-SPI/PRIMARY without synthesized input.
 Wayland owns a GlobalShortcuts portal session instead of initializing the X11
@@ -227,9 +256,46 @@ confirmation. It receives no Workspace, Note, Tag, Attachment, clipboard, or
 capture value. The public verification key is bundled with the app; the private
 key exists only in the GitHub `release` environment during artifact builds.
 
-Dirty-draft state stays UI-owned. Restart is requested only after React confirms
-that editor and composer input is safe. Update failures do not enter Workspace
+Dirty-draft state stays UI-owned. Restart and, on Windows, the installer that
+closes Charon are requested only after React confirms that editor and composer
+input is safe. Update failures do not enter Workspace
 transactions and cannot change durable Note state.
+
+### System notifications
+
+`ipc/notification.rs` is an application-layer adapter, like the updater, not a
+domain module (ADR 0024). The capture worker calls it, with only the app
+handle, after a selected-text capture created a Note. It reads the native
+opt-in flag, the main window's focus, a monotonic 2 s rate limit, and the two
+localized labels React sent through `shell_set_labels`, then shows the fixed
+title and body through the official `tauri-plugin-notification` from Rust. It
+never receives Note text or the Note's id, the plugin's errors are ignored
+without logging, and the webview holds no `notification:` permission
+(`preferences_set_capture_notifications` is the only new command). The plugin
+cannot observe an OS-level denial and wires no desktop click callback, so the
+click keeps the platform default.
+
+### Window lifecycle and tray
+
+`ipc/shell.rs` is an application-layer adapter, like the updater, not a domain
+module (ADR 0023). It decides whether closing the main window hides it (macOS
+always; elsewhere only while the background-mode tray icon exists) and owns the
+one tray icon, built in Rust from Tauri's official `tray-icon` feature, which
+Cargo enables only for macOS and Windows targets. The tray menu holds only Open
+and Quit. React renders their labels through Paraglide and sends them with
+`shell_set_labels`, so Rust hardcodes no UI copy and the webview holds no
+`core:tray` or `core:menu` permission. The tray's Quit, and on macOS the app
+menu's Quit (`Cmd+Q`), which replaces only that item of Tauri's default menu,
+emit `shell://quit-requested`; React runs the editor/drawing/composer draft
+guard and answers `shell_quit` or `shell_cancel_quit`, a repeated request waits
+for that answer, and a watchdog exits if the webview never answers. No exit is
+prevented after it was requested: Tauri sends `ExitRequested` without a code
+only once the last window is destroyed. The persisted choice lives in native
+preferences; the tray's availability and liveness are runtime-only snapshot
+fields. The adapter also records the main window's focus from
+`WindowEvent::Focused`: capture threads read that flag rather than
+`is_focused`, which waits for the main thread, and quitting waits at most 2 s
+for a capture in progress before the process exits without it.
 
 ## IPC and view-state contract
 
@@ -237,6 +303,14 @@ IPC exposes versioned command and event DTOs generated for TypeScript by
 `ts-rs`. Persisted JSON, Markdown, managed relative paths, and migration records
 are implementation details rather than a frontend API. Breaking DTO changes
 require an explicit version strategy and coordinated Rust and TypeScript tests.
+Every custom command is declared in the `build.rs` app manifest and runs only
+because the `main` capability grants its `allow-<command>` permission; a test
+keeps `generate_handler!`, the manifest, and the capability equal, and another
+pins each client's argument keys to the Rust command signature. Native
+preferences are one small JSON file that each change reads, edits, and
+rewrites whole; `preferences/` serialises every access behind one
+process-wide lock that covers file I/O only, so concurrent commands never drop
+each other's changes and no thread holds it while waiting for the main thread.
 
 React receives a complete Workspace snapshot at open, followed by ordered
 domain events or replacement snapshots. It owns only ephemeral search, Tag
@@ -245,6 +319,17 @@ surface state. Note-row focus remains browser-native rather than product state.
 Durable state becomes real only after a successful Rust command response.
 Contextual failures preserve user input and expose typed, content-free recovery
 without a generic error destination.
+
+Inline drawings are React-owned view logic under
+`features/notes/drawing/`. The drawing dialog holds its strokes as ephemeral
+state and, on Insert or Save, edits only the expanded editor's draft body
+through the draft reducer. Persistence goes through the existing Workspace
+command that saves a Note body; there is no drawing-specific schema, file,
+IPC command, or Rust code. Preview parses each `svg` block with a strict
+whitelist and re-creates SVG elements from validated values. Editing and
+insertion locate fences as the Preview renderer groups lines into blocks
+(`drawing/markdown-fences.ts`, checked against the renderer's parser), so
+they act on top-level drawings only and never write into another fence.
 
 ## Dependency rule and monorepo boundary
 
@@ -283,9 +368,15 @@ variable, secret, or server route. Production uses the custom domain
 
 ADR 0011, as amended by ADR 0012 and ADR 0013, governs the flat schema v2
 direction, irreversible per-Note deletion, shortcut reduction, unified shelf,
-direct Note actions, Light default, and rejected chart surface. ADRs 0014-0016
-govern unsigned distribution, cross-platform capture, automatic releases, and
-the updater boundary. Create another ADR before changing persistence, local-only
+direct Note actions, system-following appearance (ADR 0019), and rejected
+chart surface; ADR 0025 permits one user-chosen composer shortcut. ADRs
+0014-0016 govern unsigned distribution, cross-platform capture, automatic
+releases, and the updater boundary; ADR 0027 keeps macOS releases on Tauri's
+ad-hoc identity (superseding ADR 0018's self-signed identity). ADR 0021 adds
+inline Markdown drawings, ADR 0022 the Note-list scroll-edge mask, ADR 0023
+opt-in background mode, ADR 0024 opt-in capture notifications, and ADR 0026
+opt-in formatted selected-text capture.
+Create another ADR before changing persistence, local-only
 privacy, shortcut support, bulk interaction, cross-app sharing, the static-site
 boundary, updater data flow, or the dependency rule. New adapters must
 correspond to a real platform boundary or distinct test seam.

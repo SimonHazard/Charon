@@ -24,10 +24,12 @@ durable Note visible to users, editors, backup tools, and local agents.
   on macOS and experimental Windows/X11 adapters where the source exposes a readable selection.
 - Create a Note manually from an always-visible bottom composer on every
   platform.
-- Search Markdown bodies and Tags across one unified result where completed
-  Notes remain visible.
+- Search Markdown bodies, Tags, and Attachment names across one unified result
+  where completed Notes remain visible.
 - Expand one Note to write or preview Markdown, edit lightweight Tags, and add
   or remove locally managed Attachments.
+- Sketch a quick drawing inside a Note's Markdown, stored as one small inline
+  SVG code block, and edit it again later.
 - Act directly on one Note to change status, copy, edit, or request permanent
   deletion without entering a selection mode.
 - Copy one deterministic agent-ready Markdown document containing the Note body,
@@ -42,6 +44,16 @@ durable Note visible to users, editors, backup tools, and local agents.
 - Inspect the current Notes folder and choose another validated local Workspace.
 - Opt into signed update checks, review an available version, and explicitly
   download, install, and restart without sending Workspace content.
+- Optionally keep Charon running in the macOS menu bar or the Windows
+  notification area after closing its window (opt-in background mode, ADR
+  0023), with explicit Open and Quit; unavailable on Linux in this release.
+- Optionally get one content-free system notification when a selected-text
+  capture creates a Note while Charon's window is not focused (never on
+  Wayland; opt-in capture notifications, ADR 0024).
+- Optionally keep the links, lists, headings, emphasis, tables, and code of a
+  selection captured through the macOS Copy fallback as Markdown (opt-in,
+  experimental formatted capture, ADR 0026), with the exact plain text kept
+  whenever the formatting is uncertain.
 
 ## Domain model
 
@@ -117,7 +129,18 @@ without showing a window or taking focus. It first tries the bounded public
 Accessibility ladder from ADR 0009. If that returns no usable text, the explicit
 gesture may run ADR 0010's one bounded source-application Copy transaction,
 read only a newly produced string, and restore the previous pasteboard only
-when no concurrent write occurred.
+when no concurrent write occurred. With the opt-in formatted capture (ADR
+0026), that same transaction also reads the source's HTML once and the Note
+body becomes Markdown, but only when it matches the plain text; direct
+Accessibility captures, other platforms, and every uncertain case keep the
+exact plain text. When the user next reveals Charon, the
+shelf announces the captured Note, scrolls to it unless an editor is open or a
+text field has focus, and briefly tints its row Lavender. Capture itself stays
+silent unless the user turned on capture notifications (ADR 0024): then a
+capture that created a Note while Charon's window is not focused shows one
+system notification with only the fixed text "Charon" and "Note captured.", at
+most once every two seconds. Its click keeps the platform default and opens no
+Note.
 
 Empty, whitespace-only, unavailable, malformed, protected, canvas-only, denied,
 timed-out, or safety-rejected input creates nothing. Acquisition never uses
@@ -133,17 +156,22 @@ makes no double-Shift claim.
 
 The composer is always visible at the bottom of the shelf. It names the active
 local Notes folder context, preserves failed input, creates exactly one open
-Note on Enter, and ignores empty input. `Cmd+Shift+Space` on macOS and the
-platform-reported portable shortcut on Windows/Linux reveal Charon and focus
-that composer. They do not open a second window or empty editor. On Wayland,
-the portal may assign a different shortcut, which Charon displays. Runtime
+Note on Enter, inserts a line break on `Shift+Enter`, and ignores empty input. The composer shortcut reveals Charon
+and focuses that composer: `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on
+Windows and X11 by default. It does not open a second window or empty editor.
+On macOS, Windows, and X11 the user can replace it with one chosen key
+combination in Preferences and reset it to the default (ADR 0025); Charon
+refuses invalid or reserved combinations, keeps the previous shortcut when the
+system refuses a new one, and falls back to the default when a stored choice no
+longer registers. Double Shift stays fixed. On Wayland, the portal may assign a
+different shortcut, which Charon displays with where to change it. Runtime
 capability reporting states whether the operating system delivered the shortcut
 globally.
 
 ### Search and visible status
 
-The user invokes search with `CmdOrCtrl+F`. Results match Markdown bodies and
-Tags, update without losing keyboard focus, use deterministic ordering, and
+The user invokes search with `CmdOrCtrl+F`. Results match Markdown bodies,
+Tags, and Attachment names, update without losing keyboard focus, use deterministic ordering, and
 make an empty result explicit. Open and Done Notes stay in the same result.
 Done Notes use a checked control, muted surface, and struck-through primary text
 so completion is visible without depending on color alone.
@@ -167,6 +195,14 @@ closes only after pending input is safe.
 The expansion uses transform and opacity based shared layout, remains
 interruptible and reversible, starts from the current presentation value, and
 never locks input. Reduced motion uses a short crossfade or static swap.
+
+Draw opens a modal drawing surface with pen, stroke eraser, five inks, three
+widths, undo, redo, and Clear. Insert writes one fenced `svg` block into the
+draft at the Write caret; a drawing under the caret or a Preview drawing's
+Edit action replaces exactly that block. The block is ordinary Note text, so
+autosave, `Copy as Markdown`, and permanent deletion treat it like the rest of
+the body; search ignores drawing source (ADR 0021). Preview renders only drawings that pass the strict format
+whitelist of ADR 0021; anything else stays a code block.
 
 ### Attachment import and removal
 
@@ -232,7 +268,32 @@ request before enabling checks. Once enabled, Charon checks the public signed
 release metadata at startup and also offers an explicit check action. An
 available update shows its version and notes; download and installation require
 confirmation, report progress and contextual errors, and never mutate Notes.
-Restart waits until editor and composer drafts are safe.
+Restart and, on Windows, the installer that closes Charon wait until editor
+and composer drafts are safe.
+
+### Background mode
+
+Background mode is off by default and switchable at any time in Preferences
+(ADR 0023). When enabled on macOS or Windows, Charon shows one menu bar or
+notification area icon whose menu holds only Open Charon and Quit Charon.
+Closing the window then hides Charon on Windows while capture keeps running;
+macOS already hides on close and gains only the icon. Closing hides only while
+that icon exists, so a hidden window always has a visible way back. On Linux,
+Preferences says background mode is unavailable and closing still quits.
+Quit is explicit and draft-safe: an open editor saves first, and composer
+text, a failed save, or a drawing with unsaved strokes keeps Charon running,
+revealed, with the reason beside the protected text. The icon adds no capture,
+copy, notification, count, or Note content.
+
+### Capture notifications
+
+Capture notifications are off by default and switchable at any time in
+Preferences' Capture group (ADR 0024) wherever double Shift can create a Note.
+Charon cannot verify whether the operating system allows its notifications, so
+Preferences says so plainly and points to the system's notification settings
+instead of showing a permission state. A notification never contains Note
+text, a count, or the source application, and never replaces the in-shelf
+acknowledgement.
 
 ### Public site
 
@@ -256,16 +317,20 @@ link activation.
 - Colored, nested, globally managed, or navigation-oriented Tags.
 - External-path Attachments, symlink following, arbitrary preview, execution,
   upload, or a cross-Note asset library.
-- Multiple clipboard formats or automatic delivery of Attachment bytes to an
-  agent.
+- Multiple clipboard formats written by `Copy as Markdown`, or automatic
+  delivery of Attachment bytes to an agent. (Reading the source's HTML during
+  capture is the separate, opt-in ADR 0026 read.)
 - Note Selection, bulk status changes, multi-Note copy, or batch Delete in the
   current v1 surface.
 - A second capture window, compact alternate mode, generic Error destination,
-  or configurable shortcut catalog.
+  or a configurable shortcut catalog (one user-chosen composer shortcut is
+  permitted by ADR 0025).
 - A global double-Shift claim on Wayland, or a Windows/X11 selected-text claim
   that is not reported by runtime capabilities as experimental or available.
 - Silent updates, forced restart, background installation, rollout tracking, or
   updater requests containing user content or stable identifiers.
 - Any distribution claim that Charon is verified, trusted, or notarized. It
-  ships unsigned under ADR 0014 and discloses its first-launch warning.
+  ships without paid platform signing under ADR 0014 (macOS ad-hoc under ADR
+  0027) and discloses its first-launch warning and the per-update macOS
+  permission regrant.
 - Charts or analytics-style product surfaces in v1.

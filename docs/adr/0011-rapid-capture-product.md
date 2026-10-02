@@ -4,6 +4,11 @@
 
 Accepted for v1. This ADR is the product and schema-v2 migration gate.
 
+ADR 0025 permits one user-chosen composer shortcut. Decision 12's set has
+since grown to include row `CmdOrCtrl+C`, editor `CmdOrCtrl+S`, Home/End,
+PageUp/PageDown, composer `Shift+Enter`, and drawing undo/redo (ADR 0021); the
+keyboard contract in `docs/UX.md` is authoritative for the current set.
+
 ## Context
 
 The initial implementation established a safe local Workspace and proved focus-preserving

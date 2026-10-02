@@ -14,11 +14,25 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
 ## Features
 
 - One compact shelf for open and completed Notes.
-- Fast manual capture from the always-visible composer.
+- Fast manual capture from the always-visible composer, revealed and focused
+  by `Cmd+Shift+Space` (macOS) or `Alt+Shift+Space` (Windows, Linux X11) by
+  default; you can change or reset that one shortcut in Preferences.
 - Passive double-Shift selected-text capture on macOS, with experimental Windows and Linux X11 adapters.
+- On macOS, closing the window keeps Charon running in the Dock with capture
+  armed; `Cmd+Q` quits.
+- Optional, default-off background mode: a menu bar (macOS) or notification
+  area (Windows) icon with Open and Quit keeps capture running after the window
+  closes; not available on Linux yet.
+- Optional, default-off capture notifications: one system notification with
+  the fixed text "Note captured." (never the Note's text) when double Shift
+  creates a Note while Charon's window is not focused (never on Wayland).
+- Optional, experimental Keep formatting on macOS: when double Shift falls back
+  to the app's Copy command, links, lists, headings, emphasis, tables, and code
+  become Markdown, with plain text kept whenever the formatting is uncertain.
 - Search across Markdown, Tags, and managed Attachment names.
 - Markdown editing and preview, up to 16 Tags and 20 managed Attachments per
   Note.
+- Quick drawings stored in the Note's Markdown as small inline SVG blocks.
 - Deterministic `Copy as Markdown` with optional Tags and disclosed local
   Attachment paths.
 - Explicit, confirmed permanent deletion with bounded recovery behavior.
@@ -30,7 +44,8 @@ These adapters preserve focus and never synthesize Copy. Application coverage
 is experimental. Wayland uses `Alt+Shift+Space` to reveal and focus the
 composer through the GlobalShortcuts portal because ordinary applications cannot
 observe a portable global modifier-only sequence there. The desktop may assign a
-different key combination; Charon displays that assignment. Portal absence or
+different key combination; Charon displays that assignment, and you change it in
+the desktop's keyboard settings. Portal absence or
 refusal leaves the visible composer available.
 
 ## Download and updates
@@ -54,9 +69,9 @@ The applications remain unsigned by paid platform certificates:
 
 - macOS may require Privacy & Security, Open Anyway, or Control-click, Open;
 - macOS releases target Apple Silicon (`arm64`) and do not support Intel Macs;
-- macOS releases are signed with a stable self-signed certificate (ADR 0018),
-  so Input Monitoring and Accessibility survive updates; the first such
-  release asks one last time;
+- macOS releases use Tauri's ad-hoc signature (ADR 0027), so after each update
+  macOS may ask again for Input Monitoring and Accessibility; Charon's install
+  dialog and Preferences show both;
 - Windows may show SmartScreen and require More info, Run anyway.
 
 Release notes and `SHA256SUMS.txt` describe the exact artifacts. Charon never
@@ -72,12 +87,18 @@ On macOS, Input Monitoring observes only the double-Shift gesture.
 Accessibility reads the focused selection; when direct access returns no text,
 ADR 0010 permits one bounded Copy transaction. Selected text may briefly enter
 the clipboard, but Charon never posts Paste or overwrites a concurrent clipboard
-change.
+change. The experimental, default-off Keep formatting option (ADR 0026) also
+reads that transaction's HTML once and converts it to Markdown in memory,
+keeping plain text whenever the two disagree.
 
 The updater keeps checks initially disabled. After opt-in, it sends only an
 ordinary request for public release metadata: no Note, Tag, Attachment,
 Workspace path, stable identifier, or behavioral event. Installation remains
 explicit.
+
+Capture notifications are off by default. When enabled, they show only fixed
+text through the operating system's local notification service, because
+notification history and lock screens are outside Charon's control.
 
 Permanent Delete removes the targeted Markdown and managed Attachment bytes
 from Charon-controlled active files and normal completed backups. External

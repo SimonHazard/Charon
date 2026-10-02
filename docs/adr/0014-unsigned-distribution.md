@@ -9,6 +9,10 @@ self-signed certificate instead of the ad-hoc identity, so TCC grants survive
 updates, and the `release` environment also holds that certificate. No Apple
 or Microsoft credential, notarization, or paid certificate is added.
 
+Restored on 2026-10-02 by ADR 0027, which supersedes ADR 0018 before any
+release used it: macOS releases keep Tauri's ad-hoc identity again, Decision 1
+applies as written, and the `release` environment holds only the updater key.
+
 ## Context
 
 ADR 0008 made a stable Apple Developer ID signature the gate that promotes a
