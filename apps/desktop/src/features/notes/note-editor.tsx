@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { useMessages } from '@/app/providers';
 import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
 import {
@@ -37,8 +38,10 @@ import {
   draftReducer,
   hasUnsavedDraft,
 } from '@/features/notes/draft-controller';
+import { DrawButton, useNoteDrawing } from '@/features/notes/drawing/note-drawing';
 import { MarkdownHelp } from '@/features/notes/markdown-help';
 import { NotePreview } from '@/features/notes/note-preview';
+import { useNativePreferences } from '@/features/preferences/preferences-context';
 import { isTauriRuntime } from '@/lib/platform';
 import { surfaceCollapsedScale, surfaceTransition, useKeyboardMotion } from '@/motion/system';
 
@@ -47,6 +50,11 @@ const AUTOSAVE_RETRY_DELAY_MS = 3_000;
 
 export function normalizeTagInput(value: string): string {
   return value.trim().replace(/^#/u, '').trim();
+}
+
+/** The expanded editor's element id, referenced by its row's `aria-controls`. */
+export function noteEditorId(noteId: string): string {
+  return `note-editor-${noteId}`;
 }
 
 type NoteEditorProps = {
@@ -80,6 +88,13 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   const m = useMessages();
   const reduceMotion = useReducedMotion();
   const keyboardMotion = useKeyboardMotion();
+  const { capabilities, preferences } = useNativePreferences();
+  // macOS hides the window on close (see `lib.rs`); elsewhere close quits
+  // unless background mode keeps Charon in the notification area (ADR 0023).
+  const macos =
+    capabilities?.platform === 'macos' || (!capabilities && navigator.platform.startsWith('Mac'));
+  const macosRef = useRef(macos);
+  const backgroundActiveRef = useRef(preferences.backgroundActive);
   const [draft, dispatch] = useReducer(
     draftReducer,
     { noteId: note.id, body: note.body },
@@ -97,6 +112,12 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   const [removeTarget, setRemoveTarget] = useState<AttachmentDto | null>(null);
   const [removePending, setRemovePending] = useState(false);
   const [removeError, setRemoveError] = useState<'cleanup' | 'other' | null>(null);
+  const [pendingTag, setPendingTag] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [tab, setTab] = useState<'write' | 'preview'>('write');
+  const pendingTagRef = useRef<string | null>(null);
+  const closingRef = useRef(false);
+  const retryRef = useRef<HTMLButtonElement>(null);
   const inFlight = useRef<Promise<boolean> | null>(null);
   const mountedRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -108,6 +129,25 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
+
+  useEffect(() => {
+    macosRef.current = macos;
+  }, [macos]);
+
+  useEffect(() => {
+    backgroundActiveRef.current = preferences.backgroundActive;
+  }, [preferences.backgroundActive]);
+
+  const drawing = useNoteDrawing({
+    textareaRef,
+    readBody: () => draftRef.current.value,
+    writeBody: (value) => {
+      automaticRetryUsedRef.current = false;
+      const action = { type: 'change', value } as const;
+      draftRef.current = draftReducer(draftRef.current, action);
+      dispatch(action);
+    },
+  });
 
   useEffect(() => {
     onSaveRef.current = onSave;
@@ -180,7 +220,14 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     return true;
   }, [save]);
 
-  useLayoutEffect(() => registerDraftGuard?.(flushDraft), [flushDraft, registerDraftGuard]);
+  const confirmDrawingDiscard = drawing.confirmDiscard;
+  // Leaving this draft (another Note, or Quit) first asks about unsaved strokes in an
+  // open drawing, then saves the body; false keeps the editor and its prompt or error.
+  const guardDraft = useCallback(
+    async () => !confirmDrawingDiscard() && (await flushDraft()),
+    [confirmDrawingDiscard, flushDraft],
+  );
+  useLayoutEffect(() => registerDraftGuard?.(guardDraft), [guardDraft, registerDraftGuard]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -198,9 +245,17 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     let cleanupBarrier: Promise<void> | null = null;
     void appWindow
       .onCloseRequested(async (event) => {
-        if (!inFlight.current && draftRef.current.value === lastSavedBodyRef.current) return;
+        // On macOS, or while background mode is active, the window only hides, so
+        // the draft and any open drawing stay in memory; flush the draft and never
+        // destroy the window. Otherwise, unsaved strokes keep the window open
+        // behind the drawing's discard prompt.
+        const hides = macosRef.current || backgroundActiveRef.current;
+        const keepOpen = hides || confirmDrawingDiscard();
+        if (!keepOpen && !inFlight.current && draftRef.current.value === lastSavedBodyRef.current) {
+          return;
+        }
         event.preventDefault();
-        if (await flushDraft()) await appWindow.destroy();
+        if ((await flushDraft()) && !keepOpen) await appWindow.destroy();
       })
       .then((stopListening) => {
         if (active) unlisten = stopListening;
@@ -214,7 +269,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
           : Promise.resolve();
       if (unlisten) void cleanupBarrier.finally(unlisten);
     };
-  }, [flushDraft]);
+  }, [confirmDrawingDiscard, flushDraft]);
 
   useEffect(() => {
     if (draft.status !== 'dirty' && draft.status !== 'error') return;
@@ -258,11 +313,23 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   };
 
   const removeTag = async (tag: string) => {
+    // One removal at a time: a second one would be computed from the not-yet-updated Tags.
+    if (pendingTagRef.current !== null) return;
+    pendingTagRef.current = tag;
+    setPendingTag(tag);
     setTagError(null);
     try {
       await onSetTags(note.tags.filter((current) => current !== tag));
+      // The removed chip takes its focus with it; keep the keyboard in the Tag field.
+      const active = document.activeElement;
+      if (!active || active === document.body || active.closest('.tag-editor-chips')) {
+        document.getElementById(`note-tags-${note.id}`)?.focus();
+      }
     } catch {
       setTagError(m.tag_error_save());
+    } finally {
+      pendingTagRef.current = null;
+      if (mountedRef.current) setPendingTag(null);
     }
   };
 
@@ -280,8 +347,21 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
   };
 
   const close = async () => {
-    if (!(await flushDraft())) return;
-    onClose();
+    if (closingRef.current) return;
+    closingRef.current = true;
+    setClosing(true);
+    try {
+      if (await flushDraft()) {
+        onClose();
+        return;
+      }
+      // The save failure and its Retry live in Write; bring them forward from Preview.
+      if (mountedRef.current) flushSync(() => setTab('write'));
+      window.requestAnimationFrame(() => retryRef.current?.focus());
+    } finally {
+      closingRef.current = false;
+      if (mountedRef.current) setClosing(false);
+    }
   };
 
   const bodyError = draft.errorKey
@@ -313,6 +393,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
       animate={{ opacity: 1, transform: 'scaleY(1)' }}
       className="note-editor-inline"
       data-note-editor={note.id}
+      id={noteEditorId(note.id)}
       exit={{
         opacity: 0,
         transform: `scaleY(${reduceMotion || keyboardMotion ? 1 : surfaceCollapsedScale})`,
@@ -337,21 +418,39 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
           event.preventDefault();
           event.stopPropagation();
           void close();
+        } else if (
+          (event.metaKey || event.ctrlKey) &&
+          !event.altKey &&
+          !event.shiftKey &&
+          event.key.toLocaleLowerCase() === 's' &&
+          // Keys from portaled surfaces (the drawing and removal dialogs) bubble here through
+          // React; only keys from the editor itself save.
+          event.currentTarget.contains(event.target as Node)
+        ) {
+          event.preventDefault();
+          void save();
         }
       }}
     >
-      <Tabs defaultValue="write">
+      <Tabs
+        onValueChange={(value) => setTab(value === 'preview' ? 'preview' : 'write')}
+        value={tab}
+      >
         <div className="note-editor-heading">
           <strong className="sr-only">{m.note_editor_title()}</strong>
           <TabsList>
-            <TabsTrigger value="write">{m.note_editor_write()}</TabsTrigger>
+            <TabsTrigger data-note-editor-tab="write" value="write">
+              {m.note_editor_write()}
+            </TabsTrigger>
             <TabsTrigger value="preview">{m.note_editor_preview()}</TabsTrigger>
           </TabsList>
           <MarkdownHelp compact />
+          <DrawButton onDraw={drawing.draw} />
           <span aria-live="polite" className="note-save-state">
             {saveState}
           </span>
           <Button
+            aria-busy={closing}
             aria-label={m.common_close()}
             onClick={() => void close()}
             size="icon-sm"
@@ -389,6 +488,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
                     automaticRetryUsedRef.current = true;
                     void save();
                   }}
+                  ref={retryRef}
                   size="sm"
                   variant="outline"
                 >
@@ -399,7 +499,11 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
           </Field>
         </TabsContent>
         <TabsContent value="preview">
-          <NotePreview body={draft.value} label={m.note_editor_preview_label()} />
+          <NotePreview
+            body={draft.value}
+            label={m.note_editor_preview_label()}
+            onEditDrawing={drawing.editDrawing}
+          />
         </TabsContent>
       </Tabs>
 
@@ -411,14 +515,19 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
               {note.tags.map((tag) => (
                 <Badge key={tag}>
                   {tag}
-                  <button
-                    aria-label={m.tag_remove({ tag })}
-                    className="tag-remove-button"
-                    onClick={() => void removeTag(tag)}
-                    type="button"
-                  >
-                    <IconX aria-hidden="true" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger
+                      aria-busy={pendingTag === tag}
+                      aria-disabled={pendingTag === tag}
+                      aria-label={m.tag_remove({ tag })}
+                      className="tag-remove-button"
+                      onClick={() => void removeTag(tag)}
+                      render={<button type="button" />}
+                    >
+                      <IconX aria-hidden="true" />
+                    </TooltipTrigger>
+                    <TooltipContent>{m.tag_remove({ tag })}</TooltipContent>
+                  </Tooltip>
                 </Badge>
               ))}
             </div>
@@ -438,7 +547,13 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
                 if (event.key === 'Enter' || event.key === ',') {
                   event.preventDefault();
                   void addTag(tagInput);
-                } else if (event.key === 'Backspace' && !tagInput && note.tags.length) {
+                } else if (
+                  event.key === 'Backspace' &&
+                  // Holding Backspace empties the field; its repeats must not remove Tags.
+                  !event.repeat &&
+                  !tagInput &&
+                  note.tags.length
+                ) {
                   void removeTag(note.tags.at(-1) as string);
                 }
               }}
@@ -492,7 +607,9 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
                     >
                       <IconX aria-hidden="true" />
                     </TooltipTrigger>
-                    <TooltipContent>{attachment.fileName}</TooltipContent>
+                    <TooltipContent>
+                      {m.attachment_remove({ file: attachment.fileName })}
+                    </TooltipContent>
                   </Tooltip>
                 </li>
               ))}
@@ -565,6 +682,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {drawing.dialog}
     </motion.section>
   );
 });

@@ -6,7 +6,7 @@ import { NotePreview } from '@/features/notes/note-preview';
 
 describe('Note preview', () => {
   it('preserves heading depth and groups consecutive bullets and tasks into lists', () => {
-    render(
+    const { container } = render(
       <AppProviders>
         <NotePreview
           body={
@@ -26,6 +26,18 @@ describe('Note preview', () => {
     const tasks = within(lists[0] as HTMLElement).getAllByRole('checkbox');
     expect(tasks.map((task) => (task as HTMLInputElement).checked)).toEqual([false, true]);
     expect(screen.getByText(/Paragraph/)).toBeTruthy();
+    // Headings mint no ids from Note text.
+    expect(container.querySelector('[id]')).toBeNull();
+  });
+  it('shows text between leading rules instead of hiding it as front matter', () => {
+    const { container } = render(
+      <AppProviders>
+        <NotePreview body={'---\nKept text\n---\nAfter'} label="Preview" />
+      </AppProviders>,
+    );
+    expect(screen.getByText('Kept text')).toBeTruthy();
+    expect(screen.getByText('After')).toBeTruthy();
+    expect(container.querySelectorAll('hr')).toHaveLength(2);
   });
   it('renders rich syntax without interpreting HTML or creating resource/navigation elements', () => {
     const { container } = render(
