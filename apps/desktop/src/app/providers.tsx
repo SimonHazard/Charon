@@ -8,9 +8,15 @@ import {
   useMemo,
   useState,
 } from 'react';
+import {
+  CaptureAcknowledgementProvider,
+  useCaptureAcknowledgement,
+} from '@/app/capture-acknowledgement-context';
 import { captureStatusTone } from '@/app/capture-status';
 import { ComposerFocusProvider, useComposerFocus } from '@/app/composer-focus-context';
 import { type AppLocale, applyLocale, readLocale } from '@/app/locale';
+import { QuitRequestProvider } from '@/app/quit-request-context';
+import { ShellBridge } from '@/app/shell-bridge';
 import {
   applyTheme,
   readThemePreference,
@@ -24,6 +30,7 @@ import type { UpdateClient } from '@/features/updates/update-client';
 import { UpdateProvider } from '@/features/updates/update-context';
 import { type CaptureClient, tauriCaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
+import { type ShellClient, tauriShellClient } from '@/lib/ipc/shell-client';
 import type { WorkspaceClient } from '@/lib/ipc/workspace-client';
 import { isTauriRuntime } from '@/lib/platform';
 import { MotionSystem } from '@/motion/system';
@@ -44,17 +51,21 @@ export function AppProviders({
   captureClient,
   preferencesClient,
   updateClient,
+  shellClient,
 }: PropsWithChildren<{
   workspaceClient?: WorkspaceClient;
   captureClient?: CaptureClient;
   preferencesClient?: NativePreferencesClient;
   updateClient?: UpdateClient;
+  shellClient?: ShellClient;
 }>) {
   const [theme, updateTheme] = useState(readThemePreference);
   const [locale, updateLocale] = useState(readLocale);
   const activeCaptureClient = captureClient ?? tauriCaptureClient;
   const nativePreferencesEnabled = isTauriRuntime() || Boolean(captureClient || preferencesClient);
   const updaterEnabled = isTauriRuntime() || Boolean(updateClient);
+  const activeShellClient = shellClient ?? tauriShellClient;
+  const shellEnabled = isTauriRuntime() || Boolean(shellClient);
 
   const setTheme = useCallback((next: ThemePreference) => {
     saveThemePreference(next);
@@ -90,8 +101,20 @@ export function AppProviders({
           >
             <UpdateProvider client={updateClient} enabled={updaterEnabled}>
               <ComposerFocusProvider>
-                <CaptureBridge client={activeCaptureClient} enabled={nativePreferencesEnabled} />
-                {children}
+                <CaptureAcknowledgementProvider>
+                  <QuitRequestProvider client={activeShellClient}>
+                    <CaptureBridge
+                      client={activeCaptureClient}
+                      enabled={nativePreferencesEnabled}
+                    />
+                    <ShellBridge
+                      client={activeShellClient}
+                      enabled={shellEnabled}
+                      locale={locale}
+                    />
+                    {children}
+                  </QuitRequestProvider>
+                </CaptureAcknowledgementProvider>
               </ComposerFocusProvider>
             </UpdateProvider>
           </NativePreferencesProvider>
@@ -103,6 +126,7 @@ export function AppProviders({
 
 function CaptureBridge({ client, enabled }: { client: CaptureClient; enabled: boolean }) {
   const { receive } = useComposerFocus();
+  const { publish } = useCaptureAcknowledgement();
 
   useEffect(() => {
     if (!enabled) return;
@@ -115,6 +139,11 @@ function CaptureBridge({ client, enabled }: { client: CaptureClient; enabled: bo
       client.subscribeStatus((status) => {
         if (!active) return;
         const tone = captureStatusTone(status.messageKey);
+        if (tone === 'success') {
+          // A capture stays silent; the shelf acknowledges the Note once the user reveals it.
+          if (status.noteId) publish({ noteId: status.noteId, at: Date.now() });
+          return;
+        }
         const description =
           (m as unknown as Record<string, () => string>)[status.messageKey]?.() ??
           m.capture_error_unknown();
@@ -142,7 +171,7 @@ function CaptureBridge({ client, enabled }: { client: CaptureClient; enabled: bo
       active = false;
       unsubscribe?.();
     };
-  }, [client, enabled, receive]);
+  }, [client, enabled, publish, receive]);
 
   return null;
 }

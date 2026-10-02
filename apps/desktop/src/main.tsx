@@ -4,7 +4,7 @@ import { useComposerFocus } from '@/app/composer-focus-context';
 import { AppProviders } from '@/app/providers';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
-import { Toaster } from '@/components/ui/toast';
+import { Toaster, toast } from '@/components/ui/toast';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { WorkspaceState } from '@/components/workspace-state';
 import { NoteScreen } from '@/features/notes/note-screen';
@@ -27,6 +27,18 @@ function DemoComposerBridge() {
     window.addEventListener('charon:fixture-composer-focus', focus);
     return () => window.removeEventListener('charon:fixture-composer-focus', focus);
   }, [composer]);
+  useEffect(() => {
+    if (!demoMode) return;
+    // Content-free capture warning so browser e2e can place and dismiss a real toast.
+    const showToast = () =>
+      toast.add({
+        title: m.capture_status_warning_title(),
+        description: m.capture_error_unknown(),
+        type: 'warning',
+      });
+    window.addEventListener('charon:fixture-toast', showToast);
+    return () => window.removeEventListener('charon:fixture-toast', showToast);
+  }, []);
   return null;
 }
 

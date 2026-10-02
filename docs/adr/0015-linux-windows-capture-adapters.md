@@ -5,6 +5,8 @@
 Accepted on 2026-09-05. Implemented experimentally on 2026-09-21 for Windows
 and Linux X11. Windows and X11 remain `Experimental` while ordinary use
 establishes coverage; Wayland remains without a modifier-only capture claim.
+ADR 0025 lets the user replace the Windows/X11 composer accelerator;
+`Alt+Shift+Space` stays the default.
 
 ## Context
 

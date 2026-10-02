@@ -14,6 +14,8 @@ pub enum PreferencesError {
     Io(#[source] std::io::Error),
     #[error("the preferences file could not be encoded")]
     Encoding,
+    #[error("the background-mode tray icon is unavailable")]
+    TrayUnavailable,
 }
 
 impl From<std::io::Error> for PreferencesError {
@@ -40,6 +42,9 @@ impl From<PreferencesError> for PreferencesIpcError {
             PreferencesError::InvalidValue => ("invalid_value", "preferences_error_invalid_value"),
             PreferencesError::Io(_) => ("io", "preferences_error_io"),
             PreferencesError::Encoding => ("encoding", "preferences_error_encoding"),
+            PreferencesError::TrayUnavailable => {
+                ("tray_unavailable", "preferences_error_tray_unavailable")
+            }
         };
         Self {
             code: code.to_owned(),

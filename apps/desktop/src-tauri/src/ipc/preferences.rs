@@ -1,55 +1,119 @@
 #[cfg(any(target_os = "linux", test))]
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use tauri::{AppHandle, Manager};
 
-use crate::preferences::{
-    InstallKind, PreferencesIpcError, PreferencesSnapshot, PreferencesStorage,
-};
+use super::{notification, shell};
+use crate::preferences::{InstallKind, PreferencesIpcError, PreferencesSnapshot};
 
 static INSTALL_KIND: OnceLock<InstallKind> = OnceLock::new();
 
-fn storage(app: &AppHandle) -> Result<PreferencesStorage, PreferencesIpcError> {
-    let root = app
+/// Every access goes through `crate::preferences`, whose process-wide lock
+/// keeps concurrent commands from overwriting one another's changes.
+fn root(app: &AppHandle) -> Result<PathBuf, PreferencesIpcError> {
+    Ok(app
         .path()
         .app_config_dir()
-        .map_err(|_| crate::preferences::PreferencesError::InvalidPath)?;
-    Ok(PreferencesStorage::new(root))
+        .map_err(|_| crate::preferences::PreferencesError::InvalidPath)?)
 }
 
 pub(crate) fn read_persisted(
     app: &AppHandle,
 ) -> Result<crate::preferences::PersistedPreferences, PreferencesIpcError> {
-    storage(app)?.read().map_err(PreferencesIpcError::from)
+    crate::preferences::read(root(app)?).map_err(PreferencesIpcError::from)
 }
 
 pub(crate) fn remember_workspace(
     app: &AppHandle,
     path: &Path,
 ) -> Result<PreferencesSnapshot, PreferencesIpcError> {
-    let root = app
-        .path()
-        .app_config_dir()
-        .map_err(|_| crate::preferences::PreferencesError::InvalidPath)?;
-    crate::preferences::remember_workspace(root, path)
-        .map(with_install_kind)
+    crate::preferences::remember_workspace(root(app)?, path)
+        .map(|snapshot| with_runtime(app, snapshot))
+        .map_err(PreferencesIpcError::from)
+}
+
+/// Stores the user's composer accelerator (ADR 0025), or clears it with `None`.
+pub(crate) fn remember_composer_shortcut(
+    app: &AppHandle,
+    shortcut: Option<String>,
+) -> Result<(), PreferencesIpcError> {
+    crate::preferences::remember_composer_shortcut(root(app)?, shortcut.as_deref())
+        .map(|_| ())
         .map_err(PreferencesIpcError::from)
 }
 
 #[tauri::command(async)]
 pub fn preferences_read(app: AppHandle) -> Result<PreferencesSnapshot, PreferencesIpcError> {
-    Ok(with_install_kind(storage(&app)?.read()?.snapshot()))
+    Ok(with_runtime(&app, read_persisted(&app)?.snapshot()))
 }
 
 #[tauri::command(async)]
 pub fn preferences_reset(app: AppHandle) -> Result<PreferencesSnapshot, PreferencesIpcError> {
-    Ok(with_install_kind(storage(&app)?.reset()?.snapshot()))
+    let preferences = crate::preferences::reset(root(&app)?)?;
+    // The reset file has background mode, capture notifications, and formatted
+    // capture off and no chosen composer shortcut, so the tray, the
+    // notification, a custom accelerator, and the HTML read go with it.
+    shell::disable_background(&app);
+    notification::set_enabled(&app, false);
+    super::capture::reset_shortcut(&app);
+    super::capture::apply_rich_capture(&app, false);
+    Ok(with_runtime(&app, preferences.snapshot()))
 }
 
-fn with_install_kind(mut snapshot: PreferencesSnapshot) -> PreferencesSnapshot {
+/// Enabling shows the tray before persisting, so a stored `true` always had a
+/// working icon; disabling persists first, then removes the icon.
+#[tauri::command(async)]
+pub fn preferences_set_background_mode(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<PreferencesSnapshot, PreferencesIpcError> {
+    let root = root(&app)?;
+    let preferences = if enabled {
+        shell::enable_background(&app)?;
+        crate::preferences::set_background_mode(root, true).inspect_err(|_| {
+            shell::disable_background(&app);
+        })?
+    } else {
+        let preferences = crate::preferences::set_background_mode(root, false)?;
+        shell::disable_background(&app);
+        preferences
+    };
+    Ok(with_runtime(&app, preferences.snapshot()))
+}
+
+/// Persists the capture-notification choice (ADR 0024), then applies it to the
+/// running capture path; a failed write leaves both unchanged.
+#[tauri::command(async)]
+pub fn preferences_set_capture_notifications(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<PreferencesSnapshot, PreferencesIpcError> {
+    let root = root(&app)?;
+    let preferences = crate::preferences::set_capture_notifications(root, enabled)?;
+    notification::set_enabled(&app, preferences.capture_notifications);
+    Ok(with_runtime(&app, preferences.snapshot()))
+}
+
+/// Persists the formatted-capture choice (ADR 0026), then applies it to the
+/// running capture adapter; a failed write leaves both unchanged.
+#[tauri::command(async)]
+pub fn preferences_set_rich_capture(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<PreferencesSnapshot, PreferencesIpcError> {
+    let root = root(&app)?;
+    let preferences = crate::preferences::set_rich_capture(root, enabled)?;
+    super::capture::apply_rich_capture(&app, preferences.rich_capture);
+    Ok(with_runtime(&app, preferences.snapshot()))
+}
+
+/// Adds the runtime-only facts the persisted file cannot hold.
+fn with_runtime(app: &AppHandle, mut snapshot: PreferencesSnapshot) -> PreferencesSnapshot {
     snapshot.install_kind = *INSTALL_KIND.get_or_init(detect_install_kind);
+    snapshot.tray_availability = shell::tray_availability();
+    snapshot.background_active = shell::background_active(app);
     snapshot
 }
 

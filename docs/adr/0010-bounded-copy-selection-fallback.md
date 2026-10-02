@@ -8,6 +8,11 @@ capture transaction defined below. Their bans on automatic paste, arbitrary
 input injection, clipboard monitoring, private APIs, OCR, and source-focus
 changes remain active.
 
+ADR 0026 amends invariant 5 for an opt-in bounded HTML read on macOS: when the
+user turns on formatted capture, the same transaction may also read the new
+payload's HTML representation once, converted to Markdown in memory with the
+plain text as the fallback. Invariants 1-4, 6, and 7 are unchanged.
+
 ## Context
 
 Physical development testing proved that the public Accessibility ladder in ADR

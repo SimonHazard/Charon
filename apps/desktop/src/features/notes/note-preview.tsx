@@ -1,5 +1,11 @@
 import { Markdown, type MarkdownComponents } from '@tanstack/markdown/react';
 import { useMessages } from '@/app/providers';
+import {
+  DrawingAwarePre,
+  type DrawingEditRequest,
+  DrawingPreviewProvider,
+  NestedDrawingScope,
+} from '@/features/notes/drawing/drawing-figure';
 
 const components = {
   h1: ({ children }) => <h2>{children}</h2>,
@@ -21,6 +27,19 @@ const components = {
   ),
   // Never create an image element: even a remote src must not reach the browser loader.
   img: ({ alt }) => <span className="note-preview-image">{alt}</span>,
+  // Validated drawings are re-created as svg/path elements; anything else stays code.
+  pre: DrawingAwarePre,
+  // Drawings in quotes, list items, and footnotes render without an Edit button.
+  blockquote: ({ children }) => (
+    <blockquote>
+      <NestedDrawingScope>{children}</NestedDrawingScope>
+    </blockquote>
+  ),
+  li: ({ children, ...props }) => (
+    <li {...props}>
+      <NestedDrawingScope>{children}</NestedDrawingScope>
+    </li>
+  ),
   input: function Task({ checked }) {
     const m = useMessages();
     return (
@@ -34,12 +53,23 @@ const components = {
   },
 } satisfies MarkdownComponents;
 
-export function NotePreview({ body, label }: { body: string; label: string }) {
+export function NotePreview({
+  body,
+  label,
+  onEditDrawing,
+}: {
+  body: string;
+  label: string;
+  onEditDrawing?(request: DrawingEditRequest): void;
+}) {
   return (
     <section aria-label={label} className="note-preview" data-testid="note-preview">
-      <Markdown allowHtml={false} components={components}>
-        {body}
-      </Markdown>
+      <DrawingPreviewProvider onEdit={onEditDrawing}>
+        {/* Front matter off: a leading `---` is a divider, so no Note text is ever hidden. */}
+        <Markdown allowHtml={false} components={components} frontmatter={false}>
+          {body}
+        </Markdown>
+      </DrawingPreviewProvider>
     </section>
   );
 }

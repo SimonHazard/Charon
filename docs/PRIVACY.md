@@ -40,7 +40,12 @@ existing unrelated directory is never adopted automatically. The user controls
 the Workspace location, external synchronization, backup policy, and cleanup.
 Charon reads or writes only the active Workspace and app-owned local preferences
 needed to remember settings. Preferences store a successfully validated folder
-choice and presentation choices, never Note content.
+choice, presentation choices, the background-mode choice, the
+capture-notification choice, the formatted-capture choice, and the chosen
+composer shortcut (a key combination such as `Ctrl+Alt+N`, or nothing for the
+default), never Note content. While recording a new composer shortcut, Preferences reads only the
+keys pressed inside its focused recorder and keeps only the accepted
+combination.
 
 Adding an Attachment is an explicit file-picker action. The picker runs in Rust
 and gives the webview only short-lived opaque one-shot tokens, never source
@@ -50,6 +55,10 @@ safe display metadata plus a generated managed relative path. The external
 source path is never persisted. Imported bytes remain local. Charon never
 executes them, previews arbitrary formats, uploads them, or maintains a
 cross-Note asset library.
+
+Drawings are stored as SVG text inside the local Note body and its Markdown
+file. Drawing makes no network request and the Preview of a drawing loads no
+resource. `Copy as Markdown` includes a drawing's SVG text exactly as stored.
 
 Local logs and diagnostics exclude Note bodies, Tag values, Attachment bytes,
 clipboard payloads, selected text, and sensitive filesystem paths by default. A
@@ -76,6 +85,18 @@ the unchanged foreground application's normal Copy command once, reads only a
 newly produced text value, and restores the complete snapshot only when no
 concurrent clipboard write occurred.
 
+When the optional formatted capture is on (macOS, off by default, ADR 0026),
+the same bounded transaction also reads the HTML representation the source
+just produced (at most 1 MiB, from a single-item payload, before restoring the
+snapshot) and converts it to Markdown in memory after restoring it. Charon
+keeps the Markdown only when it matches the plain text letter for letter and
+line for line; otherwise it keeps the plain text. The HTML is discarded
+afterwards and never logged or stored except as the resulting Note body. The
+conversion fetches nothing: images become their alternative text, and only
+`http`, `https`, and `mailto` link destinations are kept, as inert text.
+Formatting never triggers a Copy on its own and does not apply when the direct
+Accessibility path returned text.
+
 Charon never treats a pre-existing clipboard string as the selection, monitors
 clipboard history, posts Paste, stores the snapshot on disk, repeats the attempt
 in the background, or runs it without the completed gesture. During the bounded
@@ -83,8 +104,10 @@ attempt, selected text briefly exists on the system clipboard and may be
 observed by macOS or an installed clipboard manager. If a concurrent write or
 restoration failure occurs, Charon does not overwrite the newer value and the
 clipboard may remain changed. The application reports only a content-free
-warning. Secure fields, unsafe snapshots, timeouts, blocked Copy, and
-unsupported platforms fail closed without creating a Note.
+warning. A successful capture reports only a message key and the new Note's
+random id, never text, and only to the local main window. Secure fields,
+unsafe snapshots, timeouts, blocked Copy, and unsupported platforms fail closed
+without creating a Note.
 
 ## Input Monitoring, Accessibility, and selected text
 
@@ -92,8 +115,9 @@ On macOS, observing double Shift requires Input Monitoring. Reading selected
 text separately requires Accessibility; that permission also allows the single
 disclosed source-application Copy when the direct path fails. Charon explains
 and requests each permission from an explicit action in capture help, never on
-mount, and remains useful after denial through `Cmd+Shift+Space` on macOS, the
-platform-reported portable shortcut on Windows/Linux, and the bottom composer.
+mount, and remains useful after denial through the composer shortcut
+(`Cmd+Shift+Space` on macOS and the platform-reported portable shortcut on
+Windows/Linux by default, or the user's chosen one) and the bottom composer.
 Wayland may display a different shortcut assigned by its user-mediated portal.
 
 The passive listener observes only modifier and key events needed by the
@@ -106,6 +130,14 @@ never enumerates applications or windows, scans background trees, uses private
 APIs, performs OCR or screen capture, or adds application-specific extraction.
 No other input or source-application automation is permitted.
 
+While the opt-in background mode (ADR 0023) keeps Charon running after its
+window closes, these capture listeners stay active until Quit, exactly as they
+do while the window is merely unfocused; nothing else starts or runs in the
+background. The menu bar or notification area icon shows only the app icon and
+the localized Open Charon and Quit Charon items: no Note content, count, or
+status. Background mode adds no network request, and Linux shows no icon in
+this release.
+
 Equivalent permissions on other platforms follow least privilege, just-in-time
 explanation, visible state, retry, and a working manual fallback. Windows and X11
 implement ADR 0015 as experimental adapters. Windows reads only
@@ -117,12 +149,32 @@ Neither adapter changes CLIPBOARD, requests elevated privileges, or logs input.
 Linux connects only to local Unix X11/D-Bus transports. Wayland registers one
 user-mediated portal shortcut and never observes a global modifier stream.
 
-Since ADR 0018, macOS releases are signed with one stable self-signed
-certificate, so macOS keeps Input Monitoring and Accessibility across updates.
-Leaving the earlier ad-hoc builds, or a future certificate replacement after
-loss or compromise, asks once more. Charon never regains a permission
-silently: the user grants each one through the same explicit,
-purpose-specific flow.
+macOS releases use Tauri's ad-hoc signature (ADR 0027), so each update is a
+new application to macOS privacy settings and macOS may ask again for Input
+Monitoring and Accessibility. The install dialog says so before the update.
+Charon never regains a permission silently: the user grants each one through
+the same explicit, purpose-specific flow.
+
+## System notifications
+
+Capture notifications (ADR 0024) are opt-in and off by default. When enabled,
+a selected-text capture that creates a Note while Charon's window is not
+focused shows at most one system notification every two seconds, with fixed,
+localized text only: the title "Charon" and the body "Note captured." It never
+includes the Note's text, title, Tags, Attachment names, a count, the source
+application, or a Workspace path. Operating-system notification centers may
+keep a history of notifications and show them on the lock screen, outside
+Charon's control and its Delete guarantee; that is why nothing from a Note is
+ever shown.
+
+The Note's id stays in Charon's process memory and never enters notification
+data. Charon shows the notification through local operating-system services
+only (the macOS notification center, Windows toast notifications, or the Linux
+desktop notification service over the local D-Bus session bus), never a
+network or push service. Charon cannot observe whether the operating system
+allows or hides its notifications, so Preferences says so instead of reporting
+a state it cannot verify. A click keeps the platform default and opens no
+Note. The webview holds no notification permission.
 
 ## Irreversible deletion limits
 
@@ -165,8 +217,8 @@ observe ordinary network metadata, but
 the request includes no Note content, Tags, Attachment metadata or bytes,
 Workspace metadata or path, stable user identifier, or behavioral event.
 Downloading and installing requires clear user action and an artifact verified
-against Charon's own updater signature, and restart must defer while a draft is
-dirty.
+against Charon's own updater signature, and restart and, on Windows, the
+installer that closes Charon must defer while a draft is dirty.
 
 That updater signature is a locally generated key pair, not an Apple or
 Microsoft certificate. Charon ships unsigned by both platforms under ADR 0014
@@ -177,6 +229,13 @@ With update checks disabled, the desktop performs no network requests. Charon
 does not require connectivity for capture, manual creation, search, status,
 editing, Tags, Attachments, copy, themes, localization, deletion, migration, or
 recovery.
+
+Preferences links to the GitHub Releases page, the public source repository,
+and its contribution guide. Charon hands each exact URL to the default browser
+only after the user activates that link, through an opener permission limited
+to those three URLs. The app itself never fetches, embeds, prefetches, or
+previews them; the destinations have their own privacy boundaries after
+navigation.
 
 ## Changes to this contract
 

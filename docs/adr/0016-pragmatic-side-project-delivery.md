@@ -13,6 +13,8 @@ one new consistent manifest version on `main` the desktop publication trigger.
 
 Amended on 2026-09-23 by ADR 0018: in Decision 6, macOS is signed with a stable
 self-signed certificate rather than ad-hoc; Windows and Linux stay unsigned.
+Restored on 2026-10-02 by ADR 0027: macOS is ad-hoc again, as Decision 6
+originally states.
 
 ## Context
 

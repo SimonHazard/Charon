@@ -10,6 +10,12 @@ pub enum CaptureError {
     ShortcutRegistration,
     #[error("the capture shortcut could not be removed")]
     ShortcutUnregistration,
+    #[error("the capture shortcut is reserved")]
+    ShortcutReserved,
+    #[error("the capture shortcut is managed by the desktop")]
+    ShortcutNotConfigurable,
+    #[error("the system refused the capture shortcut")]
+    ShortcutConflict,
     #[error("the enhanced capture listener could not start")]
     ListenerUnavailable,
     #[error("the bounded capture worker could not start")]
@@ -50,6 +56,16 @@ impl From<CaptureError> for CaptureIpcError {
                 "shortcut_unregistration",
                 "capture_error_shortcut_unregistration",
             ),
+            CaptureError::ShortcutReserved => {
+                ("shortcut_reserved", "capture_error_shortcut_reserved")
+            }
+            CaptureError::ShortcutNotConfigurable => (
+                "shortcut_not_configurable",
+                "capture_error_shortcut_not_configurable",
+            ),
+            CaptureError::ShortcutConflict => {
+                ("shortcut_conflict", "capture_error_shortcut_conflict")
+            }
             CaptureError::ListenerUnavailable => {
                 ("listener_unavailable", "capture_error_listener_unavailable")
             }

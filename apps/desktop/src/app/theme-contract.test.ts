@@ -269,6 +269,26 @@ describe('theme token contract', () => {
     },
   );
 
+  it('fades only the Note list scroll edges and drops the mask for contrast and transparency', () => {
+    const rule = appCss.match(/\n\.note-list \{[^}]*\}/u)?.[0] ?? '';
+    expect(rule).toContain('mask-image: linear-gradient(');
+    expect(rule).not.toMatch(/\btransition[-a-z]*:/u);
+    expect(appCss).toMatch(
+      /\.note-list\[data-clipped-start="true"\] \{\s*--list-fade-start: 0\.75rem;/u,
+    );
+    expect(appCss).toMatch(/\.note-list\[data-clipped-end="true"\] \{\s*--list-fade-end: 1rem;/u);
+    // ADR 0022: one mask on one scroll container.
+    expect(appCss.match(/(?<!-webkit-)mask-image: linear-gradient/gu)).toHaveLength(1);
+    for (const query of ['prefers-contrast: more', 'prefers-reduced-transparency: reduce']) {
+      expect(appCss, query).toMatch(
+        new RegExp(
+          `@media \\(${query}\\) \\{\\s*\\.note-list \\{\\s*-webkit-mask-image: none;\\s*mask-image: none;`,
+          'u',
+        ),
+      );
+    }
+  });
+
   it('keeps every copied canonical asset byte-identical', () => {
     for (const [path, expected] of Object.entries(approvedChecksums)) {
       const actual = createHash('sha256')
@@ -292,18 +312,43 @@ describe('theme token contract', () => {
     }
   });
 
-  it('allows only explicit event, window lifecycle, clipboard, and release-link commands', () => {
+  it('allows only explicit custom, event, window lifecycle, resource, and GitHub link commands', () => {
     expect(mainCapability.permissions).toEqual([
+      'allow-workspace-choose-directory',
+      'allow-workspace-choose-attachments',
+      'allow-workspace-bootstrap',
+      'allow-workspace-bootstrap-default',
+      'allow-workspace-open-or-create',
+      'allow-workspace-snapshot',
+      'allow-workspace-execute',
+      'allow-clipboard-compose-and-write',
+      'allow-capture-capabilities',
+      'allow-capture-open',
+      'allow-capture-request-permission',
+      'allow-capture-composer-ready',
+      'allow-capture-set-shortcut',
+      'allow-preferences-read',
+      'allow-preferences-reset',
+      'allow-preferences-set-background-mode',
+      'allow-preferences-set-capture-notifications',
+      'allow-preferences-set-rich-capture',
+      'allow-shell-set-labels',
+      'allow-shell-quit',
+      'allow-shell-cancel-quit',
       'core:event:allow-listen',
       'core:event:allow-unlisten',
       'core:window:allow-destroy',
       'core:window:allow-start-dragging',
       'core:window:allow-internal-toggle-maximize',
-      'clipboard-manager:allow-write-text',
+      'core:resources:allow-close',
       {
         identifier: 'opener:allow-open-url',
         scope: {
-          allow: [{ url: 'https://github.com/SimonHazard/Charon/releases/latest' }],
+          allow: [
+            { url: 'https://github.com/SimonHazard/Charon/releases/latest' },
+            { url: 'https://github.com/SimonHazard/Charon' },
+            { url: 'https://github.com/SimonHazard/Charon/blob/main/CONTRIBUTING.md' },
+          ],
         },
       },
       'process:allow-restart',

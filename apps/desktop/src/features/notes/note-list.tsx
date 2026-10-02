@@ -1,20 +1,37 @@
 // biome-ignore-all lint/a11y/noRedundantRoles: WebKit drops list semantics when CSS removes markers.
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { useMessages } from '@/app/providers';
-import type { AttachmentDto, NoteDto } from '@/bindings/workspace';
+import type { AttachmentDto, NoteDto, NoteStatus } from '@/bindings/workspace';
 import { NoteRow } from '@/features/notes/note-row';
 
 const ROW_HEIGHT = 84;
+// The `.note-list` scroll-edge fade depths in px (0.75rem, 1rem; ADR 0022). Keyboard navigation
+// and `scrollToIndex` keep this much clearance, so a focused row never parks under a fade.
+const FADE_START = 12;
+const FADE_END = 16;
+/** Rows that PageUp and PageDown move focus by. */
+const PAGE_ROWS = 10;
+const rowSteps: Readonly<Record<string, number>> = {
+  ArrowDown: 1,
+  ArrowUp: -1,
+  PageDown: PAGE_ROWS,
+  PageUp: -PAGE_ROWS,
+};
+
+/** One request to scroll a Note into view; a new object asks again. */
+export type NoteRevealRequest = { noteId: string };
 
 export function NoteList({
   notes,
   expandedId,
+  acknowledgedId = null,
+  revealRequest = null,
   allTags,
   copyState,
   onCopy,
-  onToggleStatus,
+  onSetStatus,
   onExpand,
   onFocusAttachments,
   onCloseEditor,
@@ -30,10 +47,12 @@ export function NoteList({
 }: {
   notes: readonly NoteDto[];
   expandedId: string | null;
+  acknowledgedId?: string | null;
+  revealRequest?: NoteRevealRequest | null;
   allTags: readonly string[];
   copyState: { noteId: string; status: 'copied' | 'error'; message: string } | null;
   onCopy(noteId: string): Promise<void>;
-  onToggleStatus(note: NoteDto): Promise<void>;
+  onSetStatus(noteId: string, status: NoteStatus): Promise<void>;
   onExpand(noteId: string): void;
   onFocusAttachments(noteId: string): Promise<void>;
   onCloseEditor(noteId: string): void;
@@ -58,6 +77,8 @@ export function NoteList({
     getScrollElement: () => parentRef.current,
     initialRect: { width: 480, height: 600 },
     overscan: 10,
+    scrollPaddingEnd: FADE_END,
+    scrollPaddingStart: FADE_START,
     rangeExtractor: (range) => {
       const visible = defaultRangeExtractor(range);
       // An editor owns a live draft, including failed saves. Scrolling must not discard it.
@@ -66,6 +87,36 @@ export function NoteList({
         : [...visible, expandedIndex].sort((a, b) => a - b);
     },
   });
+
+  // The editor opens in place; when it would open below the fold, bring its row to the top so
+  // the focused field is visible. The textarea focuses with `preventScroll`, so this is the
+  // only scroll, and it waits one frame for the expanded row's layout.
+  const expandedIndexRef = useRef(expandedIndex);
+  useLayoutEffect(() => {
+    expandedIndexRef.current = expandedIndex;
+  });
+  useLayoutEffect(() => {
+    if (!expandedId) return;
+    const frame = window.requestAnimationFrame(() => {
+      const index = expandedIndexRef.current;
+      const scroller = parentRef.current;
+      const row = scroller?.querySelector<HTMLElement>(`[data-index="${index}"]`);
+      if (index < 0 || !scroller || !row) return;
+      if (row.getBoundingClientRect().bottom > scroller.getBoundingClientRect().bottom) {
+        virtualizer.scrollToIndex(index, { align: 'start' });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [expandedId, virtualizer]);
+
+  const handledRevealRef = useRef<NoteRevealRequest | null>(null);
+  useEffect(() => {
+    if (!revealRequest || handledRevealRef.current === revealRequest) return;
+    const index = notes.findIndex((note) => note.id === revealRequest.noteId);
+    if (index < 0) return;
+    handledRevealRef.current = revealRequest;
+    virtualizer.scrollToIndex(index, { align: 'start' });
+  }, [notes, revealRequest, virtualizer]);
 
   useLayoutEffect(() => {
     if (!pendingFocusId) return;
@@ -77,7 +128,8 @@ export function NoteList({
 
   const moveFocus = useCallback(
     (event: React.KeyboardEvent) => {
-      if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+      const step = rowSteps[event.key];
+      if (step === undefined && event.key !== 'Home' && event.key !== 'End') return;
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (
         event.defaultPrevented ||
@@ -93,10 +145,13 @@ export function NoteList({
       const currentIndex = Number(activeRow?.dataset.index);
       if (!Number.isInteger(currentIndex)) return;
       event.preventDefault();
-      const nextIndex = Math.max(
-        0,
-        Math.min(notes.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)),
-      );
+      const lastIndex = notes.length - 1;
+      const nextIndex =
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? lastIndex
+            : Math.max(0, Math.min(lastIndex, currentIndex + (step ?? 0)));
       const nextId = notes[nextIndex]?.id;
       if (!nextId) return;
       setPendingFocusId(nextId);
@@ -110,8 +165,22 @@ export function NoteList({
     [notes, virtualizer],
   );
 
+  // Which edges clip content, read at render: the virtualizer re-renders on scroll start/stop,
+  // range changes and item resizes, so no scroll listener or per-frame state is needed. The fade
+  // may lag the very top or bottom by the virtualizer's scroll-reset delay (ADR 0022).
+  const scrollOffset = virtualizer.scrollOffset ?? 0;
+  const viewportHeight = virtualizer.scrollRect?.height ?? 0;
+  const clippedStart = scrollOffset > 1;
+  const clippedEnd =
+    viewportHeight > 0 && scrollOffset + viewportHeight < virtualizer.getTotalSize() - 1;
+
   return (
-    <div className="note-list" ref={parentRef}>
+    <div
+      className="note-list"
+      data-clipped-end={clippedEnd}
+      data-clipped-start={clippedStart}
+      ref={parentRef}
+    >
       <ul
         aria-label={m.note_list_label()}
         className="note-list-inner"
@@ -135,6 +204,7 @@ export function NoteList({
               tabIndex={-1}
             >
               <NoteRow
+                acknowledged={acknowledgedId === note.id}
                 allTags={allTags}
                 copyState={
                   copyState?.noteId === note.id
@@ -156,7 +226,7 @@ export function NoteList({
                 onSave={onSave}
                 onSetTags={onSetTags}
                 onTagFilter={onTagFilter}
-                onToggleStatus={onToggleStatus}
+                onSetStatus={onSetStatus}
               />
             </li>
           );

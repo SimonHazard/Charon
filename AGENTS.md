@@ -41,7 +41,9 @@ Use the vocabulary exactly:
 - Never add automatic Paste or arbitrary keystroke injection. ADR 0010 permits
   exactly one synthetic platform Copy after an explicit selected-text capture
   gesture, inside its bounded snapshot, change-count, timeout, disclosure, and
-  restoration contract.
+  restoration contract, and, when the user opts in, one bounded HTML read
+  converted to Markdown under ADR 0026, with the exact plain text as the
+  fallback.
 - Delete is confirmed, irreversible, and targets one explicit Note. After commit, active
   files and normal completed Charon backups retain neither deleted Markdown nor
   managed Attachment bytes. Disclose the external backup and OS-snapshot limit.
@@ -50,16 +52,25 @@ Use the vocabulary exactly:
   destroy them.
 - Treat unmodified `Shift`, `Shift` as a native modifier sequence. Keep
   `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux as the
-  reveal-and-focus-composer fallback. Never claim an unimplemented capability;
+  default reveal-and-focus-composer shortcut; ADR 0025 lets the user replace
+  that one accelerator (not on Wayland) and reset it. Double Shift is not
+  configurable. Never claim an unimplemented capability;
   new Windows/X11 adapters begin as experimental and Wayland never claims
   double Shift. Charon ships without paid signing under ADR 0014; macOS
-  releases use the stable self-signed identity of ADR 0018, and a release must
-  never fall back to ad-hoc. Never reintroduce a Developer ID, notarization,
-  or paid-certificate gate.
+  releases use Tauri's ad-hoc identity (ADR 0027, which supersedes ADR 0018)
+  and disclose that macOS may ask again for both capture permissions after
+  each update. Never reintroduce a Developer ID, notarization, or
+  paid-certificate gate; adopting ADR 0018's free self-signed identity needs a
+  new ADR.
 - The only permitted desktop network request is the default-off Tauri update
   check accepted by ADR 0016. It sends no user content or stable identifier,
   verifies signed artifacts, installs only after explicit action, and defers
-  restart while a draft is dirty.
+  restart and, on Windows, the installer that closes Charon while a draft is
+  dirty.
+- Capture notifications (ADR 0024) are opt-in, default off, content-free (fixed
+  localized text, never Note text or a count), rate-limited to one per 2 s,
+  shown from Rust only, and local; the Note id never enters notification data,
+  and Charon never claims to know the OS notification permission.
 
 ## Architecture
 
@@ -99,9 +110,13 @@ Use the vocabulary exactly:
 - Keep one single-column shelf: minimal drag region; search with trailing Help
   and Preferences; one virtualized unified Note stack with direct per-Note
   actions; always-visible bottom composer. No navigation rail or product routes.
+- An opt-in background mode (ADR 0023) may show one Rust-owned menu bar or
+  notification area icon with only Open and Quit, on macOS and Windows only;
+  closing hides only while that icon exists (macOS always hides), and Quit stays
+  explicit and draft-safe.
 - Use Tabler outline icons and the platform system font. No emoji UI, Inter,
-  gradients, glow, permanent glass, decorative rails, card grids, or decorative
-  list entrances.
+  painted gradients (the Note list scroll-edge mask of ADR 0022 excepted), glow,
+  permanent glass, decorative rails, card grids, or decorative list entrances.
 - All desktop copy goes through Paraglide. Keep wording plain and put displayed
   key combinations in semantic `kbd` markup.
 - Use `apple-design` for desktop gestures, motion, or irreversible interactions.

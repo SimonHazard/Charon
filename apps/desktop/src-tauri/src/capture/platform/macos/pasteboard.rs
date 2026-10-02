@@ -7,10 +7,12 @@ use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::runtime::ProtocolObject;
 use objc2_app_kit::{
-    NSPasteboard, NSPasteboardItem, NSPasteboardTypeString, NSPasteboardWriting, NSWorkspace,
+    NSPasteboard, NSPasteboardItem, NSPasteboardTypeHTML, NSPasteboardTypeString,
+    NSPasteboardWriting, NSWorkspace,
 };
 use objc2_foundation::{NSArray, NSData, NSString};
 
+use crate::capture::formatting::{self, MAX_HTML_BYTES};
 use crate::capture::{CaptureWarning, CapturedSelection};
 
 pub(super) const MAX_PASTEBOARD_ITEMS: usize = 32;
@@ -84,6 +86,8 @@ trait PasteboardPort {
     fn end_snapshot(&mut self);
     fn post_copy(&mut self) -> Result<(), ()>;
     fn read_string(&mut self) -> Option<String>;
+    /// The new payload's HTML representation, at most `MAX_HTML_BYTES` (ADR 0026).
+    fn read_html(&mut self) -> Option<Vec<u8>>;
     fn restore_if_unchanged(
         &mut self,
         expected_change_count: i64,
@@ -99,14 +103,27 @@ pub(super) fn foreground_process_id() -> Option<i32> {
     })
 }
 
-pub(super) fn capture_selection(source_process_id: i32) -> CapturedSelection {
+/// Runs ADR 0010's bounded Copy transaction. With `rich` (the opt-in formatted
+/// capture of ADR 0026) the same transaction also reads the new HTML
+/// representation once, before restoration.
+pub(super) fn capture_selection(source_process_id: i32, rich: bool) -> CapturedSelection {
     autoreleasepool(|_| {
         let mut port = SystemPasteboardPort::new();
-        capture_with_port(&mut port, source_process_id)
+        capture_with_port(
+            &mut port,
+            source_process_id,
+            rich,
+            formatting::html_to_markdown,
+        )
     })
 }
 
-fn capture_with_port(port: &mut impl PasteboardPort, source_process_id: i32) -> CapturedSelection {
+fn capture_with_port(
+    port: &mut impl PasteboardPort,
+    source_process_id: i32,
+    rich: bool,
+    convert: impl FnOnce(&[u8], &str) -> Option<String>,
+) -> CapturedSelection {
     if port.foreground_process_id() != Some(source_process_id) {
         return CapturedSelection::default();
     }
@@ -149,12 +166,27 @@ fn capture_with_port(port: &mut impl PasteboardPort, source_process_id: i32) -> 
         }
     };
     let body = port.read_string().filter(|value| !value.trim().is_empty());
+    // Only with the opt-in and a usable plain body, and only while the
+    // transaction still owns the pasteboard: a later write discards the HTML.
+    let html = if rich && body.is_some() {
+        port.read_html()
+    } else {
+        None
+    };
+    let html = html.filter(|_| port.change_count() == stable_count);
     let warning = match port.restore_if_unchanged(stable_count, &snapshot) {
         RestoreOutcome::Restored => None,
         RestoreOutcome::Changed | RestoreOutcome::Failed => {
             Some(CaptureWarning::ClipboardNotRestored)
         }
     };
+    // Conversion runs after restoration so the clipboard exposure window does
+    // not grow; any doubt keeps the exact plain text.
+    let body = body.map(|plain| {
+        html.as_deref()
+            .and_then(|html| convert(html, &plain))
+            .unwrap_or(plain)
+    });
     CapturedSelection { body, warning }
 }
 
@@ -368,6 +400,20 @@ impl PasteboardPort for SystemPasteboardPort {
             .map(|value| value.to_string())
     }
 
+    fn read_html(&mut self) -> Option<Vec<u8>> {
+        // A single item only: its HTML then describes the same selection as
+        // the plain text read from it. No other type or item is read.
+        let items = self.pasteboard.pasteboardItems()?;
+        if items.count() != 1 {
+            return None;
+        }
+        // SAFETY: this is a public, process-lifetime AppKit constant.
+        let data = items
+            .objectAtIndex(0)
+            .dataForType(unsafe { NSPasteboardTypeHTML })?;
+        (data.len() <= MAX_HTML_BYTES).then(|| data.to_vec())
+    }
+
     fn restore_if_unchanged(
         &mut self,
         expected_change_count: i64,
@@ -391,6 +437,9 @@ impl PasteboardPort for SystemPasteboardPort {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
     use super::*;
 
     #[derive(Clone)]
@@ -418,6 +467,7 @@ mod tests {
         at_ms: u64,
         count: i64,
         string: Option<String>,
+        html: Option<Vec<u8>>,
     }
 
     struct FakePasteboardPort {
@@ -428,6 +478,11 @@ mod tests {
         change_count_checks: usize,
         change_on_check: Option<(usize, i64, Option<String>)>,
         string: Option<String>,
+        html: Option<Vec<u8>>,
+        html_reads: usize,
+        /// After reading the HTML, another application writes this count.
+        write_after_html: Option<i64>,
+        events: Rc<RefCell<Vec<&'static str>>>,
         items: Vec<Vec<FakeType>>,
         begin_delay_ms: u64,
         read_delay_ms: u64,
@@ -450,6 +505,10 @@ mod tests {
                 change_count_checks: 0,
                 change_on_check: None,
                 string: Some("old clipboard".to_owned()),
+                html: None,
+                html_reads: 0,
+                write_after_html: None,
+                events: Rc::default(),
                 items: vec![vec![FakeType::new(
                     "public.utf8-plain-text",
                     b"old clipboard",
@@ -473,6 +532,23 @@ mod tests {
                 at_ms,
                 count,
                 string: string.map(str::to_owned),
+                html: None,
+            });
+            self
+        }
+
+        fn formatted_selection_at(
+            mut self,
+            at_ms: u64,
+            count: i64,
+            string: &str,
+            html: &[u8],
+        ) -> Self {
+            self.changes.push(ScheduledChange {
+                at_ms,
+                count,
+                string: Some(string.to_owned()),
+                html: Some(html.to_vec()),
             });
             self
         }
@@ -485,6 +561,7 @@ mod tests {
                 }
                 self.count = change.count;
                 self.string = change.string.clone();
+                self.html = change.html.clone();
                 applied += 1;
             }
             self.changes.drain(0..applied);
@@ -519,6 +596,7 @@ mod tests {
                 if let Some((_, count, string)) = self.change_on_check.take() {
                     self.count = count;
                     self.string = string;
+                    self.html = None;
                 }
             }
             self.apply_changes();
@@ -565,13 +643,24 @@ mod tests {
             Ok(())
         }
         fn read_string(&mut self) -> Option<String> {
+            self.events.borrow_mut().push("read_string");
             self.string.clone()
+        }
+        fn read_html(&mut self) -> Option<Vec<u8>> {
+            self.events.borrow_mut().push("read_html");
+            self.html_reads += 1;
+            let html = self.html.clone();
+            if let Some(count) = self.write_after_html.take() {
+                self.count = count;
+            }
+            html.filter(|html| html.len() <= MAX_HTML_BYTES)
         }
         fn restore_if_unchanged(
             &mut self,
             expected_change_count: i64,
             snapshot: &PasteboardSnapshot,
         ) -> RestoreOutcome {
+            self.events.borrow_mut().push("restore");
             if let Some(count) = self.before_restore_count.take() {
                 self.count = count;
             }
@@ -587,7 +676,105 @@ mod tests {
     }
 
     fn capture(port: &mut FakePasteboardPort) -> CapturedSelection {
-        capture_with_port(port, 42)
+        capture_with_port(port, 42, false, |_, _| {
+            panic!("plain capture never converts HTML")
+        })
+    }
+
+    /// A formatted capture with the real converter, recording when it runs.
+    fn capture_rich(port: &mut FakePasteboardPort) -> CapturedSelection {
+        let events = Rc::clone(&port.events);
+        capture_with_port(port, 42, true, move |html, plain| {
+            events.borrow_mut().push("convert");
+            formatting::html_to_markdown_untimed(html, plain)
+        })
+    }
+
+    const HTML: &[u8] =
+        b"<meta charset='utf-8'><p><b>bold</b> and <a href=\"https://example.test/\">link</a></p>";
+
+    #[test]
+    fn plain_capture_never_reads_html() {
+        let mut port =
+            FakePasteboardPort::default().formatted_selection_at(10, 8, "bold and link", HTML);
+        assert_eq!(
+            capture(&mut port),
+            CapturedSelection::from_body("bold and link".to_owned())
+        );
+        assert_eq!(port.html_reads, 0);
+        assert!(port.restored.is_some());
+    }
+
+    #[test]
+    fn formatted_capture_reads_html_once_and_converts_after_restoring() {
+        let mut port =
+            FakePasteboardPort::default().formatted_selection_at(10, 8, "bold and link", HTML);
+        assert_eq!(
+            capture_rich(&mut port),
+            CapturedSelection::from_body("**bold** and [link](https://example.test/)".to_owned())
+        );
+        assert_eq!(port.html_reads, 1);
+        assert_eq!(port.posted_copy, 1);
+        assert!(port.restored.is_some());
+        assert_eq!(
+            *port.events.borrow(),
+            ["read_string", "read_html", "restore", "convert"]
+        );
+    }
+
+    #[test]
+    fn formatted_capture_keeps_the_exact_plain_text_when_in_doubt() {
+        // Hidden text, missing HTML, and oversized HTML all keep the plain body.
+        let hidden = b"<p><b>bold</b> <span style=\"display:none\">secret</span></p>";
+        let oversized = [b"<b>x</b>".as_slice(), &vec![b' '; MAX_HTML_BYTES]].concat();
+        for html in [Some(hidden.as_slice()), None, Some(oversized.as_slice())] {
+            let mut port = match html {
+                Some(html) => {
+                    FakePasteboardPort::default().formatted_selection_at(10, 8, "  bold\n", html)
+                }
+                None => FakePasteboardPort::default().selection_at(10, 8, Some("  bold\n")),
+            };
+            assert_eq!(
+                capture_rich(&mut port),
+                CapturedSelection::from_body("  bold\n".to_owned())
+            );
+            assert_eq!(port.html_reads, 1);
+            assert!(port.restored.is_some());
+        }
+    }
+
+    #[test]
+    fn formatted_capture_discards_html_after_a_concurrent_write() {
+        let mut port = FakePasteboardPort {
+            write_after_html: Some(99),
+            ..FakePasteboardPort::default()
+        }
+        .formatted_selection_at(10, 8, "bold and link", HTML);
+        assert_eq!(
+            capture_rich(&mut port),
+            CapturedSelection {
+                body: Some("bold and link".to_owned()),
+                warning: Some(CaptureWarning::ClipboardNotRestored),
+            }
+        );
+        assert!(port.restored.is_none());
+        assert_eq!(port.count, 99);
+        assert!(!port.events.borrow().contains(&"convert"));
+    }
+
+    #[test]
+    fn formatted_capture_reads_no_html_without_a_new_plain_selection() {
+        let mut empty = FakePasteboardPort::default().formatted_selection_at(10, 8, " \n", HTML);
+        assert_eq!(capture_rich(&mut empty), CapturedSelection::default());
+        assert_eq!(empty.html_reads, 0);
+
+        let mut unchanged = FakePasteboardPort {
+            html: Some(HTML.to_vec()),
+            ..FakePasteboardPort::default()
+        };
+        assert_eq!(capture_rich(&mut unchanged), CapturedSelection::default());
+        assert_eq!(unchanged.html_reads, 0);
+        assert_eq!(unchanged.posted_copy, 1);
     }
 
     #[test]

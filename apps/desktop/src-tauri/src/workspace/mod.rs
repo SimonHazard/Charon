@@ -17,7 +17,8 @@ pub use error::{WorkspaceError, WorkspaceIpcError};
 pub use migration::MigrationFailure;
 pub use model::{
     AttachmentDto, NoteDto, NoteStatus, WorkspaceChangedEvent, WorkspaceEventOrigin,
-    WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceSnapshot,
+    WorkspaceFolderChoice, WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind,
+    WorkspaceSnapshot,
 };
 
 use command::{apply_command, find_note, find_note_mut, validate_ids, AppliedCommand};

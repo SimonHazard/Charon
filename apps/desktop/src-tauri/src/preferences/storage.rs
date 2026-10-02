@@ -220,6 +220,86 @@ mod tests {
     }
 
     #[test]
+    fn schema_v1_files_without_background_mode_load_with_it_off() {
+        let root = tempfile::tempdir().expect("root");
+        fs::write(
+            root.path().join(FILE_NAME),
+            br#"{"schemaVersion":1,"lastWorkspacePath":null,"captureHintDismissed":false}"#,
+        )
+        .expect("older file");
+        let storage = PreferencesStorage::new(root.path());
+        assert_eq!(
+            storage.read().expect("read"),
+            PersistedPreferences::default()
+        );
+        assert!(root.path().join(FILE_NAME).exists());
+    }
+
+    #[test]
+    fn schema_v1_files_without_capture_notifications_load_with_them_off() {
+        let root = tempfile::tempdir().expect("root");
+        fs::write(
+            root.path().join(FILE_NAME),
+            br#"{"schemaVersion":1,"lastWorkspacePath":null,"captureHintDismissed":false,"backgroundMode":true}"#,
+        )
+        .expect("older file");
+        let preferences = PreferencesStorage::new(root.path()).read().expect("read");
+        assert!(preferences.background_mode);
+        assert!(!preferences.capture_notifications);
+    }
+
+    #[test]
+    fn formatted_capture_is_off_in_older_files_and_written_back() {
+        let root = tempfile::tempdir().expect("root");
+        fs::write(
+            root.path().join(FILE_NAME),
+            br#"{"schemaVersion":1,"lastWorkspacePath":null,"captureHintDismissed":false,"captureNotifications":true}"#,
+        )
+        .expect("older file");
+        let storage = PreferencesStorage::new(root.path());
+        let older = storage.read().expect("read");
+        assert!(older.capture_notifications);
+        assert!(!older.rich_capture);
+
+        let enabled = PersistedPreferences {
+            rich_capture: true,
+            ..older
+        };
+        storage.write(&enabled).expect("write");
+        let stored = fs::read_to_string(root.path().join(FILE_NAME)).expect("stored file");
+        assert!(stored.contains(r#""richCapture": true"#));
+        assert_eq!(storage.read().expect("read"), enabled);
+    }
+
+    #[test]
+    fn capture_notifications_are_written_and_read_back() {
+        let root = tempfile::tempdir().expect("root");
+        let storage = PreferencesStorage::new(root.path());
+        let preferences = PersistedPreferences {
+            capture_notifications: true,
+            ..PersistedPreferences::default()
+        };
+        storage.write(&preferences).expect("write");
+        let stored = fs::read_to_string(root.path().join(FILE_NAME)).expect("stored file");
+        assert!(stored.contains(r#""captureNotifications": true"#));
+        assert_eq!(storage.read().expect("read"), preferences);
+    }
+
+    #[test]
+    fn background_mode_is_written_and_read_back() {
+        let root = tempfile::tempdir().expect("root");
+        let storage = PreferencesStorage::new(root.path());
+        let preferences = PersistedPreferences {
+            background_mode: true,
+            ..PersistedPreferences::default()
+        };
+        storage.write(&preferences).expect("write");
+        let stored = fs::read_to_string(root.path().join(FILE_NAME)).expect("stored file");
+        assert!(stored.contains(r#""backgroundMode": true"#));
+        assert_eq!(storage.read().expect("read"), preferences);
+    }
+
+    #[test]
     fn relative_workspace_path_is_rejected_without_echoing_it() {
         let root = tempfile::tempdir().expect("root");
         let storage = PreferencesStorage::new(root.path());

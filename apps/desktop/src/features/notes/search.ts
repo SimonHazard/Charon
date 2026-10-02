@@ -1,4 +1,5 @@
 import type { NoteDto } from '@/bindings/workspace';
+import { stripDrawingBlocks } from '@/features/notes/drawing/drawing-format';
 
 export type NoteFilter = {
   query: string;
@@ -35,7 +36,8 @@ export type NoteIndex = {
  */
 function haystackOf(entry: IndexEntry): string {
   if (entry.haystack === null) {
-    let raw = entry.note.body;
+    // Drawing SVG numbers must never match a query.
+    let raw = stripDrawingBlocks(entry.note.body, '');
     for (const tag of entry.note.tags) raw += ` ${tag}`;
     for (const attachment of entry.note.attachments) raw += ` ${attachment.fileName}`;
     entry.haystack = foldSearchText(raw);

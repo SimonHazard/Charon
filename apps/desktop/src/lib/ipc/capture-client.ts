@@ -16,6 +16,8 @@ export interface CaptureClient {
   capabilities(): Promise<CaptureCapabilities>;
   open(): Promise<CaptureCapabilities>;
   requestPermission(permission: CapturePermissionKind): Promise<CaptureCapabilities>;
+  /** Replaces the composer accelerator, or restores the default with `null` (ADR 0025). */
+  setShortcut(shortcut: string | null): Promise<CaptureCapabilities>;
   composerReady(): Promise<void>;
   subscribeComposerFocus(listener: CaptureComposerRequestListener): Promise<() => void>;
   subscribeStatus(listener: CaptureStatusListener): Promise<() => void>;
@@ -26,6 +28,7 @@ export const tauriCaptureClient: CaptureClient = {
   open: () => invoke<CaptureCapabilities>('capture_open'),
   requestPermission: (permission) =>
     invoke<CaptureCapabilities>('capture_request_permission', { permission }),
+  setShortcut: (shortcut) => invoke<CaptureCapabilities>('capture_set_shortcut', { shortcut }),
   composerReady: () => invoke<void>('capture_composer_ready'),
   subscribeComposerFocus: async (listener) => {
     const unlisten = await listen<CaptureComposerRequest>(

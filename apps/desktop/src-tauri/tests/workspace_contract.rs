@@ -4,8 +4,8 @@ use std::path::Path;
 use charon_desktop_lib::workspace::{
     AttachmentDto, MigrationFailure, NoteDto, NoteStatus, StorageFailure, Workspace,
     WorkspaceChangedEvent, WorkspaceCommand, WorkspaceCommandResult, WorkspaceError,
-    WorkspaceEventOrigin, WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind,
-    WorkspaceIpcError, WorkspaceSnapshot,
+    WorkspaceEventOrigin, WorkspaceFolderChoice, WorkspaceHealth, WorkspaceHealthIssue,
+    WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
 };
 use serde_json::json;
 use tempfile::tempdir;
@@ -766,6 +766,7 @@ fn export_bindings() {
         WorkspaceHealth::decl(&config),
         WorkspaceEventOrigin::decl(&config),
         WorkspaceChangedEvent::decl(&config),
+        WorkspaceFolderChoice::decl(&config),
         WorkspaceCommand::decl(&config),
         WorkspaceCommandResult::decl(&config),
         WorkspaceIpcError::decl(&config),

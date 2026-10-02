@@ -12,6 +12,7 @@ const commonPatterns = [
   /Agent handoff/u,
   /release-brief\.pdf/u,
   /charon:fixture-composer-focus/u,
+  /charon:fixture-toast/u,
 ];
 const desktopNetworkPatterns = [
   /\bfetch\(/u,
@@ -23,8 +24,10 @@ const desktopNetworkPatterns = [
 // Static dependency metadata and DOM namespace constants are not network sinks.
 const desktopNetworkAllowlist = [
   'fetch(e.href,n)', // React DOM stylesheet preloading; Charon emits no preload links.
-  // Explicit user-triggered release link opened through Tauri's opener plugin.
+  // Explicit user-triggered GitHub links opened through Tauri's opener plugin.
+  'https://github.com/SimonHazard/Charon/blob/main/CONTRIBUTING.md',
   'https://github.com/SimonHazard/Charon/releases/latest',
+  'https://github.com/SimonHazard/Charon',
   'https://react.dev/errors/',
   'https://base-ui.com/production-error',
   'https://paraglidejs.com/errors#no-locale-found',

@@ -1,19 +1,44 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Named event and window permissions plus explicit text clipboard writes; Workspace, Attachment picking, and capture use custom Rust commands",
+  "description": "The custom Rust commands for Workspace, Attachment picking, clipboard, capture, preferences and the window shell, plus named event, window lifecycle, resource, link, restart and updater permissions",
   "windows": ["main"],
   "permissions": [
+    "allow-workspace-choose-directory",
+    "allow-workspace-choose-attachments",
+    "allow-workspace-bootstrap",
+    "allow-workspace-bootstrap-default",
+    "allow-workspace-open-or-create",
+    "allow-workspace-snapshot",
+    "allow-workspace-execute",
+    "allow-clipboard-compose-and-write",
+    "allow-capture-capabilities",
+    "allow-capture-open",
+    "allow-capture-request-permission",
+    "allow-capture-composer-ready",
+    "allow-capture-set-shortcut",
+    "allow-preferences-read",
+    "allow-preferences-reset",
+    "allow-preferences-set-background-mode",
+    "allow-preferences-set-capture-notifications",
+    "allow-preferences-set-rich-capture",
+    "allow-shell-set-labels",
+    "allow-shell-quit",
+    "allow-shell-cancel-quit",
     "core:event:allow-listen",
     "core:event:allow-unlisten",
     "core:window:allow-destroy",
     "core:window:allow-start-dragging",
     "core:window:allow-internal-toggle-maximize",
-    "clipboard-manager:allow-write-text",
+    "core:resources:allow-close",
     {
       "identifier": "opener:allow-open-url",
       "scope": {
-        "allow": [{ "url": "https://github.com/SimonHazard/Charon/releases/latest" }]
+        "allow": [
+          { "url": "https://github.com/SimonHazard/Charon/releases/latest" },
+          { "url": "https://github.com/SimonHazard/Charon" },
+          { "url": "https://github.com/SimonHazard/Charon/blob/main/CONTRIBUTING.md" }
+        ]
       }
     },
     "process:allow-restart",

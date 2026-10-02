@@ -21,6 +21,20 @@ export const surfaceTransition = {
 
 export const surfaceCollapsedScale = 0.985;
 
+/** Status check and copy confirmation: a short opacity-and-scale icon swap (docs/UX.md). */
+export const iconSwapTransition = { duration: 0.12, ease: [0.2, 0, 0, 1] } as const;
+
+export function iconSwapMotion(reduceMotion: boolean, instant: boolean) {
+  // Reduced motion keeps only the crossfade; keyboard input swaps instantly.
+  const hidden = reduceMotion ? { opacity: 0 } : { opacity: 0, transform: 'scale(0.9)' };
+  return {
+    initial: hidden,
+    animate: reduceMotion ? { opacity: 1 } : { opacity: 1, transform: 'scale(1)' },
+    exit: hidden,
+    transition: instant ? { duration: 0 } : iconSwapTransition,
+  };
+}
+
 export function MotionSystem({ children }: PropsWithChildren) {
   const [keyboard, setKeyboard] = useState(false);
   useEffect(() => {

@@ -1,8 +1,9 @@
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, SyncSender, TrySendError};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender, TrySendError};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::thread::{self, JoinHandle};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::GlobalShortcut;
@@ -14,14 +15,24 @@ use crate::capture::{
     ShortcutPort,
 };
 
-use super::workspace::{self, WorkspaceRuntime};
+use super::workspace::{self, CaptureNoteOutcome, WorkspaceRuntime};
+
+/// Statuses wait here until the main window can receive them; the oldest is
+/// dropped beyond this bound so a long-hidden window never accumulates more.
+const PENDING_STATUS_LIMIT: usize = 4;
+
+/// How long quitting waits on the main thread for a capture in progress. It
+/// covers ADR 0010's bounded Copy transaction with its clipboard restoration
+/// and the Note write; a capture still running after it is left behind, and
+/// the process exits without it, so quitting never hangs.
+const SHUTDOWN_WAIT: Duration = Duration::from_secs(2);
 
 pub struct CaptureRuntime {
     coordinator: Mutex<Option<CaptureCoordinator>>,
     worker: Mutex<Option<CaptureWorker>>,
     composer_listener_ready: Mutex<bool>,
     pending_composer_request: Mutex<Option<CaptureComposerRequest>>,
-    pending_status: Mutex<Option<CaptureStatusEvent>>,
+    pending_status: Mutex<VecDeque<CaptureStatusEvent>>,
     started_at: Instant,
 }
 
@@ -32,7 +43,7 @@ impl Default for CaptureRuntime {
             worker: Mutex::new(None),
             composer_listener_ready: Mutex::new(false),
             pending_composer_request: Mutex::new(None),
-            pending_status: Mutex::new(None),
+            pending_status: Mutex::new(VecDeque::new()),
             started_at: Instant::now(),
         }
     }
@@ -46,18 +57,29 @@ enum CaptureWorkerMessage {
 struct CaptureWorker {
     sender: SyncSender<CaptureWorkerMessage>,
     pending: Arc<AtomicBool>,
+    stopping: Arc<AtomicBool>,
+    /// Disconnects when the worker thread ends, even by a panic.
+    finished: Receiver<()>,
     thread: Option<JoinHandle<()>>,
 }
 
 impl CaptureWorker {
     fn start(task: impl Fn() + Send + 'static) -> Result<Self, CaptureError> {
         let (sender, receiver) = mpsc::sync_channel(1);
+        let (finished_sender, finished) = mpsc::channel::<()>();
         let pending = Arc::new(AtomicBool::new(false));
+        let stopping = Arc::new(AtomicBool::new(false));
         let thread_pending = Arc::clone(&pending);
+        let thread_stopping = Arc::clone(&stopping);
         let thread = thread::Builder::new()
             .name("charon-capture-worker".to_owned())
             .spawn(move || {
+                let _finished = finished_sender;
                 while let Ok(message) = receiver.recv() {
+                    // A capture queued before quitting never starts.
+                    if thread_stopping.load(Ordering::Acquire) {
+                        break;
+                    }
                     match message {
                         CaptureWorkerMessage::Capture => {
                             task();
@@ -72,6 +94,8 @@ impl CaptureWorker {
         Ok(Self {
             sender,
             pending,
+            stopping,
+            finished,
             thread: Some(thread),
         })
     }
@@ -89,19 +113,31 @@ impl CaptureWorker {
         }
     }
 
-    fn stop(&mut self) {
+    /// Lets a capture in progress finish for at most `wait`, then joins the
+    /// thread, or leaves it running and returns false. Never blocks longer:
+    /// quitting runs this on the main thread, which a capture may need.
+    fn stop(&mut self, wait: Duration) -> bool {
         let Some(thread) = self.thread.take() else {
-            return;
+            return true;
         };
-        let _ = self.sender.send(CaptureWorkerMessage::Stop);
-        let _ = thread.join();
+        self.stopping.store(true, Ordering::Release);
+        // A full queue holds a capture that the stop flag already cancels.
+        let _ = self.sender.try_send(CaptureWorkerMessage::Stop);
+        let finished = matches!(
+            self.finished.recv_timeout(wait),
+            Ok(()) | Err(RecvTimeoutError::Disconnected)
+        );
+        if finished {
+            let _ = thread.join();
+        }
         self.pending.store(false, Ordering::Release);
+        finished
     }
 }
 
 impl Drop for CaptureWorker {
     fn drop(&mut self) {
-        self.stop();
+        self.stop(SHUTDOWN_WAIT);
     }
 }
 
@@ -188,38 +224,70 @@ pub fn initialize(app: &AppHandle) -> Result<(), CaptureError> {
         .worker
         .lock()
         .map_err(|_| CaptureError::RuntimeLock)? = Some(worker);
-    current
-        .as_mut()
-        .ok_or(CaptureError::RuntimeLock)?
-        .initialize();
+    let coordinator = current.as_mut().ok_or(CaptureError::RuntimeLock)?;
+    // An unreadable preferences file leaves the platform default active and
+    // formatted capture off.
+    let persisted = super::preferences::read_persisted(app).ok();
+    coordinator.set_preferred_shortcut(
+        persisted
+            .as_ref()
+            .and_then(|preferences| preferences.composer_shortcut.clone()),
+    );
+    coordinator.set_rich_capture(persisted.is_some_and(|preferences| preferences.rich_capture));
+    coordinator.initialize();
     Ok(())
 }
 
+/// Handles a press of the composer accelerator on the main thread. A shortcut
+/// change holds the coordinator while the plugin registers on the main thread,
+/// and X11 or the Wayland portal deliver presses on their own threads, so a
+/// press never waits for a change that waits for its thread. On macOS and
+/// Windows presses already arrive on the main thread and run inline.
 pub fn handle_global_shortcut(app: &AppHandle) {
-    let _ = trigger(app, CaptureTrigger::StandardShortcut);
+    let task_app = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        let _ = trigger(&task_app, CaptureTrigger::StandardShortcut);
+    });
 }
 
 pub fn handle_double_shift(app: &AppHandle) {
     let _ = enqueue_capture(app);
 }
 
+/// Stops capture when Charon quits. It runs on the main thread, so every wait
+/// is bounded by [`SHUTDOWN_WAIT`]: taking the worker first stops new
+/// captures from being queued, a capture in progress gets the remaining time
+/// to finish (and restore the clipboard), and a coordinator still held after
+/// that is left for the exiting process to release.
 pub fn shutdown(app: &AppHandle) {
+    let deadline = Instant::now() + SHUTDOWN_WAIT;
     let runtime = app.state::<CaptureRuntime>();
-    let coordinator = runtime
-        .coordinator
-        .lock()
-        .ok()
-        .and_then(|mut current| current.take());
-    if let Some(mut coordinator) = coordinator {
-        coordinator.shutdown();
-    }
     let worker = runtime
         .worker
         .lock()
         .ok()
         .and_then(|mut current| current.take());
     if let Some(mut worker) = worker {
-        worker.stop();
+        worker.stop(deadline.saturating_duration_since(Instant::now()));
+    }
+    let coordinator =
+        lock_until(&runtime.coordinator, deadline).and_then(|mut current| current.take());
+    if let Some(mut coordinator) = coordinator {
+        coordinator.shutdown();
+    }
+}
+
+/// Locks `mutex`, giving up at `deadline` instead of waiting without bound.
+fn lock_until<T>(mutex: &Mutex<T>, deadline: Instant) -> Option<MutexGuard<'_, T>> {
+    loop {
+        match mutex.try_lock() {
+            Ok(guard) => return Some(guard),
+            Err(TryLockError::Poisoned(_)) => return None,
+            Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
+                thread::sleep(Duration::from_millis(5));
+            }
+            Err(TryLockError::WouldBlock) => return None,
+        }
     }
 }
 
@@ -260,6 +328,82 @@ pub fn capture_request_permission(
     })
 }
 
+/// Replaces the composer accelerator with the user's choice, or restores the
+/// default with `None` (ADR 0025), then stores the choice. The plugin
+/// registers on the main thread and its key handler locks the coordinator, so
+/// the whole change runs on the main thread rather than holding the
+/// coordinator on this worker while waiting for it.
+#[tauri::command(async)]
+pub fn capture_set_shortcut(
+    app: AppHandle,
+    shortcut: Option<String>,
+) -> Result<CaptureCapabilities, CaptureIpcError> {
+    on_main_thread(&app, move |app| apply_shortcut_change(app, shortcut))?
+}
+
+/// Applies the formatted-capture choice (ADR 0026) to the running adapter. A
+/// capture in progress finishes first with the previous choice.
+pub(crate) fn apply_rich_capture(app: &AppHandle, enabled: bool) {
+    let runtime = app.state::<CaptureRuntime>();
+    let _ = with_coordinator(&runtime, |coordinator| {
+        coordinator.set_rich_capture(enabled);
+        Ok(())
+    });
+}
+
+/// Restores the default accelerator after the preferences file was reset.
+pub(crate) fn reset_shortcut(app: &AppHandle) {
+    let _ = on_main_thread(app, |app| {
+        let runtime = app.state::<CaptureRuntime>();
+        with_coordinator(&runtime, |coordinator| coordinator.change_shortcut(None))
+    });
+}
+
+fn apply_shortcut_change(
+    app: &AppHandle,
+    requested: Option<String>,
+) -> Result<CaptureCapabilities, CaptureIpcError> {
+    let runtime = app.state::<CaptureRuntime>();
+    let mut current = runtime
+        .coordinator
+        .lock()
+        .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?;
+    let coordinator = current
+        .as_mut()
+        .ok_or_else(|| CaptureIpcError::from(CaptureError::Shutdown))?;
+    let previous = coordinator.custom_shortcut();
+    let capabilities = coordinator.change_shortcut(requested.as_deref())?;
+    // A stored choice always had a working registration; if it cannot be
+    // stored, the previous accelerator comes back.
+    if let Err(error) =
+        super::preferences::remember_composer_shortcut(app, coordinator.custom_shortcut())
+    {
+        let _ = coordinator.change_shortcut(previous.as_deref());
+        return Err(CaptureIpcError {
+            code: format!("preferences_{}", error.code),
+            message_key: error.message_key,
+        });
+    }
+    Ok(capabilities)
+}
+
+/// Runs `task` on the main thread and waits for its result. Never call it from
+/// the main thread while holding a lock the task needs.
+fn on_main_thread<T: Send + 'static>(
+    app: &AppHandle,
+    task: impl FnOnce(&AppHandle) -> T + Send + 'static,
+) -> Result<T, CaptureIpcError> {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    let task_app = app.clone();
+    app.run_on_main_thread(move || {
+        let _ = sender.send(task(&task_app));
+    })
+    .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?;
+    receiver
+        .recv()
+        .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))
+}
+
 #[tauri::command(async)]
 pub fn capture_composer_ready(app: AppHandle) -> Result<(), CaptureIpcError> {
     let runtime = app.state::<CaptureRuntime>();
@@ -288,26 +432,20 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
         action,
         |body, warning| {
             let workspace_runtime = app.state::<WorkspaceRuntime>();
-            let result = match workspace::create_capture_note(app, &workspace_runtime, body) {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(CaptureIpcError {
-                    code: "workspace_unavailable".to_owned(),
-                    message_key: "workspace_error_not_open".to_owned(),
-                }),
-                Err(error) => Err(CaptureIpcError {
-                    code: format!("workspace_{}", error.code),
-                    message_key: error.message_key,
-                }),
-            };
-            match result {
-                Err(error) => remember_status(app, error.message_key)?,
-                Ok(()) => {
-                    if let Some(warning) = warning {
-                        remember_status(app, warning.message_key().to_owned())?;
+            let outcome =
+                workspace::create_capture_note(app, &workspace_runtime, body).map_err(|error| {
+                    CaptureIpcError {
+                        code: format!("workspace_{}", error.code),
+                        message_key: error.message_key,
                     }
-                }
+                });
+            let created = matches!(outcome, Ok(CaptureNoteOutcome::Created(_)));
+            let remembered = remember_statuses(app, capture_statuses(outcome, warning));
+            // Neither the Note's text nor its id reaches the notification (ADR 0024).
+            if created {
+                super::notification::notify_capture(app);
             }
-            Ok(())
+            remembered
         },
         |request_id| {
             let main = app
@@ -325,7 +463,7 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
                 Some(CaptureComposerRequest { request_id });
             emit_pending_composer_request(app)
         },
-        |warning| remember_status(app, warning.message_key().to_owned()),
+        |warning| remember_statuses(app, vec![warning_status(warning)]),
     )
 }
 
@@ -362,13 +500,71 @@ fn emit_pending_composer_request(app: &AppHandle) -> Result<(), CaptureIpcError>
     Ok(())
 }
 
-fn remember_status(app: &AppHandle, message_key: String) -> Result<(), CaptureIpcError> {
-    let runtime = app.state::<CaptureRuntime>();
-    *runtime
-        .pending_status
-        .lock()
-        .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))? =
-        Some(CaptureStatusEvent { message_key });
+/// Maps one capture outcome to its content-free statuses, in display order.
+/// A clipboard-restoration warning always follows, because ADR 0010 reports
+/// it whether or not a Note was saved.
+fn capture_statuses(
+    outcome: Result<CaptureNoteOutcome, CaptureIpcError>,
+    warning: Option<CaptureWarning>,
+) -> Vec<CaptureStatusEvent> {
+    let mut statuses = Vec::with_capacity(2);
+    match outcome {
+        Ok(CaptureNoteOutcome::Created(note_id)) => statuses.push(CaptureStatusEvent {
+            message_key: "capture_note_created".to_owned(),
+            note_id: Some(note_id),
+        }),
+        Ok(CaptureNoteOutcome::Empty) => {}
+        Ok(CaptureNoteOutcome::WorkspaceClosed) => statuses.push(CaptureStatusEvent {
+            message_key: "workspace_error_not_open".to_owned(),
+            note_id: None,
+        }),
+        Err(error) => statuses.push(CaptureStatusEvent {
+            message_key: error.message_key,
+            note_id: None,
+        }),
+    }
+    statuses.extend(warning.map(warning_status));
+    statuses
+}
+
+fn warning_status(warning: CaptureWarning) -> CaptureStatusEvent {
+    CaptureStatusEvent {
+        message_key: warning.message_key().to_owned(),
+        note_id: None,
+    }
+}
+
+fn queue_status(queue: &mut VecDeque<CaptureStatusEvent>, status: CaptureStatusEvent) {
+    if queue.len() >= PENDING_STATUS_LIMIT {
+        queue.pop_front();
+    }
+    queue.push_back(status);
+}
+
+/// Remembers statuses for the main window, then delivers them at once when it
+/// is already focused; otherwise they wait for focus. Never shows or focuses it.
+fn remember_statuses(
+    app: &AppHandle,
+    statuses: Vec<CaptureStatusEvent>,
+) -> Result<(), CaptureIpcError> {
+    if statuses.is_empty() {
+        return Ok(());
+    }
+    {
+        let runtime = app.state::<CaptureRuntime>();
+        let mut queue = runtime
+            .pending_status
+            .lock()
+            .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?;
+        for status in statuses {
+            queue_status(&mut queue, status);
+        }
+    }
+    // The capture worker calls this, so never `is_focused`, which waits for
+    // the main thread while the main thread may be waiting for this worker.
+    if super::shell::main_focused(app) {
+        emit_pending_status(app)?;
+    }
     Ok(())
 }
 
@@ -381,25 +577,50 @@ fn emit_pending_status(app: &AppHandle) -> Result<(), CaptureIpcError> {
     {
         return Ok(());
     }
-    let status = runtime
-        .pending_status
-        .lock()
-        .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?
-        .take();
-    let Some(status) = status else {
-        return Ok(());
-    };
-    let main = app
-        .get_webview_window("main")
-        .ok_or_else(|| CaptureIpcError::from(CaptureError::MainEditorUnavailable))?;
-    if main.emit("capture://status", status.clone()).is_err() {
-        *runtime
+    let statuses = std::mem::take(
+        &mut *runtime
             .pending_status
             .lock()
-            .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))? = Some(status);
-        return Err(CaptureIpcError::from(CaptureError::MainEditorUnavailable));
+            .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?,
+    );
+    if statuses.is_empty() {
+        return Ok(());
     }
-    Ok(())
+    let main = app.get_webview_window("main");
+    let undelivered = deliver_in_order(statuses, |status| {
+        main.as_ref()
+            .is_some_and(|main| main.emit("capture://status", status).is_ok())
+    });
+    if undelivered.is_empty() {
+        return Ok(());
+    }
+    let mut queue = runtime
+        .pending_status
+        .lock()
+        .map_err(|_| CaptureIpcError::from(CaptureError::RuntimeLock))?;
+    // Undelivered statuses are older than anything queued meanwhile.
+    for status in undelivered.into_iter().rev() {
+        queue.push_front(status);
+    }
+    while queue.len() > PENDING_STATUS_LIMIT {
+        queue.pop_front();
+    }
+    Err(CaptureIpcError::from(CaptureError::MainEditorUnavailable))
+}
+
+/// Delivers statuses oldest first and stops at the first failure, returning
+/// that status and every later one in their original order.
+fn deliver_in_order(
+    mut statuses: VecDeque<CaptureStatusEvent>,
+    mut deliver: impl FnMut(&CaptureStatusEvent) -> bool,
+) -> VecDeque<CaptureStatusEvent> {
+    while let Some(status) = statuses.front() {
+        if !deliver(status) {
+            break;
+        }
+        statuses.pop_front();
+    }
+    statuses
 }
 
 fn dispatch_action(
@@ -435,10 +656,124 @@ fn elapsed_ms(runtime: &State<'_, CaptureRuntime>) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{dispatch_action, CaptureWorker};
-    use crate::capture::{CaptureAction, CaptureWarning};
+    use super::{
+        capture_statuses, deliver_in_order, dispatch_action, lock_until, queue_status,
+        CaptureWorker, PENDING_STATUS_LIMIT,
+    };
+    use crate::capture::{CaptureAction, CaptureIpcError, CaptureStatusEvent, CaptureWarning};
+    use crate::ipc::workspace::CaptureNoteOutcome;
+    use std::collections::VecDeque;
     use std::sync::atomic::{AtomicUsize, Ordering};
-    use std::sync::{mpsc, Arc};
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    fn status(message_key: &str, note_id: Option<&str>) -> CaptureStatusEvent {
+        CaptureStatusEvent {
+            message_key: message_key.to_owned(),
+            note_id: note_id.map(str::to_owned),
+        }
+    }
+
+    #[test]
+    fn a_created_note_reports_only_its_key_and_random_id() {
+        assert_eq!(
+            capture_statuses(Ok(CaptureNoteOutcome::Created("note-1".to_owned())), None),
+            [status("capture_note_created", Some("note-1"))]
+        );
+    }
+
+    #[test]
+    fn a_created_note_precedes_its_clipboard_warning() {
+        assert_eq!(
+            capture_statuses(
+                Ok(CaptureNoteOutcome::Created("note-1".to_owned())),
+                Some(CaptureWarning::ClipboardNotRestored),
+            ),
+            [
+                status("capture_note_created", Some("note-1")),
+                status("capture_warning_clipboard_not_restored", None),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_failed_capture_reports_its_error_and_never_an_id() {
+        let error = CaptureIpcError {
+            code: "workspace_io".to_owned(),
+            message_key: "workspace_error_io".to_owned(),
+        };
+        assert_eq!(
+            capture_statuses(Err(error), None),
+            [status("workspace_error_io", None)]
+        );
+        assert_eq!(
+            capture_statuses(Ok(CaptureNoteOutcome::WorkspaceClosed), None),
+            [status("workspace_error_not_open", None)]
+        );
+    }
+
+    #[test]
+    fn an_empty_selection_reports_nothing_but_keeps_a_clipboard_warning() {
+        assert!(capture_statuses(Ok(CaptureNoteOutcome::Empty), None).is_empty());
+        assert_eq!(
+            capture_statuses(
+                Ok(CaptureNoteOutcome::Empty),
+                Some(CaptureWarning::ClipboardNotRestored),
+            ),
+            [status("capture_warning_clipboard_not_restored", None)]
+        );
+    }
+
+    #[test]
+    fn remembered_statuses_queue_in_order_and_drop_the_oldest_beyond_the_bound() {
+        let mut queue = VecDeque::new();
+        queue_status(&mut queue, status("capture_note_created", Some("first")));
+        queue_status(&mut queue, status("capture_note_created", Some("second")));
+        assert_eq!(
+            queue,
+            [
+                status("capture_note_created", Some("first")),
+                status("capture_note_created", Some("second")),
+            ]
+        );
+        for index in 0..PENDING_STATUS_LIMIT {
+            queue_status(
+                &mut queue,
+                status("capture_note_created", Some(&index.to_string())),
+            );
+        }
+        assert_eq!(queue.len(), PENDING_STATUS_LIMIT);
+        assert_eq!(
+            queue.front(),
+            Some(&status("capture_note_created", Some("0")))
+        );
+    }
+
+    #[test]
+    fn delivery_stops_at_the_first_failure_and_keeps_the_rest_in_order() {
+        let queue = VecDeque::from([
+            status("capture_note_created", Some("first")),
+            status("capture_warning_clipboard_not_restored", None),
+            status("capture_note_created", Some("third")),
+        ]);
+        let mut delivered = Vec::new();
+        let undelivered = deliver_in_order(queue, |event| {
+            if event.message_key == "capture_warning_clipboard_not_restored" {
+                return false;
+            }
+            delivered.push(event.clone());
+            true
+        });
+        assert_eq!(delivered, [status("capture_note_created", Some("first"))]);
+        assert_eq!(
+            undelivered,
+            [
+                status("capture_warning_clipboard_not_restored", None),
+                status("capture_note_created", Some("third")),
+            ]
+        );
+        assert!(deliver_in_order(undelivered, |_| true).is_empty());
+    }
 
     #[test]
     fn note_action_dispatches_exactly_one_workspace_write() {
@@ -521,8 +856,43 @@ mod tests {
         started_rx.recv().expect("worker started");
         assert!(!worker.enqueue());
         release_tx.send(()).expect("release worker");
-        worker.stop();
-        worker.stop();
+        assert!(worker.stop(Duration::from_secs(10)));
+        assert!(worker.stop(Duration::from_secs(10)));
         assert_eq!(runs.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn stopping_waits_no_longer_than_its_bound_for_a_stuck_capture() {
+        let (started_tx, started_rx) = mpsc::sync_channel(1);
+        let (release_tx, release_rx) = mpsc::sync_channel::<()>(1);
+        let mut worker = CaptureWorker::start(move || {
+            let _ = started_tx.send(());
+            let _ = release_rx.recv();
+        })
+        .expect("worker");
+
+        assert!(worker.enqueue());
+        started_rx.recv().expect("worker started");
+        let stopping = Instant::now();
+        // The capture never finishes in time: the worker is left behind
+        // instead of blocking the (main) thread that quits.
+        assert!(!worker.stop(Duration::from_millis(50)));
+        assert!(stopping.elapsed() < Duration::from_secs(5));
+        assert!(!worker.enqueue());
+        release_tx.send(()).expect("release worker");
+    }
+
+    #[test]
+    fn a_contended_lock_is_given_up_at_its_deadline() {
+        let mutex = Mutex::new(1);
+        let held = mutex.lock().expect("hold");
+        let waiting = Instant::now();
+        assert!(lock_until(&mutex, waiting + Duration::from_millis(30)).is_none());
+        assert!(waiting.elapsed() >= Duration::from_millis(30));
+        drop(held);
+        assert_eq!(
+            lock_until(&mutex, Instant::now()).map(|value| *value),
+            Some(1)
+        );
     }
 }

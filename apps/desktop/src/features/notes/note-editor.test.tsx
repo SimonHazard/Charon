@@ -1,9 +1,10 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
 import type { CaptureCapabilities } from '@/bindings/capture';
+import type { PreferencesSnapshot } from '@/bindings/preferences';
 import { NoteEditor, normalizeTagInput } from '@/features/notes/note-editor';
 import type { CaptureClient } from '@/lib/ipc/capture-client';
 import type { NativePreferencesClient } from '@/lib/ipc/preferences-client';
@@ -39,29 +40,51 @@ const nativeCapabilities: CaptureCapabilities = {
   doubleShift: 'denied',
   selectedText: 'denied',
   activeShortcut: 'CmdOrCtrl+Shift+Space',
+  defaultShortcut: 'CmdOrCtrl+Shift+Space',
+  shortcutOrigin: 'default',
+  shortcutConfigurable: true,
+  richCapture: 'experimental',
 };
-const captureClient: CaptureClient = {
-  capabilities: async () => nativeCapabilities,
-  open: async () => nativeCapabilities,
-  requestPermission: async () => nativeCapabilities,
-  composerReady: async () => undefined,
-  subscribeComposerFocus: async () => () => undefined,
-  subscribeStatus: async () => () => undefined,
-};
-const preferencesClient: NativePreferencesClient = {
-  read: async () => ({
+function captureClientFor(platform: CaptureCapabilities['platform']): CaptureClient {
+  const capabilities: CaptureCapabilities = {
+    ...nativeCapabilities,
+    platform,
+    richCapture: platform === 'macos' ? 'experimental' : 'unsupported',
+  };
+  return {
+    capabilities: async () => capabilities,
+    open: async () => capabilities,
+    requestPermission: async () => capabilities,
+    setShortcut: async () => capabilities,
+    composerReady: async () => undefined,
+    subscribeComposerFocus: async () => () => undefined,
+    subscribeStatus: async () => () => undefined,
+  };
+}
+// Closing quits on Windows and Linux; on macOS the window hides instead.
+const captureClient = captureClientFor('windows');
+const macosCaptureClient = captureClientFor('macos');
+function preferencesClientWith(backgroundActive: boolean): NativePreferencesClient {
+  const preferences: PreferencesSnapshot = {
     schemaVersion: 1,
     workspaceName: null,
     hasRememberedWorkspace: false,
     installKind: 'unknown',
-  }),
-  reset: async () => ({
-    schemaVersion: 1,
-    workspaceName: null,
-    hasRememberedWorkspace: false,
-    installKind: 'unknown',
-  }),
-};
+    backgroundMode: backgroundActive,
+    trayAvailability: 'available',
+    backgroundActive,
+    captureNotifications: false,
+    richCapture: false,
+  };
+  return {
+    read: async () => preferences,
+    reset: async () => preferences,
+    setBackgroundMode: async () => preferences,
+    setCaptureNotifications: async () => preferences,
+    setRichCapture: async () => preferences,
+  };
+}
+const preferencesClient = preferencesClientWith(false);
 
 const current = note({
   id: 'note-1',
@@ -179,6 +202,77 @@ describe('inline note editor', () => {
     await act(async () => resolveSave());
     await waitFor(() => expect(props.onClose).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls.map(([body]) => body)).toEqual(['Temporary edit', 'Original']);
+  });
+
+  it('marks a Tag removal busy until it settles and keeps focus in the Tag field', async () => {
+    let finish!: () => void;
+    const onSetTags = vi.fn().mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    editor({ note: { ...current, tags: ['Agent', 'Research'] }, onSetTags });
+    // Let the editor's mount-time focus land first so it cannot race the Tag focus below.
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    await waitFor(() => expect(document.activeElement).toBe(textarea));
+    const remove = screen.getByRole('button', { name: 'Remove tag Agent' });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(remove.getAttribute('aria-busy')).toBe('true');
+    expect(remove.getAttribute('aria-disabled')).toBe('true');
+    expect(remove.hasAttribute('disabled')).toBe(false);
+    expect(document.activeElement).toBe(remove);
+    fireEvent.click(remove);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove tag Research' }));
+    expect(onSetTags).toHaveBeenCalledTimes(1);
+    expect(onSetTags).toHaveBeenCalledWith(['Research']);
+    expect(
+      screen.getByRole('button', { name: 'Remove tag Research' }).getAttribute('aria-busy'),
+    ).toBe('false');
+
+    await act(async () => finish());
+    expect(remove.getAttribute('aria-busy')).toBe('false');
+    expect(remove.getAttribute('aria-disabled')).toBe('false');
+    expect(document.activeElement).toBe(screen.getByRole('combobox'));
+  });
+
+  it('removes one Tag per Backspace press in the empty field, never on key repeat', async () => {
+    const onSetTags = vi.fn().mockResolvedValue(undefined);
+    editor({ note: { ...current, tags: ['Agent', 'Research'] }, onSetTags });
+    const input = screen.getByRole('combobox');
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    expect(onSetTags).toHaveBeenCalledTimes(1);
+    expect(onSetTags).toHaveBeenLastCalledWith(['Agent']);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Remove tag Research' }).getAttribute('aria-busy'),
+      ).toBe('false'),
+    );
+    // Holding the key repeats it: once the removal settled, repeats remove nothing more.
+    fireEvent.keyDown(input, { key: 'Backspace', repeat: true });
+    fireEvent.keyDown(input, { key: 'Backspace', repeat: true });
+    expect(onSetTags).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(input, { key: 'Backspace' });
+    expect(onSetTags).toHaveBeenCalledTimes(2);
+  });
+
+  it('brings a failed save forward from Preview and focuses Retry when closing', async () => {
+    const user = userEvent.setup();
+    const props = editor({ onSave: vi.fn().mockRejectedValue({ messageKey: 'x' }) });
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    fireEvent.change(textarea, { target: { value: 'Unsaved body' } });
+    await user.click(screen.getByRole('tab', { name: 'Preview' }));
+    expect(screen.queryByRole('textbox', { name: 'Markdown body' })).toBeNull();
+    const close = screen.getByRole('button', { name: 'Close' });
+    await user.click(close);
+    const retry = await screen.findByRole('button', { name: 'Retry' });
+    await waitFor(() => expect(document.activeElement).toBe(retry));
+    expect(screen.getByRole('tab', { name: 'Write' }).getAttribute('aria-selected')).toBe('true');
+    expect(
+      (screen.getByRole('textbox', { name: 'Markdown body' }) as HTMLTextAreaElement).value,
+    ).toBe('Unsaved body');
+    expect(close.getAttribute('aria-busy')).toBe('false');
+    expect(props.onClose).not.toHaveBeenCalled();
   });
 
   it('keeps a failed Tag removal contextual and ignores IME confirmation keys', async () => {
@@ -324,6 +418,31 @@ describe('inline note editor', () => {
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
   });
 
+  it('saves the draft at once with CmdOrCtrl+S', async () => {
+    // Fake timers that still follow the wall clock, so the 650 ms autosave window can be
+    // passed at once below without a real wait.
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const onSave = vi.fn().mockResolvedValue(undefined);
+      editor({ onSave });
+      const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+      await user.type(textarea, ' changed');
+      await user.keyboard('{Meta>}s{/Meta}');
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(onSave).toHaveBeenCalledWith('Original changed');
+      expect(await screen.findByText('Saved')).toBeTruthy();
+      expect(document.activeElement).toBe(textarea);
+
+      // Nothing changed since: Ctrl+S and the autosave window write nothing more.
+      expect(fireEvent.keyDown(textarea, { key: 's', ctrlKey: true })).toBe(false);
+      await act(() => vi.advanceTimersByTimeAsync(700));
+      expect(onSave).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('flushes one dirty draft when the editor unmounts before autosave', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn().mockResolvedValue(undefined);
@@ -444,4 +563,203 @@ describe('inline note editor', () => {
     expect(onSave.mock.calls.map(([body]) => body)).toEqual(['Pending edit', 'Original']);
     expect(nativeWindow.destroy).toHaveBeenCalledTimes(1);
   });
+
+  it('flushes a clean and a dirty draft on macOS without destroying the hidden window', async () => {
+    nativeWindow.enabled = true;
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppProviders
+        captureClient={macosCaptureClient}
+        preferencesClient={preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <NoteEditor {...editorProps({ onSave })} />
+      </AppProviders>,
+    );
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+
+    // Native capabilities arrive asynchronously; a clean macOS close is still prevented.
+    await waitFor(async () => {
+      const preventDefault = vi.fn();
+      await nativeWindow.closeHandler?.({ preventDefault });
+      expect(preventDefault).toHaveBeenCalledTimes(1);
+    });
+    expect(onSave).not.toHaveBeenCalled();
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
+
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Hidden-window draft');
+    const preventDefault = vi.fn();
+    await nativeWindow.closeHandler?.({ preventDefault });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('Hidden-window draft');
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Markdown body' })).toBe(textarea);
+  });
+
+  it('keeps the macOS window before native capabilities load', async () => {
+    nativeWindow.enabled = true;
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel');
+    const pendingCapabilities: CaptureClient = {
+      ...macosCaptureClient,
+      capabilities: () => new Promise(() => undefined),
+    };
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    try {
+      render(
+        <AppProviders
+          captureClient={pendingCapabilities}
+          preferencesClient={preferencesClient}
+          workspaceClient={workspaceClient(snapshot())}
+        >
+          <NoteEditor {...editorProps({ onSave })} />
+        </AppProviders>,
+      );
+      await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+      const preventDefault = vi.fn();
+      await nativeWindow.closeHandler?.({ preventDefault });
+      expect(preventDefault).toHaveBeenCalledTimes(1);
+      expect(onSave).not.toHaveBeenCalled();
+      expect(nativeWindow.destroy).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('flushes a clean and a dirty draft without destroying the window while background mode hides it', async () => {
+    nativeWindow.enabled = true;
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppProviders
+        captureClient={captureClient}
+        preferencesClient={preferencesClientWith(true)}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <NoteEditor {...editorProps({ onSave })} />
+      </AppProviders>,
+    );
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+
+    // On Windows, the tray icon makes closing hide Charon; native preferences load asynchronously.
+    await waitFor(async () => {
+      const preventDefault = vi.fn();
+      await nativeWindow.closeHandler?.({ preventDefault });
+      expect(preventDefault).toHaveBeenCalledTimes(1);
+    });
+    expect(onSave).not.toHaveBeenCalled();
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
+
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Tray-hidden draft');
+    const preventDefault = vi.fn();
+    await nativeWindow.closeHandler?.({ preventDefault });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('Tray-hidden draft');
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Markdown body' })).toBe(textarea);
+  });
+
+  it('keeps the window open behind the discard prompt while a drawing holds strokes', async () => {
+    nativeWindow.enabled = true;
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppProviders
+        captureClient={captureClient}
+        preferencesClient={preferencesClient}
+        workspaceClient={workspaceClient(snapshot())}
+      >
+        <NoteEditor {...editorProps({ onSave })} />
+      </AppProviders>,
+    );
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+
+    // An open drawing without strokes never holds the window.
+    fireEvent.click(screen.getByRole('button', { name: 'Draw' }));
+    let dialog = await screen.findByRole('dialog', { name: 'Drawing' });
+    const untouched = vi.fn();
+    await nativeWindow.closeHandler?.({ preventDefault: untouched });
+    expect(untouched).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draw' }));
+    dialog = await screen.findByRole('dialog', { name: 'Drawing' });
+    drawDot(within(dialog).getByRole('img', { name: 'Drawing canvas' }));
+    const preventDefault = vi.fn();
+    await act(async () => {
+      await nativeWindow.closeHandler?.({ preventDefault });
+    });
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(nativeWindow.destroy).not.toHaveBeenCalled();
+    expect(within(dialog).getByText('Discard this drawing?')).toBeTruthy();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        within(dialog).getByRole('button', { name: 'Keep drawing' }),
+      ),
+    );
+    expect(onSave).not.toHaveBeenCalled();
+
+    // Once discarded, the next close quits as before.
+    await user.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const afterDiscard = vi.fn();
+    await nativeWindow.closeHandler?.({ preventDefault: afterDiscard });
+    expect(afterDiscard).not.toHaveBeenCalled();
+  });
+
+  it('refuses to leave the draft (another Note or Quit) while a drawing holds unsaved strokes', async () => {
+    const user = userEvent.setup();
+    let guard: (() => Promise<boolean>) | undefined;
+    const props = editor({
+      registerDraftGuard: (next) => {
+        guard = next;
+        return () => undefined;
+      },
+    });
+    await waitFor(() => expect(guard).toBeDefined());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Draw' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Drawing' });
+    drawDot(within(dialog).getByRole('img', { name: 'Drawing canvas' }));
+    let allowed: boolean | undefined;
+    await act(async () => {
+      allowed = await guard?.();
+    });
+    expect(allowed).toBe(false);
+    expect(within(dialog).getByText('Discard this drawing?')).toBeTruthy();
+    expect(props.onSave).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await act(async () => {
+      allowed = await guard?.();
+    });
+    expect(allowed).toBe(true);
+  });
 });
+
+/** One pen dot on the drawing canvas, laid out as a 960 by 600 surface. */
+function drawDot(canvas: Element) {
+  Object.defineProperty(canvas, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      left: 0,
+      top: 0,
+      width: 960,
+      height: 600,
+      right: 960,
+      bottom: 600,
+      x: 0,
+      y: 0,
+    }),
+  });
+  fireEvent.pointerDown(canvas, { pointerId: 1, button: 0, buttons: 1, clientX: 10, clientY: 10 });
+  fireEvent.pointerUp(canvas, { pointerId: 1, button: 0, clientX: 10, clientY: 10 });
+}

@@ -6,4 +6,8 @@ describe('capture status presentation', () => {
     expect(captureStatusTone('capture_warning_clipboard_not_restored')).toBe('warning');
     expect(captureStatusTone('workspace_error_not_open')).toBe('error');
   });
+
+  it('presents a created capture as a success', () => {
+    expect(captureStatusTone('capture_note_created')).toBe('success');
+  });
 });

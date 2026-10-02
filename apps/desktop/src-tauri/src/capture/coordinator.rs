@@ -1,6 +1,6 @@
 use super::{
-    CapabilityState, CaptureAction, CaptureCapabilities, CaptureError, CapturePermissionKind,
-    CaptureTrigger, CapturedSelection, PlatformKind,
+    shortcut, CapabilityState, CaptureAction, CaptureCapabilities, CaptureError,
+    CapturePermissionKind, CaptureTrigger, CapturedSelection, PlatformKind, ShortcutOrigin,
 };
 
 pub const DEFAULT_CAPTURE_SHORTCUT: &str = "CmdOrCtrl+Shift+Space";
@@ -35,6 +35,13 @@ pub trait PlatformCapturePort: Send {
     fn selected_text(&mut self) -> Result<CapturedSelection, CaptureError>;
     fn reset_gesture(&mut self);
     fn shutdown(&mut self);
+    /// The opt-in formatted capture (ADR 0026). Only an adapter whose
+    /// selected-text path already runs ADR 0010's Copy transaction may honour
+    /// it; it never makes the adapter read or copy anything by itself.
+    fn set_rich_capture(&mut self, _enabled: bool) {}
+    fn rich_capture_state(&self) -> CapabilityState {
+        CapabilityState::Unsupported
+    }
 }
 
 pub struct CaptureCoordinator {
@@ -47,18 +54,28 @@ pub struct CaptureCoordinator {
     shutdown: bool,
     next_request_id: u32,
     last_trigger_at: Option<u64>,
+    preferred_shortcut: Option<String>,
 }
 
 impl CaptureCoordinator {
     pub fn new(shortcut: Box<dyn ShortcutPort>, platform: Box<dyn PlatformCapturePort>) -> Self {
+        let kind = platform.platform();
         let capabilities = CaptureCapabilities {
-            platform: platform.platform(),
+            platform: kind,
             standard_shortcut: CapabilityState::Unsupported,
             input_monitoring: platform.input_monitoring_state(),
             accessibility: platform.accessibility_state(),
             double_shift: CapabilityState::Unsupported,
             selected_text: CapabilityState::Unsupported,
-            active_shortcut: composer_shortcut(platform.platform()).to_owned(),
+            active_shortcut: composer_shortcut(kind).to_owned(),
+            default_shortcut: composer_shortcut(kind).to_owned(),
+            shortcut_origin: if kind == PlatformKind::LinuxWayland {
+                ShortcutOrigin::Desktop
+            } else {
+                ShortcutOrigin::Default
+            },
+            shortcut_configurable: shortcut::configurable(kind),
+            rich_capture: platform.rich_capture_state(),
         };
         Self {
             shortcut,
@@ -70,6 +87,15 @@ impl CaptureCoordinator {
             shutdown: false,
             next_request_id: 1,
             last_trigger_at: None,
+            preferred_shortcut: None,
+        }
+    }
+
+    /// Remembers the stored composer accelerator; it is applied by `initialize`
+    /// and ignored once the coordinator has started.
+    pub fn set_preferred_shortcut(&mut self, preferred: Option<String>) {
+        if !self.initialized {
+            self.preferred_shortcut = preferred;
         }
     }
 
@@ -78,17 +104,108 @@ impl CaptureCoordinator {
             return;
         }
         self.initialized = true;
-        self.capabilities.standard_shortcut =
-            match self.shortcut.register(&self.capabilities.active_shortcut) {
-                Ok(()) => CapabilityState::Available,
-                Err(_) => CapabilityState::Error,
-            };
+        // The Wayland portal owns its trigger, so a stored choice (for example
+        // from an X11 session on the same machine) is kept but not applied.
+        let preferred = self
+            .preferred_shortcut
+            .take()
+            .filter(|_| self.capabilities.shortcut_configurable);
+        if let Some(preferred) = preferred {
+            match self.custom_target(&preferred) {
+                Some(Ok(target)) if self.shortcut.register(&target).is_ok() => {
+                    self.capabilities.active_shortcut = target;
+                    self.capabilities.shortcut_origin = ShortcutOrigin::Custom;
+                    self.capabilities.standard_shortcut = CapabilityState::Available;
+                }
+                // The stored value names the default itself.
+                None => {}
+                // Invalid, reserved, or refused: the default takes over and
+                // Preferences says so.
+                Some(_) => self.capabilities.shortcut_origin = ShortcutOrigin::DefaultAfterFailure,
+            }
+        }
+        if self.capabilities.shortcut_origin != ShortcutOrigin::Custom {
+            self.capabilities.standard_shortcut =
+                match self.shortcut.register(&self.capabilities.active_shortcut) {
+                    Ok(()) => CapabilityState::Available,
+                    Err(_) => CapabilityState::Error,
+                };
+        }
         self.refresh_platform_states();
         self.start_listener_if_available();
     }
 
+    /// The user's chosen accelerator while it is active; `None` while the
+    /// default (or the Wayland portal's trigger) is in use.
+    pub fn custom_shortcut(&self) -> Option<String> {
+        (self.capabilities.shortcut_origin == ShortcutOrigin::Custom)
+            .then(|| self.capabilities.active_shortcut.clone())
+    }
+
+    /// Replaces the composer accelerator, or restores the default with `None`.
+    /// The new accelerator is registered before the previous one is released,
+    /// so any failure leaves the previous accelerator active and unchanged.
+    pub fn change_shortcut(
+        &mut self,
+        requested: Option<&str>,
+    ) -> Result<CaptureCapabilities, CaptureError> {
+        self.ensure_active()?;
+        if !self.capabilities.shortcut_configurable {
+            return Err(CaptureError::ShortcutNotConfigurable);
+        }
+        let (target, origin) = match requested.map(|raw| self.custom_target(raw)) {
+            Some(Some(target)) => (target?, ShortcutOrigin::Custom),
+            None | Some(None) => (
+                self.capabilities.default_shortcut.clone(),
+                ShortcutOrigin::Default,
+            ),
+        };
+        let platform = self.capabilities.platform;
+        let previous = self.capabilities.active_shortcut.clone();
+        let previous_registered = self.capabilities.standard_shortcut == CapabilityState::Available;
+        if previous_registered
+            && shortcut::normalize(&previous, platform).ok()
+                == shortcut::normalize(&target, platform).ok()
+        {
+            self.capabilities.shortcut_origin = origin;
+            return Ok(self.capabilities());
+        }
+        self.shortcut
+            .register(&target)
+            .map_err(|_| CaptureError::ShortcutConflict)?;
+        if previous_registered && self.shortcut.unregister(&previous).is_err() {
+            let _ = self.shortcut.unregister(&target);
+            return Err(CaptureError::ShortcutUnregistration);
+        }
+        self.capabilities.active_shortcut = target;
+        self.capabilities.standard_shortcut = CapabilityState::Available;
+        self.capabilities.shortcut_origin = origin;
+        Ok(self.capabilities())
+    }
+
+    /// The canonical accelerator for a requested value, `None` when it names
+    /// the platform default, or the validation error.
+    fn custom_target(&self, requested: &str) -> Option<Result<String, CaptureError>> {
+        let platform = self.capabilities.platform;
+        match shortcut::normalize(requested, platform) {
+            Ok(target)
+                if shortcut::normalize(&self.capabilities.default_shortcut, platform).ok()
+                    == Some(target.clone()) =>
+            {
+                None
+            }
+            result => Some(result),
+        }
+    }
+
     pub fn capabilities(&self) -> CaptureCapabilities {
         self.capabilities.clone()
+    }
+
+    /// Applies the stored formatted-capture choice (ADR 0026) to the adapter.
+    /// It only changes what a later capture gesture reads.
+    pub fn set_rich_capture(&mut self, enabled: bool) {
+        self.platform.set_rich_capture(enabled);
     }
 
     pub fn refresh_capabilities(&mut self) -> Result<CaptureCapabilities, CaptureError> {
@@ -202,6 +319,7 @@ impl CaptureCoordinator {
             self.capabilities.double_shift = CapabilityState::Error;
         }
         self.capabilities.selected_text = self.platform.selected_text_state();
+        self.capabilities.rich_capture = self.platform.rich_capture_state();
     }
 
     fn start_listener_if_available(&mut self) {

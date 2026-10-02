@@ -37,6 +37,22 @@ pub enum CapturePermissionKind {
     Accessibility,
 }
 
+/// Where the active reveal-and-focus-composer accelerator comes from (ADR 0025).
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub enum ShortcutOrigin {
+    /// The platform default; the user never chose another one.
+    Default,
+    /// The user's chosen accelerator, registered and stored.
+    Custom,
+    /// A stored choice failed validation or registration at launch, so the
+    /// default is active instead.
+    DefaultAfterFailure,
+    /// The Wayland portal assigns the trigger; Charon cannot change it.
+    Desktop,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
@@ -48,6 +64,14 @@ pub struct CaptureCapabilities {
     pub double_shift: CapabilityState,
     pub selected_text: CapabilityState,
     pub active_shortcut: String,
+    /// The platform default that Reset restores.
+    pub default_shortcut: String,
+    pub shortcut_origin: ShortcutOrigin,
+    /// Whether Preferences may offer to change the accelerator.
+    pub shortcut_configurable: bool,
+    /// Whether the opt-in formatted capture exists here (ADR 0026):
+    /// `experimental` on macOS, `unsupported` elsewhere.
+    pub rich_capture: CapabilityState,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -111,4 +135,6 @@ pub struct CaptureComposerRequest {
 #[ts(rename_all = "camelCase")]
 pub struct CaptureStatusEvent {
     pub message_key: String,
+    /// The random id of the Note a successful capture created; never content.
+    pub note_id: Option<String>,
 }

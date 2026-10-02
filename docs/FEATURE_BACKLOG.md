@@ -34,8 +34,13 @@ quand la source ne fournit pas de représentation exploitable.
 `CaptureCoordinator`, le contenu reste local, et le texte brut doit rester le
 fallback déterministe.
 
-**Statut** : planifié — plan 062 (ADR amendant l'ADR 0010, puis essai natif ;
-  macOS via le repli Copy en premier, Windows/X11 en recherche seulement).
+**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
+  l'opérateur — plan 062, [ADR 0026](adr/0026-formatted-selected-text-capture.md).
+  Option expérimentale « Conserver la mise en forme », désactivée par défaut,
+  macOS uniquement : le repli Copy de l'ADR 0010 lit aussi une fois le HTML
+  produit (1 Mio au plus), converti en Markdown en mémoire ; le texte brut
+  exact est gardé dès que lettres, chiffres ou retours à la ligne diffèrent.
+  Les captures par accès direct, Windows et X11 restent en texte brut.
 
 ### P2 — Réduire l'application dans la zone de notification à la fermeture
 
@@ -57,9 +62,11 @@ notification / menu bar.
 **Contraintes** : aucune capture ou action supplémentaire ne doit devenir
   implicite. Le mode background doit rester local, explicite et désactivable.
 
-**Statut** : planifié — plan 059 (ADR puis essai natif, option désactivée par
-  défaut). Le plan 039 couvre d'abord le cas macOS sans icône : fermer la
-  fenêtre la masque, le Dock la rouvre et `Cmd+Q` quitte.
+**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
+  l'opérateur — plan 059, [ADR 0023](adr/0023-background-mode-and-tray.md).
+  Option désactivée par défaut ; icône (Ouvrir/Quitter) sur macOS et Windows,
+  indisponible sous Linux dans cette version. Le plan 039 couvre le cas macOS
+  sans icône : fermer la fenêtre la masque, le Dock la rouvre et `Cmd+Q` quitte.
 
 ### P2 — Reconfigurer les raccourcis de capture
 
@@ -79,10 +86,13 @@ notification / menu bar.
   prétendre supporter une séquence que l'OS ne livre pas, et conserver le
   fallback composer utilisable même après refus de permission.
 
-**Statut** : planifié — plan 061, limité au raccourci de révélation du
-  composer (le double Maj reste fixe). `docs/PRODUCT.md` exclut aujourd'hui un
-  « configurable shortcut catalog » : le plan commence par un ADR qui le
-  restreint, soumis à validation.
+**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
+  l'opérateur — plan 061, [ADR 0025](adr/0025-user-chosen-composer-shortcut.md).
+  Un seul raccourci choisi pour révéler Charon et focaliser le composer, sur
+  macOS, Windows et X11, avec validation, liste réservée, retour au raccourci
+  précédent si le système refuse, et réinitialisation. Le double Maj reste
+  fixe ; sous Wayland, le portail attribue le raccourci et Preferences indique
+  où le changer. macOS ne peut pas détecter les conflits.
 
 ### P2 — Notifications système à la création d'une Note
 
@@ -104,9 +114,15 @@ notification / menu bar.
   synchronisation. Le clic doit cibler un UUID de Note local valide et rester
   sans effet destructif.
 
-**Statut** : planifié — plan 060 (ADR puis essai natif). Le plan 045 fournit
-  l'événement `capture_note_created` ; le clic vers la Note n'est pas fourni
-  par le plugin officiel sur desktop et reste soumis à l'essai.
+**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
+  l'opérateur — plan 060, [ADR 0024](adr/0024-capture-notifications.md).
+  Option désactivée par défaut, uniquement après une capture de texte
+  sélectionné qui crée une Note pendant que la fenêtre n'a pas le focus, au
+  plus une toutes les 2 s, avec le texte fixe « Charon » / « Note capturée. »
+  (aucun contenu de Note). Le clic garde le comportement par défaut du système
+  et n'ouvre pas la Note : le plugin officiel ne fournit pas de rappel de clic
+  sur desktop, et les crates non officielles nécessaires sont écartées pour
+  l'instant.
 
 ### P3 — Ajouter le lien GitHub dans Preferences
 
@@ -116,7 +132,8 @@ Preferences : [github.com/SimonHazard/Charon](https://github.com/SimonHazard/Cha
 **Contraintes** : ouverture uniquement après activation explicite du lien,
   sans iframe, tracking ou requête automatique depuis l'application.
 
-**Statut** : planifié — plan 057, avec l'élément suivant.
+**Statut** : implémenté dans l'arbre de travail, en attente du test de
+  l'opérateur — plan 057, avec l'élément suivant.
 
 ### P3 — Rendre visible le caractère open source et contribuable
 
@@ -131,7 +148,8 @@ code de conduite et la licence MIT.
 **Contraintes** : rester informatif, sans transformer la shelf en page de
 marketing ni ajouter de route produit.
 
-**Statut** : planifié — plan 057 (section « À propos » dans Preferences).
+**Statut** : implémenté dans l'arbre de travail, en attente du test de
+  l'opérateur — plan 057 (section « À propos » dans Preferences).
 
 ### P1 — Corriger et systématiser les Tooltips
 
@@ -152,8 +170,9 @@ noms de fichiers tronqués.
   une action ou d'accéder à son nom. Il ne doit pas bloquer le focus, la saisie,
   Escape ou les autres surfaces transitoires.
 
-**Statut** : planifié — plan 056 (inventaire, règle, corrections). Le plan
-  041 fixe le délai d'ouverture et le plan 050 la durée de sortie.
+**Statut** : implémenté dans l'arbre de travail, en attente du test de
+  l'opérateur — plan 056 (inventaire, règle, corrections). Le
+  plan 041 fixe le délai d'ouverture et le plan 050 la durée de sortie.
 
 ### P3 — Améliorer le cheat sheet Markdown
 
@@ -174,13 +193,17 @@ l'édition, sans surcharger la shelf.
   requête réseau ou présenter une syntaxe que le preview ne rend pas de manière
   sûre.
 
-**Statut** : planifié — plan 058 (exemples testés contre le rendu réel,
-  correction du masquage de contenu par le front-matter).
+**Statut** : implémenté dans l'arbre de travail, en attente du test de
+  l'opérateur — plan 058 (exemples testés contre le rendu
+  réel, correction du masquage de contenu par le front-matter).
 
 ## Planification
 
 Toutes les idées ci-dessus sont planifiées dans [`plans/README.md`](../plans/README.md)
 et enchaînées par [`plans/RUNBOOK.md`](../plans/RUNBOOK.md) : 056-058 dans le
 lot C (`0.3.0`), 059-060 dans le lot E (`0.4.0` proposé), 061-062 dans le lot F
-(`0.5.0` proposé). Les plans 059-062 s'arrêtent sur un ADR et un essai natif à
-valider avant tout code. Une nouvelle idée s'ajoute ici avant d'être planifiée.
+(`0.5.0` proposé). Le 2026-10-02, l'opérateur a demandé de terminer toute la
+file dans un seul arbre de travail non commité (branche `charon-v0.2`) : les
+étapes ADR et essai natif des plans 059-062 ont été levées avec les choix par
+défaut des ADR 0023-0026, dont les preuves natives restent à vérifier par
+l'opérateur. Une nouvelle idée s'ajoute ici avant d'être planifiée.

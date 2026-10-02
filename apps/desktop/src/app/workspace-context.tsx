@@ -176,10 +176,10 @@ export function WorkspaceProvider({
     if (!client.chooseDirectory || !client.openOrCreate) return 'failed' as const;
     setIsChoosingWorkspace(true);
     try {
-      const path = await client.chooseDirectory();
-      if (!path) return 'cancelled' as const;
+      const folder = await client.chooseDirectory();
+      if (!folder) return 'cancelled' as const;
       if (workspaceSwitchBlockedRef.current) return 'blocked' as const;
-      const snapshot = await client.openOrCreate(path);
+      const snapshot = await client.openOrCreate(folder);
       applySnapshot(snapshot);
       setWorkspaceSwitchError(null);
       return 'success' as const;

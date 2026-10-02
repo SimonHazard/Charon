@@ -44,8 +44,9 @@ Plans run in the recommended order from `plans/README.md`, grouped into
 batches. Each batch ends with operator tests; batches B, D, E and F end with a
 release. A+B → `0.2.0` and C+D → `0.3.0` were decided by the operator on
 2026-09-23; `0.4.0` (E) and `0.5.0` (F) are proposals to confirm at the start
-of those batches. From `0.2.0` on, releases are signed with a stable identity
-(ADR 0018), so a release no longer costs macOS users a permission regrant.
+of those batches. macOS releases stay ad-hoc (ADR 0027, which superseded ADR
+0018 on 2026-10-02), so each release may ask macOS users to grant Input
+Monitoring and Accessibility again.
 
 | Batch | Plans (in order) | Theme | Operator tests at the end | Release |
 | --- | --- | --- | --- | --- |
@@ -127,15 +128,20 @@ state" excerpts with the live code and continue when they still match.
 | --- | --- | --- |
 | Permission work landed by | PR #61, `feat(macos): open the matching privacy pane from Preferences` (operator asked to commit it) | 2026-09-23 |
 | Signing PR allowed | Yes: PR #62 | 2026-09-23 |
-| Signing certificate and secrets created (SHA-1) | Not yet; the operator creates them before the `0.2.0` release PR, ask for the SHA-1 then | 2026-09-23 |
+| Signing certificate and secrets created (SHA-1) | Not needed: superseded by the ad-hoc decision below | 2026-10-02 |
 | Plan queue PR allowed | Yes; branches, PRs and squash merges on fully green CI, per the ground rules | 2026-09-23 |
 | 038 ADR approved | Yes | 2026-09-23 |
 | 041 ADR approved | Yes | 2026-09-23 |
 | 050 UX change approved | Yes | 2026-09-23 |
 | 051 ADR approved | Yes | 2026-09-23 |
 | Versions | A+B → `0.2.0`, C+D → `0.3.0` | 2026-09-23 |
-| Versions E and F | proposed `0.4.0`, `0.5.0`; confirm at the batch start | |
+| Versions E and F | Never confirmed; superseded by the combined-work release row below | 2026-10-02 |
 | Site version bump with releases | Yes, in every release PR | 2026-09-23 |
+| Queue execution mode | Complete the whole queue (batches B-F) plus inline Markdown drawings (ADR 0021) in one uncommitted working tree on branch `charon-v0.2`, without commits, pushes, PRs, merges, or releases | 2026-10-02 |
+| 059-062 ADR and spike gates | Answered by that instruction with the defaults recorded in ADRs 0023-0026; their native spike evidence is pending operator verification | 2026-10-02 |
+| macOS signing | Return to Tauri's ad-hoc identity as Tauri documents (ADR 0027 supersedes ADR 0018); keep the self-signed path documented as the cleaner option; plan 052 rejected and its notice restored | 2026-10-02 |
+| Platforms and signing | No paid Apple or Windows developer licence (ADRs 0014, 0027); Linux may be dropped if easier: kept, and new backlog capabilities that need an unproven Linux path are unavailable there | 2026-10-02 |
+| Release version for the combined work | Prepare `0.2.0` for the complete `charon-v0.2` changes, in thematic commits and one PR to `main`; watch CI and wait for the operator before merging. This latest instruction supersedes the batch versions and automatic merge loop for this PR. | 2026-10-02 |
 
 ## Per-plan loop
 
@@ -234,26 +240,17 @@ Then, depending on the answer:
 4. **Release notes.** Rewrite `release-notes.md` for `X.Y.Z` in the existing
    shape (`# Charon X.Y.Z — Early Access`, Highlights, Early Access limits,
    Installation and trust, Privacy). Highlights describe only behaviour that
-   ships in these batches. Keep the first-launch and unsigned warnings. For
-   `0.2.0`, state that macOS asks for Input Monitoring and Accessibility one
-   last time because releases are now signed with a stable self-signed
-   certificate; from `0.3.0`, state that updates keep both permissions.
+   ships in these batches. Keep the first-launch and unsigned warnings, and
+   state that macOS may ask again for Input Monitoring and Accessibility after
+   the update (ad-hoc releases, ADR 0027).
 5. If Gate 0 said so, update the site's announced version and its assertions
    together (`docs/SITE.md` rule).
 6. Local checks: `bun run check`, Rust tests, Chromium e2e.
 7. PR title `chore(release): prepare vX.Y.Z`; body lists the released PRs and
    the operator's test results for both batches. Run the CI wait/fix/merge steps (10-12).
-8. **First signed release (`0.2.0`) only**: before merging, confirm the
-   operator gave the certificate fingerprint at Gate 0. After merging, read the
-   macOS job log: "Import the stable macOS signing identity" must succeed and
-   "Verify the stable macOS designated requirement" must print
-   `certificate leaf = H"<fingerprint>"`. If the import fails at
-   `add-trusted-cert` or the check finds `cdhash`, nothing is published: STOP
-   and report; never switch back to ad-hoc without a new operator decision
-   (ADR 0018). For `0.3.0`, the batch D operator test includes updating an
-   installed `0.2.0` through the in-app updater and confirming that Input
-   Monitoring and Accessibility are still granted; record the result in
-   `docs/platform-support.md` in the release PR.
+8. **macOS signature**: after merging, read the macOS job log: "Verify the
+   macOS ad-hoc signature" must pass. Never add Apple credentials or a
+   certificate secret without a new operator decision and ADR (ADR 0027).
 9. **Watch the release.** `gh run list --workflow "Release desktop" -L 1`,
    then `gh run watch <id>`. When it succeeds, verify
    `gh release view vX.Y.Z --json assets -q '.assets[].name'` lists the

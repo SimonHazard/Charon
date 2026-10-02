@@ -52,6 +52,8 @@ export type WorkspaceChangedEvent = {
   origin: WorkspaceEventOrigin;
 };
 
+export type WorkspaceFolderChoice = { token: string };
+
 export type WorkspaceCommand =
   | { type: 'createNote'; expectedRevision: number; body: string }
   | { type: 'updateNote'; expectedRevision: number; noteId: string; body: string }

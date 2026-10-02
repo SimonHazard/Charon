@@ -54,6 +54,7 @@
   }
   /* Thin standard scrollbars only: a ::-webkit-scrollbar block would replace overlay scrollbars with a gutter. */
   .note-list,
+  .help-popover,
   .preferences-popover,
   .markdown-help,
   .note-preview,
@@ -93,6 +94,14 @@
   background: var(--canvas);
 }
 
+/* Toasts sit at the top of the shelf column, just below the drag region (docs/UX.md). */
+:root {
+  --toast-top: calc(28px + 0.5rem);
+}
+:root:has(.desktop-shell[data-native-titlebar]) {
+  --toast-top: 0.5rem;
+}
+
 .shelf-actions {
   display: flex;
   flex: none;
@@ -113,6 +122,9 @@
 
 .help-popover {
   width: min(18rem, calc(100vw - 1rem));
+  max-height: min(36rem, calc(100dvh - 6rem), var(--available-height));
+  overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--separator);
   background: var(--material-transient);
   backdrop-filter: blur(var(--material-blur));
@@ -125,6 +137,25 @@
 .help-shortcut-row {
   display: grid;
   gap: 0.2rem;
+}
+.help-shortcut-section {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--separator);
+}
+.help-shortcut-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: var(--weight-medium);
+}
+.help-shortcut-section .help-shortcut-list {
+  color: var(--text-muted);
+}
+.help-shortcut-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
 }
 .help-shortcut-row kbd {
   width: fit-content;
@@ -211,21 +242,6 @@
   color: var(--selection-text);
   box-shadow: inset 0 0 0 1px var(--selection-border);
 }
-.preferences-language {
-  width: 100%;
-  min-height: var(--size-control-sm);
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--field-surface);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--type-sm);
-}
-.preferences-language:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
 .preferences-workspace-row,
 .preferences-shortcut-row,
 .preferences-permission-row,
@@ -271,6 +287,34 @@
   font-family: var(--font-monospace);
   font-size: var(--type-2xs);
 }
+.preferences-shortcut {
+  display: grid;
+  gap: 0.35rem;
+}
+.preferences-shortcut-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+/* The recorder is an active capture field: its ring shows whenever it holds focus. */
+.preferences-shortcut-recorder {
+  display: block;
+  min-height: 1.75rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--field-surface);
+  color: var(--text);
+  font-size: var(--type-xs);
+  overflow-wrap: anywhere;
+}
+.preferences-shortcut-recorder:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.preferences-shortcut-recorder[data-unsupported] {
+  color: var(--warning-text);
+}
 .preferences-permissions {
   display: grid;
   gap: 0.35rem;
@@ -279,6 +323,22 @@
 .preferences-permission-help {
   color: var(--text-muted);
   font-size: var(--type-2xs);
+}
+.preferences-notifications {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.35rem 0 0;
+  border: 0;
+}
+.preferences-notifications legend {
+  margin-bottom: 0.35rem;
+  padding: 0;
+}
+/* Room for the trailing state label, as in the permission rows. */
+.preferences-rich-capture legend {
+  width: 100%;
 }
 .preferences-error {
   display: flex;
@@ -309,9 +369,15 @@
   font-size: var(--type-sm);
   font-weight: var(--weight-medium);
 }
-.preferences-row-title [data-slot="tooltip-trigger"] {
+.preferences-info-button {
   flex: none;
   color: var(--text-muted);
+}
+/* Info toggletip: opaque like Preferences, which it opens over. */
+.preferences-info-popover {
+  width: min(18rem, calc(100vw - 1rem));
+  background: var(--material-transient-solid);
+  font-size: var(--type-xs);
 }
 .preferences-state {
   margin-left: auto;
@@ -435,7 +501,7 @@
   padding-right: 0.25rem;
 }
 .note-search input::placeholder,
-.note-capture-input input::placeholder {
+.note-capture-input textarea::placeholder {
   color: var(--text-muted);
   opacity: 1;
 }
@@ -450,12 +516,6 @@
   padding: 0.35rem 0;
   color: var(--destructive);
   font-size: var(--type-sm);
-}
-.inline-success {
-  padding: 0.35rem 0;
-  color: var(--success);
-  font-size: var(--type-sm);
-  font-weight: var(--weight-medium);
 }
 .copy-disclosure,
 .delete-boundary {
@@ -480,10 +540,34 @@
 }
 
 .note-list {
+  --list-fade-start: 0px;
+  --list-fade-end: 0px;
   min-height: 0;
   overflow: auto;
   background: transparent;
   contain: strict;
+  /* ADR 0022: an alpha mask (the keyword is mask alpha, not a palette colour) fades only an edge
+     that clips content; never transitioned. Depths match the virtualizer scroll padding. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black var(--list-fade-start),
+    black calc(100% - var(--list-fade-end)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black var(--list-fade-start),
+    black calc(100% - var(--list-fade-end)),
+    transparent
+  );
+}
+.note-list[data-clipped-start="true"] {
+  --list-fade-start: 0.75rem;
+}
+.note-list[data-clipped-end="true"] {
+  --list-fade-end: 1rem;
 }
 .note-list-inner {
   position: relative;
@@ -498,15 +582,32 @@
   left: 0;
   width: 100%;
   padding-bottom: 0.5rem;
-  will-change: transform;
 }
 
 .note-row {
   position: relative;
+  /* Keeps the acknowledgement tint above the row fill and below its content. */
+  isolation: isolate;
   overflow: hidden;
   border: 1px solid var(--separator);
   border-radius: var(--radius-surface);
   background: var(--surface-elevated);
+}
+/* ADR 0020: a captured Note's tint appears at once, then fades on opacity alone. Borders never
+   change, because the selection border already marks the expanded row. */
+.note-row::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: var(--selection-subtle);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-duration-surface) var(--motion-easing-surface);
+}
+.note-row[data-acknowledged]::before {
+  opacity: 1;
+  transition-duration: 0s;
 }
 /* ADR 0020: feedback colours blend on the direct tokens; nothing spatial animates here. */
 .note-row,
@@ -600,8 +701,7 @@
   font-size: var(--type-sm);
   line-height: 1.5;
 }
-.note-row[data-status="done"] .note-row-title,
-.note-row[data-status="done"] .note-row-snippet {
+.note-row[data-status="done"] .note-row-title {
   text-decoration: line-through;
   text-decoration-thickness: 1px;
   text-decoration-color: currentColor;
@@ -628,6 +728,11 @@
 .note-status-dot svg {
   width: 0.75rem;
 }
+/* Icon swaps (status check, copy confirmation) animate this wrapper, never the button. */
+.note-icon-swap {
+  display: grid;
+  place-items: center;
+}
 
 .note-row-metadata {
   display: flex;
@@ -649,6 +754,10 @@
   background: var(--secondary);
   font-size: var(--type-2xs);
   line-height: 1.1;
+}
+/* A Done row paints the chip colour itself; a hairline keeps the pill on --surface and on hover. */
+.note-row[data-status="done"] :is(.tag-filter-chip, .tag-overflow, .attachment-count) {
+  box-shadow: inset 0 0 0 1px var(--separator);
 }
 .tag-filter-chip {
   max-width: 5.5rem;
@@ -712,6 +821,10 @@
 .note-row:hover .note-copy-button {
   opacity: 1;
 }
+/* The copy confirmation stays visible after the pointer leaves the row. */
+.note-copy-button[data-copied] {
+  opacity: 1;
+}
 .note-copy-state {
   margin: -0.15rem 0.65rem 0.35rem 3.25rem;
   padding: 0;
@@ -725,6 +838,11 @@
   border-radius: 0;
   background: transparent;
   transform-origin: top;
+}
+/* AnimatePresence pops the exiting editor out of layout at its offset, which already includes
+   the inline margin: drop the margin so it leaves in place instead of shifting sideways. */
+.note-editor-inline[data-motion-pop-id] {
+  margin-inline: 0;
 }
 .note-editor-heading,
 .attachment-heading {
@@ -866,6 +984,16 @@
   color: var(--text-muted);
   font-size: var(--type-xs);
 }
+.markdown-help-hint {
+  margin: 0.2rem 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-2xs);
+}
+.markdown-help-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-strong);
+}
 .note-editor-metadata {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -995,9 +1123,9 @@
 }
 .capture-field {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   min-width: 0;
-  height: var(--size-control-lg);
+  height: auto;
   min-height: var(--size-control-lg);
   margin: 0;
   padding: 0 0.35rem 0 0.15rem;
@@ -1013,9 +1141,16 @@
 }
 .capture-field-input {
   flex: 1;
+  min-height: 0;
+  max-height: 9.5rem;
+  overflow-y: auto;
+  resize: none;
   border: 0;
   background: transparent;
   box-shadow: none;
+  line-height: 1.45;
+  /* One line fills the 3rem field exactly, so the dock keeps its height. */
+  padding-block: calc((var(--size-control-lg) - 2px - 1.45em) / 2);
 }
 .capture-field-input:focus-visible {
   border: 0;
@@ -1025,6 +1160,11 @@
 .note-search-clear,
 .preferences-info-button {
   position: relative;
+}
+.capture-submit-button {
+  flex: none;
+  /* Centred in a one-line field; stays on the last line as the field grows upward. */
+  margin-block-end: calc((var(--size-control-lg) - 2px - 1.5rem) / 2);
 }
 .capture-submit-button::after,
 .preferences-info-button::after {
@@ -1057,15 +1197,11 @@
 
 @media (hover: hover) and (pointer: fine) {
   .preferences-toggle button:not([data-pressed]):hover,
-  .preferences-language:hover,
   .tag-filter-chip:hover,
   .attachment-count:hover {
     background: var(--control-hover);
   }
-  .preferences-language:hover {
-    border-color: var(--border-strong);
-  }
-  .preferences-row-title [data-slot="tooltip-trigger"]:hover,
+  .preferences-info-button:hover,
   .attachment-count:hover,
   .attachment-name:hover {
     color: var(--text);
@@ -1111,16 +1247,15 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .preferences-popover {
-    animation-name: none;
-  }
-}
-
 @media (prefers-reduced-transparency: reduce) {
+  .note-list {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
   .help-popover,
   .preferences-popover,
   [data-slot="alert-dialog-content"],
+  [data-slot="select-content"],
   [data-slot="tooltip-content"],
   [data-slot="toast"] {
     background: var(--material-transient-solid);
@@ -1135,14 +1270,28 @@
 }
 
 @media (prefers-contrast: more) {
+  .note-list {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
   .note-row,
   .note-editor-inline,
   .composer-dock {
     border-color: currentColor;
   }
+  .note-row[data-acknowledged] {
+    outline: 2px solid currentColor;
+    outline-offset: -2px;
+  }
   .preferences-popover {
     border-color: currentColor;
     background: var(--material-transient-solid);
+  }
+  .preferences-info-popover {
+    border: 1px solid currentColor;
+  }
+  .preferences-shortcut-recorder {
+    border-color: currentColor;
   }
   .help-popover {
     border-color: currentColor;
@@ -1150,6 +1299,8 @@
   }
   [data-slot="alert-dialog-overlay"],
   [data-slot="alert-dialog-content"],
+  [data-slot="select-content"],
+  [data-slot="select-trigger"],
   [data-slot="tooltip-content"],
   [data-slot="toast"] {
     border: 1px solid currentColor;
@@ -1162,10 +1313,150 @@
 :root[data-input-modality="keyboard"] [data-slot="tooltip-content"],
 :root[data-input-modality="keyboard"] [data-slot="alert-dialog-content"],
 :root[data-input-modality="keyboard"] [data-slot="alert-dialog-overlay"],
+:root[data-input-modality="keyboard"] [data-slot="select-trigger"],
+:root[data-input-modality="keyboard"] [data-slot="select-content"],
 :root[data-input-modality="keyboard"] .note-row,
 :root[data-input-modality="keyboard"] .note-status-dot,
 :root[data-input-modality="keyboard"] .tag-filter-chip,
 :root[data-input-modality="keyboard"] .attachment-count,
 :root[data-input-modality="keyboard"] .preferences-toggle button {
+  transition-duration: 0s;
+}
+
+/* Drawing */
+.drawing-dialog {
+  width: min(40rem, calc(100vw - 1rem));
+}
+.drawing-dialog [data-slot="dialog-description"] {
+  font-size: var(--type-xs);
+}
+.drawing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+}
+.drawing-toggle {
+  gap: 0.125rem;
+  padding: 0.125rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-inset);
+}
+.drawing-toggle button {
+  width: 1.75rem;
+  min-width: 0;
+  height: 1.75rem;
+  padding: 0;
+  border-radius: calc(var(--radius-control) - 2px);
+}
+.drawing-swatch {
+  display: block;
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.drawing-toggle [data-pressed] > .drawing-swatch {
+  box-shadow:
+    0 0 0 2px var(--selection-surface),
+    0 0 0 3.5px var(--selection-border);
+}
+.drawing-history-actions {
+  display: flex;
+  gap: 0.125rem;
+  margin-left: auto;
+}
+.drawing-canvas {
+  display: block;
+  justify-self: center;
+  width: min(calc(100% - 2rem), calc((100dvh - 18rem) * 1.6));
+  height: auto;
+  aspect-ratio: 16 / 10;
+  margin-inline: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-field);
+  background: var(--surface-inset);
+  color: var(--text);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.drawing-live-stroke {
+  pointer-events: none;
+}
+.drawing-error {
+  padding: 0;
+}
+.drawing-footer {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+.drawing-discard {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.drawing-discard p {
+  margin-right: auto;
+  font-size: var(--type-sm);
+  font-weight: var(--weight-medium);
+}
+.note-preview .note-drawing {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 0.65rem;
+  padding: 0.5rem;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-field);
+  background: var(--surface-inset);
+  color: var(--text);
+}
+.note-drawing svg {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+}
+.note-drawing-edit {
+  flex: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-slot="dialog-content"] {
+    background: var(--material-transient-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  [data-slot="dialog-overlay"] {
+    background: var(--material-scrim-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+@media (prefers-contrast: more) {
+  [data-slot="dialog-overlay"],
+  [data-slot="dialog-content"] {
+    border: 1px solid currentColor;
+  }
+  .drawing-canvas,
+  .drawing-toggle,
+  .note-preview .note-drawing {
+    border-color: currentColor;
+  }
+}
+:root[data-input-modality="keyboard"] [data-slot="dialog-content"],
+:root[data-input-modality="keyboard"] [data-slot="dialog-overlay"] {
   transition-duration: 0s;
 }

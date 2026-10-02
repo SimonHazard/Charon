@@ -29,7 +29,8 @@ function ToastViewport({ className, ...props }: ToastPrimitive.Viewport.Props) {
     <ToastPrimitive.Viewport
       data-slot="toast-viewport"
       className={cn(
-        'pointer-events-none fixed inset-x-4 bottom-4 mx-auto w-auto max-w-sm outline-none sm:right-4 sm:left-auto sm:mx-0 sm:w-full',
+        // Top of the shelf column, below the drag region: never over the always-visible composer.
+        'pointer-events-none fixed top-(--toast-top) left-1/2 w-[min(calc(100%_-_2rem),34rem)] -translate-x-1/2 outline-none',
         className,
       )}
       {...props}
@@ -41,22 +42,20 @@ function Toast({ className, ...props }: ToastPrimitive.Root.Props) {
   return (
     <ToastPrimitive.Root
       data-slot="toast"
+      swipeDirection={['up', 'right']}
       className={cn(
-        'group/toast pointer-events-auto absolute right-0 bottom-0 w-full origin-bottom rounded-2xl border bg-popover text-popover-foreground shadow-[var(--shadow-floating)] will-change-transform outline-none select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
-        '[--gap:0.75rem] [--height:var(--toast-frontmost-height,var(--toast-height))] [--offset-y:calc(var(--toast-offset-y)*-1+calc(var(--toast-index)*var(--gap)*-1)+var(--toast-swipe-movement-y))] [--peek:0.75rem] [--scale:calc(max(0,1-(var(--toast-index)*0.1)))] [--shrink:calc(1-var(--scale))]',
-        'h-(--height) [transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)-(var(--toast-index)*var(--peek))-(var(--shrink)*var(--height))))_scale(var(--scale))] [transition:transform_var(--motion-duration-surface)_var(--motion-easing-surface),opacity_var(--motion-duration-surface)_var(--motion-easing-surface)] motion-reduce:transition-opacity',
-        "after:absolute after:top-full after:left-0 after:h-[calc(var(--gap)+1px)] after:w-full after:content-['']",
+        'group/toast pointer-events-auto absolute top-0 right-0 w-full origin-top rounded-2xl border bg-popover text-popover-foreground shadow-[var(--shadow-floating)] outline-none select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        '[--gap:0.75rem] [--height:var(--toast-frontmost-height,var(--toast-height))] [--offset-y:calc(var(--toast-offset-y)+(var(--toast-index)*var(--gap))+var(--toast-swipe-movement-y))] [--peek:0.75rem] [--scale:calc(max(0,1-(var(--toast-index)*0.1)))] [--shrink:calc(1-var(--scale))]',
+        'h-(--height) [transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)+(var(--toast-index)*var(--peek))+(var(--shrink)*var(--height))))_scale(var(--scale))] [transition:transform_var(--motion-duration-surface)_var(--motion-easing-surface),opacity_var(--motion-duration-surface)_var(--motion-easing-surface)] motion-reduce:[transition-property:opacity]',
+        "after:absolute after:bottom-full after:left-0 after:h-[calc(var(--gap)+1px)] after:w-full after:content-['']",
         'data-expanded:h-(--toast-height) data-expanded:[transform:translateX(var(--toast-swipe-movement-x))_translateY(var(--offset-y))]',
-        'data-limited:opacity-0 data-starting-style:opacity-0 data-starting-style:[transform:translateY(150%)] data-ending-style:opacity-0',
-        '[&[data-ending-style]:not([data-limited]):not([data-swipe-direction])]:[transform:translateY(150%)]',
-        'data-ending-style:data-[swipe-direction=down]:[transform:translateY(calc(var(--toast-swipe-movement-y)+150%))]',
-        'data-ending-style:data-[swipe-direction=left]:[transform:translateX(calc(var(--toast-swipe-movement-x)-150%))_translateY(var(--offset-y))]',
-        'data-ending-style:data-[swipe-direction=right]:[transform:translateX(calc(var(--toast-swipe-movement-x)+150%))_translateY(var(--offset-y))]',
-        'data-ending-style:data-[swipe-direction=up]:[transform:translateY(calc(var(--toast-swipe-movement-y)-150%))]',
-        'data-expanded:data-ending-style:data-[swipe-direction=down]:[transform:translateY(calc(var(--toast-swipe-movement-y)+150%))]',
-        'data-expanded:data-ending-style:data-[swipe-direction=left]:[transform:translateX(calc(var(--toast-swipe-movement-x)-150%))_translateY(var(--offset-y))]',
-        'data-expanded:data-ending-style:data-[swipe-direction=right]:[transform:translateX(calc(var(--toast-swipe-movement-x)+150%))_translateY(var(--offset-y))]',
-        'data-expanded:data-ending-style:data-[swipe-direction=up]:[transform:translateY(calc(var(--toast-swipe-movement-y)-150%))]',
+        // Travel collapses to 0% under reduced motion, so entry and exit become a crossfade in place.
+        'data-limited:opacity-0 data-starting-style:opacity-0 data-starting-style:[transform:translateY(calc(-1*var(--motion-surface-travel)))] data-ending-style:opacity-0',
+        '[&[data-ending-style]:not([data-limited]):not([data-swipe-direction])]:[transform:translateY(calc(-1*var(--motion-surface-travel)))]',
+        'data-ending-style:data-[swipe-direction=right]:[transform:translateX(calc(var(--toast-swipe-movement-x)+var(--motion-surface-travel)))_translateY(var(--offset-y))]',
+        'data-ending-style:data-[swipe-direction=up]:[transform:translateY(calc(var(--toast-swipe-movement-y)-var(--motion-surface-travel)))]',
+        'data-expanded:data-ending-style:data-[swipe-direction=right]:[transform:translateX(calc(var(--toast-swipe-movement-x)+var(--motion-surface-travel)))_translateY(var(--offset-y))]',
+        'data-expanded:data-ending-style:data-[swipe-direction=up]:[transform:translateY(calc(var(--toast-swipe-movement-y)-var(--motion-surface-travel)))]',
         className,
       )}
       {...props}

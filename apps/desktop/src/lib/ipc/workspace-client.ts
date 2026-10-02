@@ -5,6 +5,7 @@ import type {
   WorkspaceChangedEvent,
   WorkspaceCommand,
   WorkspaceCommandResult,
+  WorkspaceFolderChoice,
   WorkspaceIpcError,
   WorkspaceSnapshot,
 } from '@/bindings/workspace';
@@ -15,9 +16,10 @@ export interface WorkspaceClient {
   snapshot(): Promise<WorkspaceSnapshot>;
   bootstrap?(): Promise<WorkspaceSnapshot>;
   bootstrapDefault?(): Promise<WorkspaceSnapshot>;
-  chooseDirectory?(): Promise<string | null>;
+  /** Picks a folder natively; React receives a single-use token, never its path. */
+  chooseDirectory?(): Promise<WorkspaceFolderChoice | null>;
   chooseAttachments?(): Promise<string[]>;
-  openOrCreate?(path: string): Promise<WorkspaceSnapshot>;
+  openOrCreate?(folder: WorkspaceFolderChoice): Promise<WorkspaceSnapshot>;
   execute?(command: WorkspaceCommand): Promise<WorkspaceCommandResult>;
   subscribe(listener: WorkspaceListener): Promise<() => void>;
 }
@@ -26,9 +28,9 @@ export const tauriWorkspaceClient: WorkspaceClient = {
   snapshot: () => invoke<WorkspaceSnapshot>('workspace_snapshot'),
   bootstrap: () => invoke<WorkspaceSnapshot>('workspace_bootstrap'),
   bootstrapDefault: () => invoke<WorkspaceSnapshot>('workspace_bootstrap_default'),
-  chooseDirectory: () => invoke<string | null>('workspace_choose_directory'),
+  chooseDirectory: () => invoke<WorkspaceFolderChoice | null>('workspace_choose_directory'),
   chooseAttachments: () => invoke<string[]>('workspace_choose_attachments'),
-  openOrCreate: (path) => invoke<WorkspaceSnapshot>('workspace_open_or_create', { path }),
+  openOrCreate: ({ token }) => invoke<WorkspaceSnapshot>('workspace_open_or_create', { token }),
   execute: (command) => invoke<WorkspaceCommandResult>('workspace_execute', { command }),
   subscribe: async (listener) => {
     const unlisten = await listen<WorkspaceChangedEvent>('workspace://changed', (event) =>

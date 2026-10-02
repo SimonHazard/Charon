@@ -2,7 +2,13 @@
 
 ## Status
 
-Accepted on 2026-09-23 by operator decision. Amends ADR 0014 Decision 1 and
+Superseded on 2026-10-02 by ADR 0027 before any release used it: no
+certificate or secret was created, and macOS releases stay ad-hoc as Tauri
+documents. This ADR is kept as the documented path to a stable, free macOS
+identity; `docs/RELEASING.md` ("Not used: stable self-signed identity") keeps
+its procedure and ADR 0027 lists the steps to adopt it.
+
+Originally accepted on 2026-09-23 by operator decision. Amends ADR 0014 Decision 1 and
 its `release` environment consequence, and the macOS half of ADR 0016
 Decision 6. Every other part of ADR 0014 stays authoritative: no Apple
 Developer ID, notarization, Apple Developer Program membership, or purchased
