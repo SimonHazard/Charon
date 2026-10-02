@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -42,6 +42,10 @@ const captureCapabilities: CaptureCapabilities = {
   doubleShift: 'available',
   selectedText: 'available',
   activeShortcut: 'CmdOrCtrl+Shift+Space',
+  defaultShortcut: 'CmdOrCtrl+Shift+Space',
+  shortcutOrigin: 'default',
+  shortcutConfigurable: true,
+  richCapture: 'experimental',
 };
 
 function nativeClients(installKind: string): {
@@ -53,6 +57,7 @@ function nativeClients(installKind: string): {
       capabilities: vi.fn().mockResolvedValue(captureCapabilities),
       open: vi.fn().mockResolvedValue(captureCapabilities),
       requestPermission: vi.fn().mockResolvedValue(captureCapabilities),
+      setShortcut: vi.fn().mockResolvedValue(captureCapabilities),
       composerReady: vi.fn().mockResolvedValue(undefined),
       subscribeComposerFocus: vi.fn().mockResolvedValue(() => undefined),
       subscribeStatus: vi.fn().mockResolvedValue(() => undefined),
@@ -63,8 +68,16 @@ function nativeClients(installKind: string): {
         workspaceName: null,
         hasRememberedWorkspace: false,
         installKind,
+        backgroundMode: false,
+        trayAvailability: 'available',
+        backgroundActive: false,
+        captureNotifications: false,
+        richCapture: false,
       }),
       reset: vi.fn(),
+      setBackgroundMode: vi.fn(),
+      setCaptureNotifications: vi.fn(),
+      setRichCapture: vi.fn(),
     },
   };
 }
@@ -78,13 +91,17 @@ function Harness() {
       <output>{String(updates.canSelfUpdate)}</output>
       <output>{updates.version}</output>
       <output>{updates.downloadedBytes}</output>
+      <output>{`closes:${updates.closesToInstall}`}</output>
       <button onClick={() => updates.setEnabled(true)} type="button">
         enable
       </button>
       <button onClick={() => void updates.checkNow()} type="button">
         check
       </button>
-      <button onClick={() => void updates.downloadAndInstall()} type="button">
+      <button onClick={() => void updates.download()} type="button">
+        download
+      </button>
+      <button onClick={() => void updates.install()} type="button">
         install
       </button>
       <button onClick={() => void updates.restart()} type="button">
@@ -145,10 +162,11 @@ describe('signed update flow', () => {
     await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
     expect(screen.getByText('0.1.0')).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'install' }));
+    await user.click(screen.getByRole('button', { name: 'download' }));
     await waitFor(() => expect(screen.getByText('ready')).toBeTruthy());
     expect(available.download).toHaveBeenCalledTimes(1);
     expect(available.install).toHaveBeenCalledTimes(1);
+    expect(available.install).toHaveBeenCalledWith({ restartAfterInstall: false });
     expect(screen.getByText('100')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'dirty' }));
@@ -175,9 +193,75 @@ describe('signed update flow', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'enable' }));
     await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
-    await user.click(screen.getByRole('button', { name: 'install' }));
+    await user.click(screen.getByRole('button', { name: 'download' }));
     await waitFor(() => expect(screen.getByText('error')).toBeTruthy());
     expect(invalid.install).not.toHaveBeenCalled();
+  });
+
+  it('stops at downloaded when a draft becomes dirty during the download', async () => {
+    let finishDownload: () => void = () => undefined;
+    const available = candidate({
+      download: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishDownload = resolve;
+          }),
+      ),
+    });
+    renderUpdates(client(available), 'macos');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'enable' }));
+    await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
+    await user.click(screen.getByRole('button', { name: 'download' }));
+    await waitFor(() => expect(screen.getByText('downloading')).toBeTruthy());
+
+    await user.click(screen.getByRole('button', { name: 'dirty' }));
+    await act(async () => finishDownload());
+    await waitFor(() => expect(screen.getByText('downloaded')).toBeTruthy());
+    await user.click(screen.getByRole('button', { name: 'install' }));
+    expect(screen.getByText('downloaded')).toBeTruthy();
+    expect(available.install).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'clean' }));
+    await waitFor(() => expect(screen.getByText('ready')).toBeTruthy());
+    expect(available.install).toHaveBeenCalledTimes(1);
+  });
+
+  it('installs on macOS automatically once the download finishes with clean drafts', async () => {
+    const available = candidate();
+    renderUpdates(client(available), 'macos');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'enable' }));
+    await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
+    expect(screen.getByText('closes:false')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'download' }));
+    await waitFor(() => expect(screen.getByText('ready')).toBeTruthy());
+    expect(available.install).toHaveBeenCalledExactlyOnceWith({ restartAfterInstall: false });
+  });
+
+  it('never installs on Windows (NSIS) without a second, draft-safe call', async () => {
+    const available = candidate();
+    renderUpdates(client(available), 'nsis');
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'enable' }));
+    await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('closes:true')).toBeTruthy());
+    await user.click(screen.getByRole('button', { name: 'download' }));
+    await waitFor(() => expect(screen.getByText('downloaded')).toBeTruthy());
+    expect(available.install).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'dirty' }));
+    await user.click(screen.getByRole('button', { name: 'install' }));
+    expect(screen.getByText('downloaded')).toBeTruthy();
+    expect(available.install).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'clean' }));
+    expect(screen.getByText('downloaded')).toBeTruthy();
+    expect(available.install).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'install' }));
+    await waitFor(() =>
+      expect(available.install).toHaveBeenCalledExactlyOnceWith({ restartAfterInstall: true }),
+    );
   });
 
   it.each(['deb', 'rpm', 'msi'])(
@@ -189,7 +273,7 @@ describe('signed update flow', () => {
       await user.click(screen.getByRole('button', { name: 'enable' }));
       await waitFor(() => expect(screen.getByText('available')).toBeTruthy());
       expect(screen.getByText('false')).toBeTruthy();
-      await user.click(screen.getByRole('button', { name: 'install' }));
+      await user.click(screen.getByRole('button', { name: 'download' }));
       expect(screen.getByText('available')).toBeTruthy();
       expect(updateClient.check).toHaveBeenCalledTimes(1);
     },

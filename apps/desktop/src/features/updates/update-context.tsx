@@ -27,6 +27,7 @@ export type UpdateStatus =
   | 'noUpdate'
   | 'available'
   | 'downloading'
+  | 'downloaded'
   | 'installing'
   | 'ready'
   | 'error';
@@ -40,9 +41,12 @@ type UpdateValue = {
   downloadedBytes: number;
   totalBytes: number | null;
   restartBlocked: boolean;
+  /** Windows (NSIS) closes Charon to install, then the installer reopens it. */
+  closesToInstall: boolean;
   setEnabled(enabled: boolean): void;
   checkNow(): Promise<void>;
-  downloadAndInstall(): Promise<void>;
+  download(): Promise<void>;
+  install(): Promise<void>;
   restart(): Promise<void>;
 };
 
@@ -73,8 +77,17 @@ export function UpdateProvider({
   const workspace = useWorkspace();
   const native = useNativePreferences();
   const canSelfUpdate = !['deb', 'rpm', 'msi'].includes(native.preferences.installKind);
+  const closesToInstall = native.preferences.installKind === 'nsis';
   const [checksEnabled, setChecksEnabled] = useState(readEnabled);
-  const [status, setStatus] = useState<UpdateStatus>('idle');
+  const [status, updateStatus] = useState<UpdateStatus>('idle');
+  const statusRef = useRef<UpdateStatus>('idle');
+  const setStatus = useCallback((next: UpdateStatus) => {
+    statusRef.current = next;
+    updateStatus(next);
+  }, []);
+  // Drafts can become dirty while the update downloads; read them live before installing.
+  const draftsBlockedRef = useRef(workspace.isWorkspaceSwitchBlocked);
+  draftsBlockedRef.current = workspace.isWorkspaceSwitchBlocked;
   const [candidate, setCandidate] = useState<UpdateCandidate | null>(null);
   const [downloadedBytes, setDownloadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState<number | null>(null);
@@ -110,7 +123,7 @@ export function UpdateProvider({
       if (checkingRef.current === pending) checkingRef.current = null;
     });
     return pending;
-  }, [checksEnabled, client, enabled, replaceCandidate]);
+  }, [checksEnabled, client, enabled, replaceCandidate, setStatus]);
 
   useEffect(() => {
     if (!checksEnabled || !enabled || initialCheckRef.current) return;
@@ -139,12 +152,19 @@ export function UpdateProvider({
         setTotalBytes(null);
       }
     },
-    [replaceCandidate],
+    [replaceCandidate, setStatus],
   );
 
-  const downloadAndInstall = useCallback(async () => {
+  const download = useCallback(async () => {
     const update = candidateRef.current;
-    if (!update || !canSelfUpdate || workspace.isWorkspaceSwitchBlocked) return;
+    if (
+      !update ||
+      !canSelfUpdate ||
+      statusRef.current !== 'available' ||
+      draftsBlockedRef.current
+    ) {
+      return;
+    }
     setStatus('downloading');
     setDownloadedBytes(0);
     setTotalBytes(null);
@@ -158,13 +178,31 @@ export function UpdateProvider({
           setDownloadedBytes((current) => current + event.chunkBytes);
         }
       });
-      setStatus('installing');
-      await update.install();
-      setStatus('ready');
+      if (candidateRef.current === update) setStatus('downloaded');
     } catch {
-      setStatus('error');
+      if (candidateRef.current === update) setStatus('error');
     }
-  }, [canSelfUpdate, workspace.isWorkspaceSwitchBlocked]);
+  }, [canSelfUpdate, setStatus]);
+
+  // Installing can end the process on Windows, so drafts are re-checked right before it.
+  const install = useCallback(async () => {
+    const update = candidateRef.current;
+    if (!update || statusRef.current !== 'downloaded' || draftsBlockedRef.current) return;
+    setStatus('installing');
+    try {
+      await update.install({ restartAfterInstall: closesToInstall });
+      if (candidateRef.current === update) setStatus('ready');
+    } catch {
+      if (candidateRef.current === update) setStatus('error');
+    }
+  }, [closesToInstall, setStatus]);
+
+  // macOS and Linux install in place without exiting, so they continue on their own once every
+  // draft is safe. Windows waits for its explicit "Close and install".
+  useEffect(() => {
+    if (status !== 'downloaded' || closesToInstall || workspace.isWorkspaceSwitchBlocked) return;
+    void install();
+  }, [closesToInstall, install, status, workspace.isWorkspaceSwitchBlocked]);
 
   const restart = useCallback(async () => {
     if (status !== 'ready' || workspace.isWorkspaceSwitchBlocked) return;
@@ -173,7 +211,7 @@ export function UpdateProvider({
     } catch {
       setStatus('error');
     }
-  }, [client, status, workspace.isWorkspaceSwitchBlocked]);
+  }, [client, setStatus, status, workspace.isWorkspaceSwitchBlocked]);
 
   const value = useMemo<UpdateValue>(
     () => ({
@@ -185,9 +223,11 @@ export function UpdateProvider({
       downloadedBytes,
       totalBytes,
       restartBlocked: workspace.isWorkspaceSwitchBlocked,
+      closesToInstall,
       setEnabled,
       checkNow,
-      downloadAndInstall,
+      download,
+      install,
       restart,
     }),
     [
@@ -195,8 +235,10 @@ export function UpdateProvider({
       canSelfUpdate,
       checkNow,
       checksEnabled,
-      downloadAndInstall,
+      closesToInstall,
+      download,
       downloadedBytes,
+      install,
       restart,
       setEnabled,
       status,

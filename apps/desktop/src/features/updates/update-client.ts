@@ -6,11 +6,16 @@ export type UpdateProgress =
   | { type: 'progress'; chunkBytes: number }
   | { type: 'finished' };
 
+export type UpdateInstallOptions = {
+  /** Only the Windows NSIS installer uses it: it closes Charon, then reopens it (`/R`). */
+  restartAfterInstall: boolean;
+};
+
 export type UpdateCandidate = {
   version: string;
   notes: string;
   download(onProgress: (event: UpdateProgress) => void): Promise<void>;
-  install(): Promise<void>;
+  install(options: UpdateInstallOptions): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -37,7 +42,7 @@ export const tauriUpdateClient: UpdateClient = {
       version: update.version,
       notes: update.body?.trim() ?? '',
       download: (onProgress) => update.download((event) => onProgress(normalizeProgress(event))),
-      install: () => update.install({ restartAfterInstall: false }),
+      install: ({ restartAfterInstall }) => update.install({ restartAfterInstall }),
       close: () => update.close(),
     };
   },
