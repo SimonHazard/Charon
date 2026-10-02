@@ -19,6 +19,9 @@ pub struct MacosCaptureAdapter {
     callback: DoubleShiftCallback,
     gesture: Arc<Mutex<DoubleShiftGesture>>,
     listener: Option<MacosListener>,
+    /// The opt-in formatted capture (ADR 0026): the Copy fallback also reads
+    /// the HTML it produced. Direct Accessibility captures stay plain text.
+    rich: bool,
 }
 
 impl MacosCaptureAdapter {
@@ -27,6 +30,7 @@ impl MacosCaptureAdapter {
             callback,
             gesture: Arc::new(Mutex::new(DoubleShiftGesture::default())),
             listener: None,
+            rich: false,
         }
     }
 }
@@ -84,11 +88,20 @@ impl PlatformCapturePort for MacosCaptureAdapter {
             return Ok(CapturedSelection::default());
         }
 
+        let rich = self.rich;
         acquire_hybrid(accessibility::copy_selected_text, || {
             source_process
-                .map(pasteboard::capture_selection)
+                .map(|process| pasteboard::capture_selection(process, rich))
                 .unwrap_or_default()
         })
+    }
+
+    fn set_rich_capture(&mut self, enabled: bool) {
+        self.rich = enabled;
+    }
+
+    fn rich_capture_state(&self) -> CapabilityState {
+        CapabilityState::Experimental
     }
 
     fn reset_gesture(&mut self) {

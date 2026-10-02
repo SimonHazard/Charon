@@ -18,10 +18,22 @@ crate-type = ["rlib"]
 name = "Charon"
 path = "src/main.rs"
 
+# Size-focused release build (https://v2.tauri.app/concept/size/). Keep the
+# default unwinding panic strategy: worker threads are joined with
+# `let _ = thread.join()`, so a contained worker panic must not abort the app.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+
 [build-dependencies]
 tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
+# Formatted capture (ADR 0026) parses the Copy fallback's HTML with Servo's
+# spec-compliant parser, already in Cargo.lock through tauri-utils.
+html5ever = "=0.38.0"
 notify = "=8.2.0"
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
@@ -29,6 +41,7 @@ tauri = { version = "=2.11.5", features = [] }
 tauri-plugin-clipboard-manager = "=2.3.2"
 tauri-plugin-dialog = "=2.7.2"
 tauri-plugin-global-shortcut = "=2.3.2"
+tauri-plugin-notification = "=2.4.0"
 tauri-plugin-opener = "=2.5.5"
 tauri-plugin-process = "=2.3.1"
 tauri-plugin-single-instance = "=2.4.3"
@@ -40,6 +53,12 @@ uuid = { version = "=1.24.0", features = ["serde", "v4"] }
 
 [dev-dependencies]
 tempfile = "=3.27.0"
+
+# The opt-in background mode (ADR 0023) shows a tray icon on macOS and Windows
+# only. Linux builds never enable Tauri's tray, so no AppIndicator library is
+# compiled in or loaded there.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tauri = { version = "=2.11.5", features = ["tray-icon"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "=0.61.3", features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_UI_Accessibility", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }

@@ -118,6 +118,21 @@ fn capture_error_conversion_is_complete_and_content_free() {
             "capture_error_shortcut_unregistration",
         ),
         (
+            CaptureError::ShortcutReserved,
+            "shortcut_reserved",
+            "capture_error_shortcut_reserved",
+        ),
+        (
+            CaptureError::ShortcutNotConfigurable,
+            "shortcut_not_configurable",
+            "capture_error_shortcut_not_configurable",
+        ),
+        (
+            CaptureError::ShortcutConflict,
+            "shortcut_conflict",
+            "capture_error_shortcut_conflict",
+        ),
+        (
             CaptureError::ListenerUnavailable,
             "listener_unavailable",
             "capture_error_listener_unavailable",
@@ -242,6 +257,11 @@ fn preferences_error_conversion_is_complete_and_content_free() {
             PreferencesError::Encoding,
             "encoding",
             "preferences_error_encoding",
+        ),
+        (
+            PreferencesError::TrayUnavailable,
+            "tray_unavailable",
+            "preferences_error_tray_unavailable",
         ),
     ];
 
