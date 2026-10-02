@@ -9,10 +9,15 @@ import {
   useState,
 } from 'react';
 
+import {
+  type CaptureAcknowledgement,
+  useCaptureAcknowledgement,
+} from '@/app/capture-acknowledgement-context';
 import { useComposerFocus } from '@/app/composer-focus-context';
 import { useMessages } from '@/app/providers';
+import { useQuitRequest } from '@/app/quit-request-context';
 import { useWorkspace } from '@/app/workspace-context';
-import type { NoteDto, WorkspaceSnapshot } from '@/bindings/workspace';
+import type { NoteDto, NoteStatus, WorkspaceSnapshot } from '@/bindings/workspace';
 import { ShelfActions } from '@/components/shelf-chrome';
 import {
   AlertDialog,
@@ -35,8 +40,9 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/toast';
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
-import { NoteList } from '@/features/notes/note-list';
+import { NoteList, type NoteRevealRequest } from '@/features/notes/note-list';
 import { createNoteIndex, type NoteIndex } from '@/features/notes/search';
 import {
   asClipboardError,
@@ -46,6 +52,21 @@ import {
 import { tauriWorkspaceClient } from '@/lib/ipc/workspace-client';
 
 type AttachmentPicker = () => Promise<string[]>;
+
+/** How long a capture acknowledgement waits for a snapshot that contains its Note. */
+const ACKNOWLEDGEMENT_WAIT_MS = 5_000;
+/** How long the captured Note's row keeps its tint before it fades. */
+const ACKNOWLEDGEMENT_MARK_MS = 2_500;
+/** How long a search or Tag filter must settle before its result count is announced. */
+const SEARCH_COUNT_DELAY_MS = 300;
+
+const focusIsEditable = () => {
+  const active = document.activeElement;
+  return (
+    active instanceof HTMLElement &&
+    (active.isContentEditable || active.matches('input, textarea, select'))
+  );
+};
 
 const nativeAttachmentPicker: AttachmentPicker = () =>
   tauriWorkspaceClient.chooseAttachments?.() ?? Promise.resolve([]);
@@ -61,7 +82,9 @@ export function NoteScreen({
 }) {
   const m = useMessages();
   const composerFocus = useComposerFocus();
+  const { acknowledgement, consume: consumeAcknowledgement } = useCaptureAcknowledgement();
   const { executeWorkspaceCommand, refreshWorkspace, setWorkspaceSwitchBlocked } = useWorkspace();
+  const { registerQuitHandler } = useQuitRequest();
   const [query, setQuery] = useState('');
   const [tag, setTag] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -76,10 +99,14 @@ export function NoteScreen({
     message: string;
   } | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const [acknowledgedId, setAcknowledgedId] = useState<string | null>(null);
+  const [revealRequest, setRevealRequest] = useState<NoteRevealRequest | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<CaptureInputHandle>(null);
   const announcementTimerRef = useRef<number | null>(null);
   const copyTimerRef = useRef<number | null>(null);
+  const acknowledgementTimerRef = useRef<number | null>(null);
+  const acknowledgementRefreshRef = useRef<CaptureAcknowledgement | null>(null);
   const draftGuardRef = useRef<(() => Promise<boolean>) | null>(null);
   const registerDraftGuard = useCallback((guard: () => Promise<boolean>) => {
     draftGuardRef.current = guard;
@@ -94,14 +121,22 @@ export function NoteScreen({
   const index = indexRef.current;
   /** The first query of a session normalizes the corpus (~44 ms at 20k Notes); the field stays live while it runs. */
   const deferredQuery = useDeferredValue(query);
+  const matches = useMemo(
+    () => index.filter(snapshot.notes, { query: deferredQuery, tag }),
+    [deferredQuery, index, snapshot.notes, tag],
+  );
   const notes = useMemo(() => {
-    const matches = index.filter(snapshot.notes, { query: deferredQuery, tag });
     const editor = snapshot.notes.find((note) => note.id === expandedId);
     // Keep the open editor available until explicitly closed, even when a query changes.
     return editor && !matches.some((note) => note.id === editor.id)
       ? [editor, ...matches]
       : matches;
-  }, [deferredQuery, expandedId, index, snapshot.notes, tag]);
+  }, [expandedId, matches, snapshot.notes]);
+  /** The match count excludes the pinned editor; it is read when the count is announced. */
+  const matchCountRef = useRef(matches.length);
+  useEffect(() => {
+    matchCountRef.current = matches.length;
+  }, [matches.length]);
   const allTags = useMemo(() => index.tags(snapshot.notes), [index, snapshot.notes]);
   const announce = useCallback((text: string) => {
     if (announcementTimerRef.current !== null) {
@@ -122,14 +157,105 @@ export function NoteScreen({
       if (copyTimerRef.current !== null) {
         window.clearTimeout(copyTimerRef.current);
       }
+      if (acknowledgementTimerRef.current !== null) {
+        window.clearTimeout(acknowledgementTimerRef.current);
+      }
     },
     [],
   );
+
+  // A silent capture is acknowledged only here, once the user reveals the shelf. The status can
+  // arrive before the snapshot that contains the Note, so it waits for that snapshot. It never
+  // changes the search, pins the Note, shows the window, or moves focus.
+  useEffect(() => {
+    if (!acknowledgement) return;
+    const { noteId } = acknowledgement;
+    if (!snapshot.notes.some((note) => note.id === noteId)) {
+      if (acknowledgementRefreshRef.current !== acknowledgement) {
+        acknowledgementRefreshRef.current = acknowledgement;
+        void refreshWorkspace().catch(() => undefined);
+      }
+      const remaining = acknowledgement.at + ACKNOWLEDGEMENT_WAIT_MS - Date.now();
+      if (remaining <= 0) {
+        consumeAcknowledgement(acknowledgement);
+        return;
+      }
+      const timer = window.setTimeout(() => consumeAcknowledgement(acknowledgement), remaining);
+      return () => window.clearTimeout(timer);
+    }
+    consumeAcknowledgement(acknowledgement);
+    announce(m.capture_note_created());
+    // A Note the current search or Tag filter hides is only announced.
+    if (!notes.some((note) => note.id === noteId)) return;
+    setAcknowledgedId(noteId);
+    if (expandedId === null && !focusIsEditable()) setRevealRequest({ noteId });
+    if (acknowledgementTimerRef.current !== null) {
+      window.clearTimeout(acknowledgementTimerRef.current);
+    }
+    acknowledgementTimerRef.current = window.setTimeout(() => {
+      setAcknowledgedId((current) => (current === noteId ? null : current));
+      acknowledgementTimerRef.current = null;
+    }, ACKNOWLEDGEMENT_MARK_MS);
+  }, [
+    acknowledgement,
+    announce,
+    consumeAcknowledgement,
+    expandedId,
+    m,
+    notes,
+    refreshWorkspace,
+    snapshot.notes,
+  ]);
+
+  // Announce once the search settles. Only a query or Tag change restarts the count, so a Note
+  // added or deleted meanwhile keeps its own announcement in the shared live region.
+  useEffect(() => {
+    if (!deferredQuery.trim() && !tag) return;
+    const timer = window.setTimeout(
+      () => announce(m.note_search_results({ count: matchCountRef.current })),
+      SEARCH_COUNT_DELAY_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [announce, deferredQuery, m, tag]);
 
   useEffect(() => {
     setWorkspaceSwitchBlocked(editorDirty || composerDirty);
     return () => setWorkspaceSwitchBlocked(false);
   }, [composerDirty, editorDirty, setWorkspaceSwitchBlocked]);
+
+  const composerDirtyRef = useRef(composerDirty);
+  useEffect(() => {
+    composerDirtyRef.current = composerDirty;
+  }, [composerDirty]);
+
+  // An explicit Quit (tray or Preferences) never loses unsent text: the open editor saves
+  // first, and an unsaved drawing, a failed save, or composer text keeps Charon running,
+  // revealed, with the reason beside the text it protects.
+  useEffect(
+    () =>
+      registerQuitHandler(async () => {
+        const guard = draftGuardRef.current;
+        if (guard && !(await guard())) {
+          toast.add({
+            title: m.shell_quit_blocked_title(),
+            description: m.shell_quit_blocked_draft(),
+            type: 'warning',
+          });
+          return false;
+        }
+        if (composerDirtyRef.current) {
+          captureRef.current?.focus();
+          toast.add({
+            title: m.shell_quit_blocked_title(),
+            description: m.shell_quit_blocked_composer(),
+            type: 'warning',
+          });
+          return false;
+        }
+        return true;
+      }),
+    [m, registerQuitHandler],
+  );
 
   useLayoutEffect(() => {
     const pending = pendingDeleteFocusRef.current;
@@ -324,14 +450,9 @@ export function NoteScreen({
     [executeWorkspaceCommand],
   );
   const filterByTag = useCallback((value: string) => setTag(value), []);
-  const toggleNoteStatus = useCallback(
-    async (note: NoteDto) => {
-      const status = note.status === 'open' ? 'done' : 'open';
-      await executeWorkspaceCommand({
-        type: 'setNoteStatus',
-        noteId: note.id,
-        status,
-      });
+  const setNoteStatus = useCallback(
+    async (noteId: string, status: NoteStatus) => {
+      await executeWorkspaceCommand({ type: 'setNoteStatus', noteId, status });
       announce(status === 'done' ? m.note_marked_done() : m.note_marked_open());
     },
     [announce, executeWorkspaceCommand, m],
@@ -359,6 +480,18 @@ export function NoteScreen({
             autoComplete="off"
             name="noteSearch"
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (
+                event.key !== 'Escape' ||
+                event.nativeEvent.isComposing ||
+                event.nativeEvent.keyCode === 229 ||
+                !(query || tag)
+              )
+                return;
+              event.preventDefault();
+              event.stopPropagation();
+              clearSearch();
+            }}
             placeholder={m.note_search_placeholder()}
             ref={searchRef}
             value={query}
@@ -394,6 +527,7 @@ export function NoteScreen({
       </div>
       {notes.length ? (
         <NoteList
+          acknowledgedId={acknowledgedId}
           allTags={allTags}
           expandedId={expandedId}
           notes={notes}
@@ -410,8 +544,9 @@ export function NoteScreen({
           onSave={saveNote}
           onSetTags={setNoteTags}
           onTagFilter={filterByTag}
-          onToggleStatus={toggleNoteStatus}
+          onSetStatus={setNoteStatus}
           copyState={copyState}
+          revealRequest={revealRequest}
         />
       ) : (
         <Empty className="note-empty">

@@ -8,7 +8,7 @@ import { note } from '@/test/workspace-fixture';
 
 const callbacks = {
   onCopy: vi.fn().mockResolvedValue(undefined),
-  onToggleStatus: vi.fn().mockResolvedValue(undefined),
+  onSetStatus: vi.fn().mockResolvedValue(undefined),
   onExpand: vi.fn(),
   onFocusAttachments: vi.fn().mockResolvedValue(undefined),
   onCloseEditor: vi.fn(),
@@ -73,9 +73,9 @@ describe('virtual note list', () => {
         />
       </AppProviders>,
     );
-    expect(screen.getByRole('button', { name: 'Agent' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Research' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Local' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show notes tagged Agent' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show notes tagged Research' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Show notes tagged Local' })).toBeNull();
     expect(screen.getByText('+1')).toBeTruthy();
     expect(
       screen.getByText(/Status: Open\. Tags: Agent, Research, Local\. 1 attachment\. Files/),
@@ -145,6 +145,54 @@ describe('virtual note list', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
+  it('moves focus with Home, End, PageDown, and PageUp across virtual mounts', async () => {
+    const user = userEvent.setup();
+    // jsdom has no layout or scrolling; give the list a scroll range and let the virtualizer's
+    // scroll requests mount their target rows.
+    const clientHeight = vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    const scrollHeight = vi
+      .spyOn(Element.prototype, 'scrollHeight', 'get')
+      .mockImplementation(function (this: Element) {
+        const content = this.firstElementChild;
+        return content instanceof HTMLElement ? Number.parseFloat(content.style.height) || 0 : 0;
+      });
+    const scrollTo = vi.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (
+      this: HTMLElement,
+      options?: ScrollToOptions | number,
+    ) {
+      if (typeof options !== 'object' || options.top === undefined) return;
+      this.scrollTop = options.top;
+      this.dispatchEvent(new Event('scroll'));
+    });
+    const notes = Array.from({ length: 100 }, (_, index) =>
+      note({ id: `note-${index}`, body: `Note ${index}` }),
+    );
+    render(
+      <AppProviders>
+        <NoteList {...callbacks} allTags={[]} copyState={null} expandedId={null} notes={notes} />
+      </AppProviders>,
+    );
+    const focused = () => document.activeElement?.getAttribute('data-note-focus');
+    expect(document.querySelector('[data-note-focus="note-99"]')).toBeNull();
+    screen.getByRole('button', { name: 'Note 0' }).focus();
+    try {
+      await user.keyboard('{End}');
+      await waitFor(() => expect(focused()).toBe('note-99'));
+      await user.keyboard('{Home}');
+      await waitFor(() => expect(focused()).toBe('note-0'));
+      await user.keyboard('{PageDown}');
+      await waitFor(() => expect(focused()).toBe('note-10'));
+      await user.keyboard('{PageUp}');
+      await waitFor(() => expect(focused()).toBe('note-0'));
+      await user.keyboard('{PageUp}');
+      await waitFor(() => expect(focused()).toBe('note-0'));
+    } finally {
+      clientHeight.mockRestore();
+      scrollHeight.mockRestore();
+      scrollTo.mockRestore();
+    }
+  });
+
   it('keeps an expanded draft mounted outside the virtual range, including failed saves', async () => {
     const user = userEvent.setup();
     const notes = Array.from({ length: 100 }, (_, index) =>
@@ -194,5 +242,11 @@ describe('virtual note list', () => {
     row.focus();
     expect(fireEvent.keyDown(row, { key: 'ArrowDown', shiftKey: true })).toBe(true);
     expect(document.activeElement).toBe(row);
+    const textarea = screen.getByRole('textbox', { name: 'Markdown body' });
+    textarea.focus();
+    for (const key of ['Home', 'End', 'PageDown', 'PageUp']) {
+      expect(fireEvent.keyDown(textarea, { key })).toBe(true);
+      expect(document.activeElement).toBe(textarea);
+    }
   });
 });

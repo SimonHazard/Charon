@@ -1,11 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppProviders } from '@/app/providers';
 import type { WorkspaceCommand } from '@/bindings/workspace';
+import { toast } from '@/components/ui/toast';
+import { WorkspaceState } from '@/components/workspace-state';
 import { NoteScreen } from '@/features/notes/note-screen';
 import type { ClipboardClient } from '@/lib/ipc/clipboard-client';
+import { captureClients } from '@/test/capture-fixture';
+import { shellClients } from '@/test/shell-fixture';
 import { note, snapshot, workspaceClient } from '@/test/workspace-fixture';
 
 const current = snapshot([
@@ -43,6 +47,133 @@ function renderScreen(
     </AppProviders>,
   );
 }
+
+function renderCaptureScreen() {
+  const native = captureClients();
+  const composerReady = vi.spyOn(native.captureClient, 'composerReady');
+  const ui = (value: typeof current) => (
+    <AppProviders
+      captureClient={native.captureClient}
+      preferencesClient={native.preferencesClient}
+      workspaceClient={workspaceClient(current)}
+    >
+      <NoteScreen snapshot={value} />
+    </AppProviders>
+  );
+  const view = render(ui(current));
+  return {
+    ...native,
+    composerReady,
+    showSnapshot: (value: typeof current) => view.rerender(ui(value)),
+  };
+}
+
+const captured = note({
+  id: 'captured',
+  body: 'Captured selection',
+  createdAt: '2026-08-06T10:00:00.000Z',
+});
+const withCaptured = { ...current, revision: 2, notes: [captured, ...current.notes] };
+const liveRegion = () =>
+  document.querySelector<HTMLElement>('.note-screen > [aria-live="polite"]')?.textContent;
+const acknowledgedRows = () =>
+  Array.from(document.querySelectorAll<HTMLElement>('.note-row[data-acknowledged]')).map(
+    (row) => row.dataset.noteId,
+  );
+
+describe('captured Note acknowledgement', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+  });
+
+  it('waits for the snapshot that contains the Note, then announces, marks, and scrolls to it', async () => {
+    const scrollTo = vi.spyOn(HTMLElement.prototype, 'scrollTo');
+    const { emitStatus, composerReady, showSnapshot } = renderCaptureScreen();
+    await waitFor(() => expect(composerReady).toHaveBeenCalled());
+
+    act(() => emitStatus({ messageKey: 'capture_note_created', noteId: 'captured' }));
+    expect(liveRegion()).toBe('');
+    expect(acknowledgedRows()).toEqual([]);
+    expect(document.querySelector('[role="status"][data-slot="toast"]')).toBeNull();
+
+    scrollTo.mockClear();
+    showSnapshot(withCaptured);
+    await waitFor(() => expect(liveRegion()).toBe('Note captured.'));
+    expect(acknowledgedRows()).toEqual(['captured']);
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+    expect(screen.getByRole('textbox', { name: 'Search notes' })).toHaveProperty('value', '');
+  });
+
+  it('clears the row mark after 2.5 seconds', async () => {
+    const { emitStatus, composerReady, showSnapshot } = renderCaptureScreen();
+    await waitFor(() => expect(composerReady).toHaveBeenCalled());
+    vi.useFakeTimers();
+    try {
+      act(() => emitStatus({ messageKey: 'capture_note_created', noteId: 'captured' }));
+      showSnapshot(withCaptured);
+      expect(acknowledgedRows()).toEqual(['captured']);
+      act(() => vi.advanceTimersByTime(2_499));
+      expect(acknowledgedRows()).toEqual(['captured']);
+      act(() => vi.advanceTimersByTime(1));
+      expect(acknowledgedRows()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('drops an acknowledgement whose Note never appears within 5 seconds', async () => {
+    const { emitStatus, composerReady, showSnapshot } = renderCaptureScreen();
+    await waitFor(() => expect(composerReady).toHaveBeenCalled());
+    vi.useFakeTimers();
+    try {
+      act(() => emitStatus({ messageKey: 'capture_note_created', noteId: 'captured' }));
+      act(() => vi.advanceTimersByTime(5_000));
+      showSnapshot(withCaptured);
+      expect(liveRegion()).toBe('');
+      expect(acknowledgedRows()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('only announces a Note that the current search hides, and keeps the search', async () => {
+    const user = userEvent.setup();
+    const scrollTo = vi.spyOn(HTMLElement.prototype, 'scrollTo');
+    const { emitStatus, composerReady, showSnapshot } = renderCaptureScreen();
+    await waitFor(() => expect(composerReady).toHaveBeenCalled());
+    const search = screen.getByRole('textbox', { name: 'Search notes' });
+    await user.type(search, 'Alpha');
+    await waitFor(() => expect(screen.queryByText('Completed note')).toBeNull());
+    search.blur();
+    showSnapshot(withCaptured);
+
+    scrollTo.mockClear();
+    act(() => emitStatus({ messageKey: 'capture_note_created', noteId: 'captured' }));
+    await waitFor(() => expect(liveRegion()).toBe('Note captured.'));
+    expect(acknowledgedRows()).toEqual([]);
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(search).toHaveProperty('value', 'Alpha');
+    expect(screen.queryByText('Captured selection')).toBeNull();
+  });
+
+  it('marks without scrolling while the user types in the composer', async () => {
+    const user = userEvent.setup();
+    const scrollTo = vi.spyOn(HTMLElement.prototype, 'scrollTo');
+    const { emitStatus, composerReady, showSnapshot } = renderCaptureScreen();
+    await waitFor(() => expect(composerReady).toHaveBeenCalled());
+    const composer = screen.getByRole('textbox', { name: 'Capture a note' });
+    await user.type(composer, 'Draft');
+    showSnapshot(withCaptured);
+
+    scrollTo.mockClear();
+    act(() => emitStatus({ messageKey: 'capture_note_created', noteId: 'captured' }));
+    await waitFor(() => expect(acknowledgedRows()).toEqual(['captured']));
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(composer);
+    expect(composer).toHaveProperty('value', 'Draft');
+  });
+});
 
 describe('single note shelf', () => {
   beforeEach(() => {
@@ -90,9 +221,80 @@ describe('single note shelf', () => {
     expect(await screen.findByText('Attachment note')).toBeTruthy();
     expect(screen.queryByText('Alpha')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Clear search and tag filter' }));
-    await user.click(screen.getByRole('button', { name: 'Agent' }));
+    await user.click(screen.getByRole('button', { name: 'Show notes tagged Agent' }));
     expect(screen.getByText('Alpha')).toBeTruthy();
     expect(screen.queryByText('Attachment note')).toBeNull();
+  });
+
+  it('clears the query and Tag filter on Escape and keeps focus in search', async () => {
+    const user = userEvent.setup();
+    renderScreen();
+    const search = screen.getByRole('textbox', { name: 'Search notes' }) as HTMLInputElement;
+    search.focus();
+    // With nothing to clear, Escape is left alone.
+    expect(fireEvent.keyDown(search, { key: 'Escape' })).toBe(true);
+
+    await user.click(screen.getByRole('button', { name: 'Show notes tagged Agent' }));
+    await user.type(search, 'alpha');
+    expect(document.querySelector('.active-tag-filter')).not.toBeNull();
+    expect(screen.queryByText('Completed note')).toBeNull();
+
+    await user.keyboard('{Escape}');
+    expect(search.value).toBe('');
+    expect(document.querySelector('.active-tag-filter')).toBeNull();
+    expect(document.activeElement).toBe(search);
+    expect(await screen.findByText('Completed note')).toBeTruthy();
+  });
+
+  it('announces the settled match count once, 300 ms after the search changes', () => {
+    vi.useFakeTimers();
+    try {
+      renderScreen();
+      const search = screen.getByRole('textbox', { name: 'Search notes' });
+      fireEvent.change(search, { target: { value: 'n' } });
+      act(() => vi.advanceTimersByTime(200));
+      fireEvent.change(search, { target: { value: 'not' } });
+      act(() => vi.advanceTimersByTime(200));
+      fireEvent.change(search, { target: { value: 'note' } });
+      act(() => vi.advanceTimersByTime(299));
+      expect(liveRegion()).toBe('');
+      act(() => vi.advanceTimersByTime(1));
+      expect(liveRegion()).toBe('2 matching notes');
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(liveRegion()).toBe('');
+
+      fireEvent.change(search, { target: { value: 'brief.pdf' } });
+      act(() => vi.advanceTimersByTime(300));
+      expect(liveRegion()).toBe('1 matching note');
+
+      // Clearing the search announces nothing new.
+      act(() => vi.advanceTimersByTime(3_000));
+      fireEvent.change(search, { target: { value: '' } });
+      act(() => vi.advanceTimersByTime(1_000));
+      expect(liveRegion()).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps the deletion announcement while a search is active', async () => {
+    const user = userEvent.setup();
+    render(
+      <AppProviders workspaceClient={workspaceClient(current)}>
+        <WorkspaceState>{(value) => <NoteScreen snapshot={value} />}</WorkspaceState>
+      </AppProviders>,
+    );
+    const search = await screen.findByRole('textbox', { name: 'Search notes' });
+    await user.type(search, 'note');
+    await waitFor(() => expect(liveRegion()).toBe('2 matching notes'));
+
+    await user.click(screen.getByRole('button', { name: 'Delete Attachment note' }));
+    await user.click(screen.getByRole('button', { name: 'Delete permanently' }));
+    await waitFor(() => expect(screen.queryByText('Attachment note')).toBeNull());
+    await waitFor(() => expect(liveRegion()).toBe('Note deleted.'));
+    // The smaller match count never replaces the deletion result.
+    await new Promise((resolve) => window.setTimeout(resolve, 400));
+    expect(liveRegion()).toBe('Note deleted.');
   });
 
   it('keeps search first, then the unified list and solid composer', () => {
@@ -151,19 +353,27 @@ describe('single note shelf', () => {
     expect(screen.queryByText(/\/Users\//)).toBeNull();
   });
 
-  it('clears copied row feedback after its transient window', async () => {
+  it('confirms a copy in place and clears it after its transient window', async () => {
     vi.useFakeTimers();
-    const composeAndWrite = vi
-      .fn()
-      .mockResolvedValue({ tagCount: 1, attachmentCount: 0, byteCount: 24 });
-    renderScreen({ clipboardClient: { composeAndWrite } });
+    try {
+      const composeAndWrite = vi
+        .fn()
+        .mockResolvedValue({ tagCount: 1, attachmentCount: 0, byteCount: 24 });
+      renderScreen({ clipboardClient: { composeAndWrite } });
+      const copy = screen.getByRole('button', { name: 'Copy Alpha as Markdown' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Alpha as Markdown' }));
-    await act(async () => Promise.resolve());
-    expect(document.querySelector('.note-copy-state')?.textContent).toBe('Copied');
-    act(() => vi.advanceTimersByTime(2_500));
-    expect(document.querySelector('.note-copy-state')).toBeNull();
-    vi.useRealTimers();
+      fireEvent.click(copy);
+      await act(async () => Promise.resolve());
+      expect(document.querySelector('.note-copy-button[data-copied]')).toBe(copy);
+      expect(document.querySelector('.inline-success, .note-copy-state')).toBeNull();
+      expect(document.querySelector('.note-screen > [role="status"]')?.textContent).toBe('Copied');
+      act(() => vi.advanceTimersByTime(2_499));
+      expect(copy.hasAttribute('data-copied')).toBe(true);
+      act(() => vi.advanceTimersByTime(1));
+      expect(document.querySelector('.note-copy-button[data-copied]')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps a failed per-Note copy contextual without changing the Note', async () => {
@@ -269,5 +479,107 @@ describe('single note shelf', () => {
     expect(screen.getByRole('alertdialog')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+});
+
+describe('draft-safe Quit', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function renderQuitScreen(onCommand?: (command: WorkspaceCommand) => void | Promise<void>) {
+    const shell = shellClients();
+    render(
+      <AppProviders
+        shellClient={shell.shellClient}
+        workspaceClient={workspaceClient(current, onCommand)}
+      >
+        <NoteScreen snapshot={current} />
+      </AppProviders>,
+    );
+    await waitFor(() => expect(shell.shellClient.setLabels).toHaveBeenCalled());
+    return shell;
+  }
+
+  it('quits from the tray when nothing is unsent', async () => {
+    const { shellClient, requestQuit } = await renderQuitScreen();
+
+    act(() => requestQuit());
+    await waitFor(() => expect(shellClient.quit).toHaveBeenCalledTimes(1));
+    expect(shellClient.cancelQuit).not.toHaveBeenCalled();
+  });
+
+  it('saves the open note before quitting', async () => {
+    const user = userEvent.setup();
+    const commands: WorkspaceCommand[] = [];
+    const { shellClient, requestQuit } = await renderQuitScreen((command) => {
+      commands.push(command);
+    });
+    await user.click(screen.getByRole('button', { name: 'Edit Alpha' }));
+    const textarea = await screen.findByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Saved before quitting');
+
+    act(() => requestQuit());
+    await waitFor(() => expect(shellClient.quit).toHaveBeenCalledTimes(1));
+    expect(commands).toContainEqual(
+      expect.objectContaining({
+        type: 'updateNote',
+        noteId: 'alpha',
+        body: 'Saved before quitting',
+      }),
+    );
+    expect(shellClient.cancelQuit).not.toHaveBeenCalled();
+  });
+
+  it('keeps Charon running with unsent composer text and says why beside it', async () => {
+    const user = userEvent.setup();
+    const add = vi.spyOn(toast, 'add');
+    const { shellClient, requestQuit } = await renderQuitScreen();
+    const composer = screen.getByRole('textbox', { name: 'Capture a note' });
+    await user.type(composer, 'Unsent thought');
+    await user.click(screen.getByRole('textbox', { name: 'Search notes' }));
+
+    act(() => requestQuit());
+    await waitFor(() => expect(shellClient.cancelQuit).toHaveBeenCalledTimes(1));
+    expect(shellClient.quit).not.toHaveBeenCalled();
+    expect(add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: 'Add or clear the note you are writing before quitting.',
+        type: 'warning',
+      }),
+    );
+    expect(document.activeElement).toBe(composer);
+    expect(composer).toHaveProperty('value', 'Unsent thought');
+  });
+
+  it('keeps Charon running when the open note cannot be saved', async () => {
+    const user = userEvent.setup();
+    const add = vi.spyOn(toast, 'add');
+    const { shellClient, requestQuit } = await renderQuitScreen((command) => {
+      if (command.type === 'updateNote') throw new Error('unavailable');
+    });
+    await user.click(screen.getByRole('button', { name: 'Edit Alpha' }));
+    const textarea = await screen.findByRole('textbox', { name: 'Markdown body' });
+    await user.clear(textarea);
+    await user.type(textarea, 'Not saved yet');
+
+    act(() => requestQuit());
+    await waitFor(() => expect(shellClient.cancelQuit).toHaveBeenCalledTimes(1));
+    expect(shellClient.quit).not.toHaveBeenCalled();
+    expect(add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: 'Finish saving the open note or drawing before quitting.',
+      }),
+    );
+    expect(screen.getByRole('textbox', { name: 'Markdown body' })).toHaveProperty(
+      'value',
+      'Not saved yet',
+    );
   });
 });
