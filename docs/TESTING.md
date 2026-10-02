@@ -22,9 +22,10 @@ safety, and complete release assets.
 The release gate builds both apps before scanning their production output for
 privacy violations. Workflow regression tests reject a missing or late build,
 a non-Apple-Silicon macOS runner, a macOS artifact that does not match the
-arm64 updater target, an ad-hoc macOS release identity, Tauri
-certificate-import variables, and a missing designated-requirement check
-before upload. Quality runs these checks on each pull request before the
+arm64 updater target, a macOS release identity other than ad-hoc, Apple
+credential or certificate secrets, a missing ad-hoc signature check before
+upload, a Linux build on a newer base than ubuntu-22.04, and a missing glibc
+baseline check. Quality runs these checks on each pull request before the
 release workflow can start.
 
 Quality runs for pull requests and remains manually dispatchable; Security
@@ -58,7 +59,13 @@ Pure and mocked tests cover boundaries that could lose data or violate privacy:
   deletion, managed Attachments, and path containment;
 - double-Shift gesture timing, duplicate suppression, permission denial, bounded
   acquisition, clipboard ownership, and no-Paste behavior;
+- the formatted-capture HTML-to-Markdown converter and the transaction order
+  (read string, read HTML, restore, convert);
+- the capture-notification rate limit;
 - deterministic `Copy as Markdown` output;
+- the IPC boundary: a check that keeps `generate_handler!`, the build manifest,
+  and the capability in step, and a contract test that each client sends
+  exactly the Rust argument keys;
 - updater disabled/no-update/available/error states, signature enforcement, and
   dirty-draft restart deferral;
 - cross-manifest version consistency and complete release-asset metadata.
@@ -93,7 +100,9 @@ These explicitly ignored tests use an isolated display/bus, never the operator's
 clipboard or accessibility session. X11 cases exercise real selection requests;
 D-Bus cases supply controlled AT-SPI and portal providers. The ordinary suite
 also tests the single-flight selection deadline, experimental capabilities,
-platform shortcut registration, listener failure, and gesture state machine.
+platform shortcut registration, composer-shortcut validation, its
+register-before-release order and launch fallback (ADR 0025), listener
+failure, and gesture state machine.
 Quality compiles and clippy-checks the Rust core on Linux, macOS, and Windows
 on every pull request with the pinned Rust toolchain. Physical OS matrices remain
 non-gating under ADR 0016. Compiling and unit-testing on hosted runners does

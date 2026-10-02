@@ -64,6 +64,30 @@ describe('release workflow regression checks', () => {
     expect(result.stderr).toContain('missing release contract os: macos-15');
   });
 
+  test('rejects building Linux artifacts on a newer glibc base than ubuntu-22.04', async () => {
+    const result = await check(
+      originalRelease.replace(
+        'os: ubuntu-22.04\n            artifact: linux-x86_64',
+        'os: ubuntu-24.04\n            artifact: linux-x86_64',
+      ),
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('missing release contract os: ubuntu-22.04');
+  });
+
+  test('requires the Linux glibc baseline check', async () => {
+    const result = await check(
+      originalRelease.replace(
+        'name: Verify the Linux glibc baseline',
+        'name: Report the Linux glibc version',
+      ),
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain(
+      'missing release contract name: Verify the Linux glibc baseline',
+    );
+  });
+
   test('forwards --locked to Cargo after Tauri build options', async () => {
     const result = await check(
       originalRelease.replace(
@@ -75,39 +99,42 @@ describe('release workflow regression checks', () => {
     expect(result.stderr).toContain('missing release contract run: bun run --cwd apps/desktop');
   });
 
-  test('rejects an ad-hoc macOS release identity', async () => {
+  test('rejects a macOS release identity other than ad-hoc', async () => {
     const result = await check(
       originalRelease.replace(
-        'APPLE_SIGNING_IDENTITY: $' + '{{ env.MACOS_SIGNING_IDENTITY }}',
         "APPLE_SIGNING_IDENTITY: '-'",
+        'APPLE_SIGNING_IDENTITY: Charon Release Signing',
       ),
     );
     expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain("Apple credential APPLE_SIGNING_IDENTITY: '-'");
+    expect(result.stderr).toContain("missing release contract APPLE_SIGNING_IDENTITY: '-'");
   });
 
-  test('rejects Tauri certificate import variables for the self-signed identity', async () => {
-    const result = await check(
-      originalRelease.replace(
-        '          MACOS_SIGNING_P12: $' + '{{ secrets.MACOS_SIGNING_P12 }}\n',
-        '          MACOS_SIGNING_P12: $' +
-          '{{ secrets.MACOS_SIGNING_P12 }}\n          APPLE_CERTIFICATE: $' +
-          '{{ secrets.MACOS_SIGNING_P12 }}\n',
-      ),
-    );
-    expect(result.exitCode).not.toBe(0);
-    expect(result.stderr).toContain('Apple credential APPLE_CERTIFICATE');
+  test('rejects Apple certificate and self-signed certificate secrets', async () => {
+    for (const secret of ['APPLE_CERTIFICATE', 'MACOS_SIGNING_P12']) {
+      const result = await check(
+        originalRelease.replace(
+          "          APPLE_SIGNING_IDENTITY: '-'\n",
+          "          APPLE_SIGNING_IDENTITY: '-'\n          " +
+            secret +
+            ': $' +
+            '{{ secrets.' +
+            secret +
+            ' }}\n',
+        ),
+      );
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain(`Apple credential ${secret}`);
+    }
   });
 
-  test('requires the designated requirement check before upload', async () => {
-    const start = originalRelease.indexOf(
-      '      - name: Verify the stable macOS designated requirement\n',
-    );
+  test('requires the ad-hoc signature check before upload', async () => {
+    const start = originalRelease.indexOf('      - name: Verify the macOS ad-hoc signature\n');
     const end = originalRelease.indexOf('      - uses: actions/upload-artifact@', start);
     const result = await check(originalRelease.slice(0, start) + originalRelease.slice(end));
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr).toContain(
-      'macOS must import the stable identity, build, then verify its requirement before upload',
+      'macOS must build, then verify its ad-hoc signature before upload',
     );
   });
 

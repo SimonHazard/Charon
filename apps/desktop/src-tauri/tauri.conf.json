@@ -8,7 +8,8 @@
     "frontendDist": "../dist",
     "devUrl": "http://127.0.0.1:1420",
     "beforeDevCommand": "bun run dev",
-    "beforeBuildCommand": "bun run build"
+    "beforeBuildCommand": "bun run build",
+    "removeUnusedCommands": true
   },
   "app": {
     "windows": [
@@ -21,6 +22,7 @@
         "minHeight": 480,
         "resizable": true,
         "fullscreen": false,
+        "visible": false,
         "backgroundColor": "#ebeae8"
       }
     ],
