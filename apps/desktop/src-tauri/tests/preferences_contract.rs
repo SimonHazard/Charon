@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use charon_desktop_lib::preferences::{InstallKind, PreferencesIpcError, PreferencesSnapshot};
+use charon_desktop_lib::preferences::{
+    InstallKind, NativeLabels, PreferencesIpcError, PreferencesSnapshot, TrayAvailability,
+};
 use ts_rs::{Config, TS};
 
 #[test]
@@ -11,7 +13,9 @@ fn export_preferences_bindings() {
     let config = Config::default();
     let declarations = [
         InstallKind::decl(&config),
+        TrayAvailability::decl(&config),
         PreferencesSnapshot::decl(&config),
+        NativeLabels::decl(&config),
         PreferencesIpcError::decl(&config),
     ]
     .map(|declaration| format!("export {declaration}"))
