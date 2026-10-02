@@ -89,13 +89,13 @@ describe('workspace command queue', () => {
     expect(seen[1]?.expectedRevision).toBe(2);
   });
 
-  it('opens the folder returned by the native chooser and applies its snapshot', async () => {
+  it('opens the folder token returned by the native chooser and applies its snapshot', async () => {
     const user = userEvent.setup();
     const initial = snapshot();
     const selected = { ...snapshot(), workspaceId: 'selected-workspace' };
     const client: WorkspaceClient = {
       snapshot: vi.fn().mockResolvedValue(initial),
-      chooseDirectory: vi.fn().mockResolvedValue('/synthetic/selected'),
+      chooseDirectory: vi.fn().mockResolvedValue({ token: 'synthetic-folder-token' }),
       openOrCreate: vi.fn().mockResolvedValue(selected),
       subscribe: async () => () => undefined,
     };
@@ -106,7 +106,9 @@ describe('workspace command queue', () => {
     );
     const button = await screen.findByRole('button', { name: initial.workspaceId });
     await user.click(button);
-    await waitFor(() => expect(client.openOrCreate).toHaveBeenCalledWith('/synthetic/selected'));
+    await waitFor(() =>
+      expect(client.openOrCreate).toHaveBeenCalledWith({ token: 'synthetic-folder-token' }),
+    );
     expect(await screen.findByRole('button', { name: 'selected-workspace' })).toBeTruthy();
   });
 

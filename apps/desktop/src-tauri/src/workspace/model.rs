@@ -170,6 +170,15 @@ pub struct WorkspaceChangedEvent {
     pub origin: WorkspaceEventOrigin,
 }
 
+/// A folder picked in the native dialog. React receives only this single-use
+/// token, never the path, and hands it back to open or create the Workspace.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct WorkspaceFolderChoice {
+    pub token: String,
+}
+
 impl PersistedManifest {
     pub(crate) fn empty(workspace_id: String) -> Self {
         Self {

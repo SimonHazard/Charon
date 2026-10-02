@@ -9,22 +9,28 @@ use tauri_plugin_dialog::DialogExt;
 
 use crate::workspace::{
     Workspace, WorkspaceCommand, WorkspaceCommandResult, WorkspaceEventOrigin,
-    WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
+    WorkspaceFolderChoice, WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceIpcError,
+    WorkspaceSnapshot,
 };
 
 #[derive(Default)]
 pub struct WorkspaceRuntime {
     current: Mutex<Option<Workspace>>,
     switching: Mutex<()>,
-    attachment_sources: Mutex<HashMap<String, PendingAttachmentSource>>,
+    attachment_sources: PickedSources,
+    folder_sources: PickedSources,
 }
 
-struct PendingAttachmentSource {
+/// Paths picked in a native dialog, each named by a single-use, short-lived
+/// token so React never sends a filesystem path back to Rust.
+type PickedSources = Mutex<HashMap<String, PickedSource>>;
+
+struct PickedSource {
     path: PathBuf,
     expires_at: Instant,
 }
 
-const ATTACHMENT_SOURCE_TTL: Duration = Duration::from_secs(5 * 60);
+const PICKED_SOURCE_TTL: Duration = Duration::from_secs(5 * 60);
 
 #[tauri::command]
 pub async fn workspace_choose_attachments(
@@ -35,22 +41,26 @@ pub async fn workspace_choose_attachments(
         let _ = sender.blocking_send(selection);
     });
     let paths = selected_attachment_paths(receiver.recv().await.flatten())?;
-    register_attachment_sources(
-        &app.state::<WorkspaceRuntime>(),
-        paths,
-        ATTACHMENT_SOURCE_TTL,
-    )
+    register_attachment_sources(&app.state::<WorkspaceRuntime>(), paths, PICKED_SOURCE_TTL)
 }
 
 #[tauri::command]
 pub async fn workspace_choose_directory(
     app: AppHandle,
-) -> Result<Option<String>, WorkspaceIpcError> {
+) -> Result<Option<WorkspaceFolderChoice>, WorkspaceIpcError> {
     let (sender, mut receiver) = tauri::async_runtime::channel(1);
     app.dialog().file().pick_folder(move |selection| {
         let _ = sender.blocking_send(selection);
     });
-    selected_folder_path(receiver.recv().await.flatten())
+    selected_folder_path(receiver.recv().await.flatten())?
+        .map(|path| {
+            register_folder_source(
+                &app.state::<WorkspaceRuntime>(),
+                PathBuf::from(path),
+                PICKED_SOURCE_TTL,
+            )
+        })
+        .transpose()
 }
 
 fn selected_folder_path(
@@ -82,36 +92,32 @@ fn selected_attachment_paths(
         .collect()
 }
 
-fn register_attachment_sources(
-    runtime: &WorkspaceRuntime,
+fn register_sources(
+    sources: &PickedSources,
     paths: Vec<PathBuf>,
     ttl: Duration,
 ) -> Result<Vec<String>, WorkspaceIpcError> {
     let now = Instant::now();
-    let mut sources = runtime
-        .attachment_sources
-        .lock()
-        .map_err(|_| runtime_lock_error())?;
+    let mut sources = sources.lock().map_err(|_| runtime_lock_error())?;
     sources.retain(|_, source| source.expires_at > now);
     let expires_at = now + ttl;
     let mut tokens = Vec::with_capacity(paths.len());
     for path in paths {
         let token = uuid::Uuid::new_v4().to_string();
-        sources.insert(token.clone(), PendingAttachmentSource { path, expires_at });
+        sources.insert(token.clone(), PickedSource { path, expires_at });
         tokens.push(token);
     }
     Ok(tokens)
 }
 
-fn consume_attachment_sources(
-    runtime: &WorkspaceRuntime,
+/// Removes every token at once, or none: an unknown, expired, or repeated
+/// token rejects the whole request.
+fn consume_sources(
+    sources: &PickedSources,
     tokens: &[String],
-) -> Result<Vec<String>, WorkspaceIpcError> {
+) -> Result<Vec<PathBuf>, WorkspaceIpcError> {
     let now = Instant::now();
-    let mut sources = runtime
-        .attachment_sources
-        .lock()
-        .map_err(|_| runtime_lock_error())?;
+    let mut sources = sources.lock().map_err(|_| runtime_lock_error())?;
     sources.retain(|_, source| source.expires_at > now);
     let unique = tokens.iter().collect::<HashSet<_>>();
     if unique.len() != tokens.len() || tokens.iter().any(|token| !sources.contains_key(token)) {
@@ -120,25 +126,65 @@ fn consume_attachment_sources(
     tokens
         .iter()
         .map(|token| {
-            let source = sources
+            sources
                 .remove(token)
-                .ok_or(crate::workspace::WorkspaceError::InvalidPath)?;
-            source
-                .path
-                .into_os_string()
+                .map(|source| source.path)
+                .ok_or_else(|| crate::workspace::WorkspaceError::InvalidPath.into())
+        })
+        .collect()
+}
+
+fn register_attachment_sources(
+    runtime: &WorkspaceRuntime,
+    paths: Vec<PathBuf>,
+    ttl: Duration,
+) -> Result<Vec<String>, WorkspaceIpcError> {
+    register_sources(&runtime.attachment_sources, paths, ttl)
+}
+
+fn consume_attachment_sources(
+    runtime: &WorkspaceRuntime,
+    tokens: &[String],
+) -> Result<Vec<String>, WorkspaceIpcError> {
+    consume_sources(&runtime.attachment_sources, tokens)?
+        .into_iter()
+        .map(|path| {
+            path.into_os_string()
                 .into_string()
                 .map_err(|_| crate::workspace::WorkspaceError::InvalidPath.into())
         })
         .collect()
 }
 
+fn register_folder_source(
+    runtime: &WorkspaceRuntime,
+    path: PathBuf,
+    ttl: Duration,
+) -> Result<WorkspaceFolderChoice, WorkspaceIpcError> {
+    let token = register_sources(&runtime.folder_sources, vec![path], ttl)?
+        .pop()
+        .ok_or(crate::workspace::WorkspaceError::InvalidPath)?;
+    Ok(WorkspaceFolderChoice { token })
+}
+
+fn consume_folder_source(
+    runtime: &WorkspaceRuntime,
+    token: String,
+) -> Result<PathBuf, WorkspaceIpcError> {
+    consume_sources(&runtime.folder_sources, &[token])?
+        .pop()
+        .ok_or_else(|| crate::workspace::WorkspaceError::InvalidPath.into())
+}
+
+/// Opens or creates the Workspace in a folder picked by
+/// `workspace_choose_directory`; React can name it only by that token.
 #[tauri::command(async)]
 pub fn workspace_open_or_create(
     app: AppHandle,
-    path: String,
+    token: String,
     runtime: State<'_, WorkspaceRuntime>,
 ) -> Result<WorkspaceSnapshot, WorkspaceIpcError> {
-    let path = PathBuf::from(path);
+    let path = consume_folder_source(&runtime, token)?;
     replace_workspace_remembering(&runtime, open_or_create_workspace(&path)?, || {
         remember_workspace(&app, &path)
     })
@@ -373,11 +419,22 @@ pub(crate) fn with_workspace<T>(
     result
 }
 
+/// What one selected-text capture did to the active Workspace.
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) enum CaptureNoteOutcome {
+    /// One Note was created; carries its random id, never its body.
+    Created(String),
+    /// The selection was whitespace only, so nothing was written.
+    Empty,
+    /// No Workspace is open, so nothing was written.
+    WorkspaceClosed,
+}
+
 pub(crate) fn create_capture_note(
     app: &AppHandle,
     runtime: &State<'_, WorkspaceRuntime>,
     body: String,
-) -> Result<bool, WorkspaceIpcError> {
+) -> Result<CaptureNoteOutcome, WorkspaceIpcError> {
     let mut current = runtime.current.lock().map_err(|_| WorkspaceIpcError {
         code: "runtime_lock".to_owned(),
         message_key: "workspace_error_runtime_lock".to_owned(),
@@ -386,7 +443,7 @@ pub(crate) fn create_capture_note(
         recovery_location: None,
     })?;
     let Some(workspace) = current.as_mut() else {
-        return Ok(false);
+        return Ok(CaptureNoteOutcome::WorkspaceClosed);
     };
     let result = execute_capture_note(workspace, body).map_err(WorkspaceIpcError::from);
     emit_pending(app, workspace);
@@ -396,16 +453,27 @@ pub(crate) fn create_capture_note(
 fn execute_capture_note(
     workspace: &mut Workspace,
     body: String,
-) -> Result<bool, crate::workspace::WorkspaceError> {
+) -> Result<CaptureNoteOutcome, crate::workspace::WorkspaceError> {
     if body.trim().is_empty() {
-        return Ok(false);
+        return Ok(CaptureNoteOutcome::Empty);
     }
-    let snapshot = workspace.snapshot()?;
-    workspace.execute(WorkspaceCommand::CreateNote {
-        expected_revision: snapshot.revision,
+    let before = workspace.snapshot()?;
+    let known: HashSet<String> = before.notes.into_iter().map(|note| note.id).collect();
+    let result = workspace.execute(WorkspaceCommand::CreateNote {
+        expected_revision: before.revision,
         body,
     })?;
-    Ok(true)
+    // CreateNote adds exactly one Note under the held runtime lock, so the
+    // snapshot diff names it. Should it ever not, stay silent rather than
+    // report a failure for a Note that was saved.
+    Ok(result
+        .snapshot
+        .notes
+        .into_iter()
+        .find(|note| !known.contains(&note.id))
+        .map_or(CaptureNoteOutcome::Empty, |note| {
+            CaptureNoteOutcome::Created(note.id)
+        }))
 }
 
 fn emit_pending(app: &AppHandle, workspace: &mut Workspace) {
@@ -423,13 +491,15 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        consume_attachment_sources, execute_capture_note, open_or_create_workspace,
-        register_attachment_sources, replace_workspace_remembering, resolve_default_workspace_path,
-        selected_attachment_paths, selected_folder_path, validate_candidate,
-        workspace_choose_directory, WorkspaceRuntime,
+        consume_attachment_sources, consume_folder_source, execute_capture_note,
+        open_or_create_workspace, register_attachment_sources, register_folder_source,
+        replace_workspace_remembering, resolve_default_workspace_path, selected_attachment_paths,
+        selected_folder_path, validate_candidate, workspace_choose_directory, CaptureNoteOutcome,
+        WorkspaceRuntime,
     };
     use crate::workspace::{
-        Workspace, WorkspaceCommand, WorkspaceHealthIssueKind, WorkspaceIpcError,
+        Workspace, WorkspaceCommand, WorkspaceFolderChoice, WorkspaceHealthIssueKind,
+        WorkspaceIpcError,
     };
     use tempfile::tempdir;
 
@@ -522,22 +592,47 @@ mod tests {
     }
 
     #[test]
-    fn capture_note_creates_one_flat_note_with_exact_body() {
+    fn capture_note_creates_one_flat_note_with_exact_body_and_reports_its_id() {
         let mut workspace = Workspace::in_memory().expect("workspace");
-        assert!(
-            execute_capture_note(&mut workspace, "  exact selection\n".to_owned())
-                .expect("capture note")
-        );
+        let outcome = execute_capture_note(&mut workspace, "  exact selection\n".to_owned())
+            .expect("capture note");
         let snapshot = workspace.snapshot().expect("snapshot");
         assert_eq!(snapshot.notes.len(), 1);
         assert_eq!(snapshot.notes[0].body, "  exact selection\n");
         assert_eq!(snapshot.revision, 1);
+        assert_eq!(
+            outcome,
+            CaptureNoteOutcome::Created(snapshot.notes[0].id.clone())
+        );
+    }
+
+    #[test]
+    fn capture_note_reports_only_the_new_id_beside_existing_notes() {
+        let mut workspace = Workspace::in_memory().expect("workspace");
+        let first = execute_capture_note(&mut workspace, "first".to_owned()).expect("first");
+        let second = execute_capture_note(&mut workspace, "second".to_owned()).expect("second");
+        let snapshot = workspace.snapshot().expect("snapshot");
+        let id_of = |body: &str| {
+            snapshot
+                .notes
+                .iter()
+                .find(|note| note.body == body)
+                .map(|note| note.id.clone())
+                .expect("captured note")
+        };
+        assert_eq!(first, CaptureNoteOutcome::Created(id_of("first")));
+        assert_eq!(second, CaptureNoteOutcome::Created(id_of("second")));
+        assert_ne!(first, second);
     }
 
     #[test]
     fn capture_note_rejects_whitespace() {
         let mut workspace = Workspace::in_memory().expect("workspace");
-        assert!(!execute_capture_note(&mut workspace, "  \n".to_owned()).expect("capture note"));
+        assert_eq!(
+            execute_capture_note(&mut workspace, "  \n".to_owned()).expect("capture note"),
+            CaptureNoteOutcome::Empty
+        );
+        assert!(workspace.snapshot().expect("snapshot").notes.is_empty());
     }
 
     #[test]
@@ -545,7 +640,7 @@ mod tests {
         fn assert_async_command<F, Fut>(_command: F)
         where
             F: FnOnce(tauri::AppHandle) -> Fut,
-            Fut: Future<Output = Result<Option<String>, WorkspaceIpcError>>,
+            Fut: Future<Output = Result<Option<WorkspaceFolderChoice>, WorkspaceIpcError>>,
         {
         }
 
@@ -597,6 +692,78 @@ mod tests {
         .expect("register token");
 
         assert!(consume_attachment_sources(&runtime, &tokens).is_err());
+    }
+
+    #[test]
+    fn a_folder_token_opens_its_folder_once() {
+        let runtime = WorkspaceRuntime::default();
+        let directory = tempdir().expect("folder");
+        let choice = register_folder_source(
+            &runtime,
+            directory.path().to_path_buf(),
+            std::time::Duration::from_secs(60),
+        )
+        .expect("register folder");
+        assert!(!choice
+            .token
+            .contains(directory.path().to_str().expect("utf-8 path")));
+
+        let path = consume_folder_source(&runtime, choice.token.clone()).expect("consume token");
+        assert_eq!(path, directory.path());
+        let mut workspace = open_or_create_workspace(&path).expect("create");
+        assert!(workspace.snapshot().expect("snapshot").notes.is_empty());
+
+        let reused = consume_folder_source(&runtime, choice.token).expect_err("reused token");
+        assert_eq!(reused.code, "invalid_path");
+    }
+
+    #[test]
+    fn folder_tokens_expire() {
+        let runtime = WorkspaceRuntime::default();
+        let choice = register_folder_source(
+            &runtime,
+            PathBuf::from("/picked/expired"),
+            std::time::Duration::ZERO,
+        )
+        .expect("register folder");
+
+        let expired = consume_folder_source(&runtime, choice.token).expect_err("expired token");
+        assert_eq!(expired.code, "invalid_path");
+    }
+
+    #[test]
+    fn a_raw_path_or_attachment_token_never_opens_a_folder() {
+        let runtime = WorkspaceRuntime::default();
+        let directory = tempdir().expect("folder");
+        let choice = register_folder_source(
+            &runtime,
+            directory.path().to_path_buf(),
+            std::time::Duration::from_secs(60),
+        )
+        .expect("register folder");
+        let attachment = register_attachment_sources(
+            &runtime,
+            vec![directory.path().to_path_buf()],
+            std::time::Duration::from_secs(60),
+        )
+        .expect("register attachment");
+
+        let raw = directory.path().to_string_lossy().into_owned();
+        assert!(consume_folder_source(&runtime, raw).is_err());
+        for token in attachment.clone() {
+            assert!(consume_folder_source(&runtime, token).is_err());
+        }
+        assert!(consume_attachment_sources(&runtime, std::slice::from_ref(&choice.token)).is_err());
+
+        // Rejected attempts consume nothing.
+        assert_eq!(
+            consume_folder_source(&runtime, choice.token).expect("folder token"),
+            directory.path()
+        );
+        assert_eq!(
+            consume_attachment_sources(&runtime, &attachment).expect("attachment token"),
+            vec![directory.path().to_string_lossy().into_owned()]
+        );
     }
 
     #[test]
