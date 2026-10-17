@@ -1720,6 +1720,9 @@ test('Draw stores an inline SVG drawing that Preview renders without requests', 
   await page.getByRole('button', { name: 'Edit Agent handoff', exact: true }).click();
   const editor = page.getByRole('textbox', { name: 'Markdown body' });
   await editor.fill('');
+  // Wait for the empty body to save: the row's title shrinks then, and a press that
+  // straddles that layout change would release beside the Draw button.
+  await expect(page.getByRole('button', { name: 'Edit Untitled note', exact: true })).toBeVisible();
   const draw = page.getByRole('button', { name: 'Draw', exact: true });
   await draw.click();
   const dialog = page.getByRole('dialog', { name: 'Drawing' });
