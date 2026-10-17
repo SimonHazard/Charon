@@ -179,5 +179,7 @@ define.
 
 ## License
 
-Charon is available under the [MIT License](LICENSE). Copyright © 2026 Simon
+Charon is available under the [MIT License](LICENSE), except the React Bits
+components vendored in `apps/site/src/islands/react-bits/`, which keep their
+own MIT + Commons Clause licence. Copyright © 2026 Simon
 Hazard.

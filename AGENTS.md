@@ -107,8 +107,10 @@ Use the vocabulary exactly:
 - Desktop and site import only `@charon/theme`, never each other. The theme
   package contains semantic CSS variables, theme names, motion, and radius
   contracts only.
-- Astro remains static. The current public site is a media-free holding page
-  with no client runtime. If product media returns, it must come from the real
+- Astro remains static. The public site is one localized page (ADR 0034) whose
+  only client code is the river island and the local `Copy as Markdown`
+  preview, allowed by hash in its CSP, with vendored React Bits code kept
+  under its own licence. If product media returns, it must come from the real
   app, never styled fake UI.
 
 ## UI and motion

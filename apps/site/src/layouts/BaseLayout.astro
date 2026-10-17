@@ -21,13 +21,13 @@ const socialImage = new URL(path('/brand/charon-icon-lavender-1024.png'), Astro.
 ---
 
 <!doctype html>
-<html lang={locale} data-theme="light">
+<html lang={locale} data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#ebeae8" />
+    <meta name="theme-color" content="#17141f" />
 
     <link rel="icon" href={path('/brand/charon-icon-lavender-32.png')} sizes="32x32" type="image/png" />
     <link rel="icon" href={path('/brand/charon-icon-lavender-16.png')} sizes="16x16" type="image/png" />
@@ -69,17 +69,26 @@ const socialImage = new URL(path('/brand/charon-icon-lavender-1024.png'), Astro.
         />
         <span>Charon</span>
       </a>
+      <slot name="nav" />
     </header>
     <main id="content">
       <slot />
     </main>
-    <footer class="site-footer">
-      <nav aria-label={c.footerLinks}>
-        <ul>
-          <li><a href="https://ko-fi.com/simonhazard" rel="noreferrer" translate="no">Ko-fi</a></li>
-          <li><a href="https://simonhazard.com/" rel="noreferrer" translate="no">simonhazard.com</a></li>
-        </ul>
-      </nav>
+    <footer class="site-footer" data-theme="light">
+      <div class="footer-top">
+        <slot name="close" />
+        <nav class="footer-links" aria-label={c.footerLinks}>
+          <ul>
+            <li><a href="https://ko-fi.com/simonhazard" rel="noreferrer" translate="no">Ko-fi</a></li>
+            <li><a href="https://simonhazard.com/" rel="noreferrer" translate="no">simonhazard.com</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="footer-legal">
+        <p>© 2026 Simon Hazard</p>
+        <p>{c.credit}</p>
+      </div>
+      <p class="footer-wordmark" aria-hidden="true" translate="no">Charon</p>
     </footer>
   </body>
 </html>

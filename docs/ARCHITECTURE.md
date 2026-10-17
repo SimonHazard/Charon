@@ -392,9 +392,11 @@ apps/site    -> packages/theme
 Neither application imports the other. `packages/theme` is framework-neutral
 and exports semantic CSS variables, theme names, and motion and radius contracts
 only. Brand assets, localization, components, native types, and Motion helpers
-remain app-owned. Astro stays static and currently serves a media-free early access
-page. If product media returns, it must come from the real app rather than fake
-styled UI. Astro gains no server adapter, account, form, analytics, CMS, or
+remain app-owned. Astro stays static and serves one early access page per
+language (ADR 0034), whose only client code is a React island for the
+decorative river and a small inline script that previews `Copy as Markdown`;
+the build allows each inline script by hash in the static CSP. If product media
+returns, it must come from the real app rather than fake styled UI. Astro gains no server adapter, account, form, analytics, CMS, or
 runtime API.
 
 The public build is deployed as ordinary Cloudflare Workers Static Assets. The
@@ -416,7 +418,7 @@ opt-in background mode, ADR 0024 opt-in capture notifications, and ADR 0026
 opt-in formatted selected-text capture. ADR 0028 adopts the Iris design
 system; ADRs 0029-0033 add the command menu, the focused
 Tag, hiding that returns focus, dropped and pasted files, and drawing shapes,
-labels, and image copy.
+labels, and image copy; ADR 0034 gives the site the Iris design and its river.
 Create another ADR before changing persistence, local-only
 privacy, shortcut support, bulk interaction, cross-app sharing, the static-site
 boundary, updater data flow, or the dependency rule. New adapters must

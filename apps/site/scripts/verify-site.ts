@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { access, readFile, stat } from 'node:fs/promises';
+import { copy } from '../src/content/site';
+import { inlineScriptHashes, withScriptHashes } from './csp.mjs';
 
 const root = new URL('../dist/', import.meta.url);
 const productionOrigin = 'https://charon.simonhazard.com';
@@ -56,7 +58,6 @@ for (const banned of [
   'locale-link',
   'View source',
   'Voir le code source',
-  '<script',
   'Charon is taking shape. More soon.',
   'Charon prend forme. La suite arrive bientôt.',
   'Early access coming soon',
@@ -75,8 +76,24 @@ for (const required of [
   if (homes.some((html) => !html.includes(required)))
     failures.push(`localized home misses ${required}`);
 }
-if (!homes[0]?.includes('Keep what matters.')) failures.push('English home copy changed');
-if (!homes[1]?.includes('Gardez l’essentiel.')) failures.push('French home copy changed');
+for (const [index, locale] of (['en', 'fr'] as const).entries()) {
+  for (const line of copy[locale].titleLines) {
+    if (!homes[index]?.includes(`<span>${line}</span>`)) {
+      failures.push(`${locale} home misses its title line ${line}`);
+    }
+  }
+}
+// Scripts come from the site itself: Astro's island loaders and the page's own inline scripts,
+// each allowed by hash in the static CSP (ADR 0034). No remote script, no runtime request.
+for (const [index, html] of homes.entries()) {
+  for (const [, src] of html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gu)) {
+    if (!src.startsWith('/_astro/'))
+      failures.push(`localized home ${index + 1} loads script ${src}`);
+  }
+  for (const [, url] of html.matchAll(/component-url="([^"]+)"/gu)) {
+    if (!url.startsWith('/_astro/')) failures.push(`localized home ${index + 1} hydrates ${url}`);
+  }
+}
 for (const [href, label] of [
   ['https://ko-fi.com/simonhazard', 'Ko-fi'],
   ['https://simonhazard.com/', 'simonhazard.com'],
@@ -91,9 +108,10 @@ for (const [index, html] of homes.entries()) {
   const downloads =
     html.match(/<a\b[^>]*href="https:\/\/github\.com\/SimonHazard\/Charon\/releases"[^>]*>/gu) ??
     [];
-  if (downloads.length !== 1 || !downloads[0]?.includes('rel="noreferrer"')) {
+  // One action on the first screen, repeated once by the closing invitation.
+  if (downloads.length !== 2 || downloads.some((link) => !link.includes('rel="noreferrer"'))) {
     failures.push(
-      `localized home ${index + 1} must link once to GitHub Releases without a referrer`,
+      `localized home ${index + 1} must link twice to GitHub Releases without a referrer`,
     );
   }
   if (
@@ -109,24 +127,24 @@ for (const [index, html] of homes.entries()) {
     failures.push(`localized home ${index + 1} must keep the GitHub Releases listing destination`);
   }
   const footer = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/u)?.[1] ?? '';
-  if (footer.includes('Charon')) {
-    failures.push(`localized home ${index + 1} keeps Charon footer text`);
+  // The closing invitation's download plus the Ko-fi and personal-site links.
+  if ((footer.match(/<a\b/gu) ?? []).length !== 3) {
+    failures.push(`localized home ${index + 1} footer must contain exactly three links`);
   }
-  if ((footer.match(/<a\b/gu) ?? []).length !== 2) {
-    failures.push(`localized home ${index + 1} footer must contain exactly two links`);
-  }
-  if ((footer.match(/rel="noreferrer"/gu) ?? []).length !== 2) {
+  if ((footer.match(/rel="noreferrer"/gu) ?? []).length !== 3) {
     failures.push(`localized home ${index + 1} footer links must suppress referrers`);
   }
 }
 
 const headers = await readFile(new URL('_headers', root), 'utf8');
-if (
-  !headers.includes(
-    "Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
-  )
-) {
-  failures.push('_headers misses the exact static-site CSP');
+const policy = withScriptHashes(
+  "Content-Security-Policy: default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'",
+  (await Promise.all(routes.map((route) => readFile(new URL(route, root), 'utf8')))).flatMap(
+    inlineScriptHashes,
+  ),
+);
+if (!headers.includes(policy)) {
+  failures.push('_headers misses the exact static-site CSP with every inline script hash');
 }
 
 const icons = [

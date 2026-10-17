@@ -147,3 +147,6 @@ available in Git history; active work lives only in `plans/`.
   Copy image.
 - The manifests, release notes, and site moved to 0.3.0 on the
   `codex/v0.3` branch; plan 063 holds the native checks before the release.
+- ADR 0034 redesigns the site in Iris Dark around a live river (React Bits'
+  Threads), Charon's real outputs, a live `Copy as Markdown` preview, and an
+  accent-field privacy section, with a hash-checked CSP for its scripts.
