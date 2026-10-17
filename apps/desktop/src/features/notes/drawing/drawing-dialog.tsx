@@ -151,8 +151,14 @@ export type DrawingDialogProps = {
   open: boolean;
   /** The drawing being edited, or null for a new drawing. */
   initial: Drawing | null;
-  onSubmit(block: string): void;
+  /**
+   * Receives the finished block. A promise keeps the dialog open until it settles; false keeps
+   * the strokes with an inline error so Retry can try again.
+   */
+  onSubmit(block: string): Promise<boolean> | undefined;
   onClose(): void;
+  /** Reports whether the dialog holds unsaved strokes. */
+  onDirtyChange?(dirty: boolean): void;
   /** Element that regains focus after closing; null uses the default. */
   finalFocus(): HTMLElement | null;
   /** Lets the editor protect unsaved strokes when the window closes. */
@@ -170,6 +176,7 @@ export function DrawingDialog({
   onClose,
   finalFocus,
   controlRef,
+  onDirtyChange,
 }: DrawingDialogProps) {
   const m = useMessages();
   const descriptionId = useId();
@@ -185,6 +192,8 @@ export function DrawingDialog({
   const [width, setWidth] = useState<DrawingWidth>('medium');
   const [confirming, setConfirming] = useState(false);
   const [tooLarge, setTooLarge] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   // A session mounts this dialog already open, and Base UI plays the transient entrance only
   // when `open` turns true after mount: open one layout pass later, before the first paint.
   const [entering, setEntering] = useState(true);
@@ -206,6 +215,8 @@ export function DrawingDialog({
     if (confirming) keepRef.current?.focus();
   }, [confirming]);
 
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
   useImperativeHandle(
     controlRef,
     () => ({
@@ -226,6 +237,7 @@ export function DrawingDialog({
 
   const apply = (action: DrawingHistoryAction) => {
     setTooLarge(false);
+    setSaveFailed(false);
     setConfirming(false);
     dispatch(action);
   };
@@ -236,6 +248,7 @@ export function DrawingDialog({
   };
 
   const requestClose = () => {
+    if (saving) return;
     if (confirming) keepDrawing();
     else if (dirty) setConfirming(true);
     else onClose();
@@ -252,7 +265,8 @@ export function DrawingDialog({
     void copyImage(result.drawing);
   };
 
-  const submit = () => {
+  const submit = async () => {
+    if (saving) return;
     if (editing && !dirty) {
       onClose();
       return;
@@ -262,7 +276,17 @@ export function DrawingDialog({
       setTooLarge(result.reason === 'too-large');
       return;
     }
-    onSubmit(result.block);
+    const pending = onSubmit(result.block);
+    if (pending instanceof Promise) {
+      setSaveFailed(false);
+      setSaving(true);
+      const saved = await pending;
+      setSaving(false);
+      if (!saved) {
+        setSaveFailed(true);
+        return;
+      }
+    }
     onClose();
   };
 
@@ -416,6 +440,11 @@ export function DrawingDialog({
             {m.drawing_too_large()}
           </p>
         ) : null}
+        {saveFailed ? (
+          <p className="inline-error drawing-error" role="alert">
+            {m.drawing_new_save_error()}
+          </p>
+        ) : null}
         <DialogFooter className="drawing-footer">
           {confirming ? (
             <div className="drawing-discard">
@@ -451,15 +480,15 @@ export function DrawingDialog({
                   {m.drawing_copy_image()}
                 </Button>
               ) : null}
-              <Button onClick={requestClose} ref={cancelRef} variant="outline">
+              <Button disabled={saving} onClick={requestClose} ref={cancelRef} variant="outline">
                 {m.common_cancel()}
               </Button>
               <Button
                 aria-describedby={empty ? emptyId : undefined}
-                disabled={empty}
-                onClick={submit}
+                disabled={empty || saving}
+                onClick={() => void submit()}
               >
-                {editing ? m.drawing_save() : m.drawing_insert()}
+                {saveFailed ? m.common_retry() : editing ? m.drawing_save() : m.drawing_insert()}
               </Button>
               {empty ? (
                 <span className="sr-only" id={emptyId}>

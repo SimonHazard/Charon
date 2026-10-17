@@ -55,36 +55,65 @@ export function useAttachmentIntake({
   const latest = useRef({ executeWorkspaceCommand, focusedTag, onOutcome });
   latest.current = { executeWorkspaceCommand, focusedTag, onOutcome };
 
-  const attach = useCallback(async (target: IntakeTarget, sources: AttachmentSources) => {
-    const { executeWorkspaceCommand: execute, focusedTag: tag, onOutcome: report } = latest.current;
-    if (!sources.tokens.length) return;
-    const existing =
-      target === 'new' ? null : notesRef.current.find((note) => note.id === target.noteId);
-    if (sources.tokens.length + (existing?.attachments.length ?? 0) > MAX_ATTACHMENTS_PER_NOTE) {
-      report({ status: 'too-many' });
-      return;
-    }
-    let noteId = existing?.id ?? null;
-    let created = false;
-    try {
-      if (!noteId) {
-        const known = new Set(notesRef.current.map((note) => note.id));
-        const names = sources.fileNames.filter((name) => name.trim());
-        const result = await execute({
-          type: 'createNote',
-          body: names.length ? names.join('\n') : '…',
-          tags: tag ? [tag] : [],
-        });
-        noteId = result.snapshot.notes.find((note) => !known.has(note.id))?.id ?? null;
-        created = true;
-        if (!noteId) throw new Error('created Note not found');
+  // One drop or paste at a time: each sequence creates its Note, if any, and imports into the
+  // exact id that creation returned before the next one reads the Notes.
+  const queue = useRef<Promise<void>>(Promise.resolve());
+
+  const run = useCallback(
+    async (target: IntakeTarget, sources: AttachmentSources) => {
+      const {
+        executeWorkspaceCommand: execute,
+        focusedTag: tag,
+        onOutcome: report,
+      } = latest.current;
+      if (!sources.tokens.length) return;
+      // Tokens that never reach an import are forgotten now, with any temporary copy.
+      const discard = () => client.discard(sources.tokens).catch(() => undefined);
+      const existing =
+        target === 'new' ? null : notesRef.current.find((note) => note.id === target.noteId);
+      if (sources.tokens.length + (existing?.attachments.length ?? 0) > MAX_ATTACHMENTS_PER_NOTE) {
+        await discard();
+        report({ status: 'too-many' });
+        return;
       }
-      await execute({ type: 'importNoteAttachments', noteId, sourceTokens: sources.tokens });
-      report({ status: 'attached', noteId, count: sources.tokens.length, created });
-    } catch {
-      report({ status: 'failed', noteId });
-    }
-  }, []);
+      let noteId = existing?.id ?? null;
+      let created = false;
+      try {
+        if (!noteId) {
+          const names = sources.fileNames.filter((name) => name.trim());
+          const result = await execute({
+            type: 'createNote',
+            body: names.length ? names.join('\n') : '…',
+            tags: tag ? [tag] : [],
+          });
+          notesRef.current = result.snapshot.notes;
+          noteId = result.createdNoteId;
+          if (!noteId) throw new Error('created Note id missing');
+          created = true;
+        }
+        const result = await execute({
+          type: 'importNoteAttachments',
+          noteId,
+          sourceTokens: sources.tokens,
+        });
+        notesRef.current = result.snapshot.notes;
+        report({ status: 'attached', noteId, count: sources.tokens.length, created });
+      } catch {
+        await discard();
+        report({ status: 'failed', noteId });
+      }
+    },
+    [client],
+  );
+
+  const attach = useCallback(
+    (target: IntakeTarget, sources: AttachmentSources) => {
+      const next = queue.current.then(() => run(target, sources));
+      queue.current = next.catch(() => undefined);
+      return next;
+    },
+    [run],
+  );
 
   useEffect(() => {
     let active = true;

@@ -79,7 +79,11 @@ export function workspaceClient(
           break;
       }
       current = { ...current, revision: nextRevision, notes };
-      return { snapshot: current, transactionId: `transaction-${nextRevision}` };
+      return {
+        snapshot: current,
+        transactionId: `transaction-${nextRevision}`,
+        createdNoteId: command.type === 'createNote' ? `created-${nextRevision}` : null,
+      };
     },
   };
 }

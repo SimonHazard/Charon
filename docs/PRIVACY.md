@@ -55,8 +55,9 @@ webview gets only short-lived opaque one-shot tokens and display names, never
 source paths. A paste reads the clipboard once, only after the paste gesture,
 and only when it holds files or an image; text keeps the ordinary paste. A
 pasted image is written once as a PNG file to an owner-only temporary folder,
-imported, and deleted when its import ends, when its token expires unused, or
-at the next launch; operating-system snapshots of the temporary folder are
+imported, and deleted when its import ends, as soon as it is refused or its
+Note cannot be created, when its five-minute token expires unused (a timer
+removes it then), or at the next launch; operating-system snapshots of the temporary folder are
 outside that guarantee. Rust accepts a bounded regular file outside every Charon Workspace, does
 not follow symlinks, copies it into `attachments/<note-id>/`, and persists only
 safe display metadata plus a generated managed relative path. The external

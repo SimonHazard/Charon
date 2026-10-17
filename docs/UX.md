@@ -343,9 +343,12 @@ the field adds the label, and Escape drops only the label. The eraser removes
 whole strokes and labels it passes over. Copy image writes the drawing as one
 PNG, dark ink on white (ADR 0033), and announces it. Insert is
 disabled until a stroke exists, and a drawing over the format limit keeps its
-strokes and shows an inline error. Cancel or Escape with unsaved strokes asks
-inline to discard or keep drawing, and so does closing the window on Windows
-and Linux, which then stays open; without changes the dialog closes at once.
+strokes and shows an inline error. A New drawing stays open, disabled, while
+its Note is created; if that fails it keeps its strokes beside an inline error
+and Insert becomes Retry. Cancel or Escape with unsaved strokes asks
+inline to discard or keep drawing, and so do Quit and closing the window on
+Windows and Linux, which then keep Charon open; without changes the dialog
+closes at once.
 Focus returns to the Draw button or to the Edit drawing button that opened it.
 In Write, Draw inserts at the caret, or edits the drawing whose block holds
 the caret; a new drawing never lands inside another code block, and one the

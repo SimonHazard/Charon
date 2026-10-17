@@ -193,6 +193,7 @@ describe('desktop window contract', () => {
       'allow-workspace-snapshot',
       'allow-workspace-execute',
       'allow-workspace-paste-attachments',
+      'allow-workspace-discard-attachment-sources',
       'allow-clipboard-compose-and-write',
       'allow-clipboard-write-drawing-image',
       'allow-capture-capabilities',
@@ -246,7 +247,7 @@ describe('desktop window contract', () => {
       .map((permission: string) => permission.slice('allow-'.length).replaceAll('-', '_'))
       .sort();
 
-    expect(registered).toHaveLength(25);
+    expect(registered).toHaveLength(26);
     expect(declared).toEqual(registered);
     expect(allowed).toEqual(registered);
     expect(tauriBuildScript).toContain('tauri_build::try_build(');

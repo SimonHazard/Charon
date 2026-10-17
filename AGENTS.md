@@ -100,7 +100,8 @@ Use the vocabulary exactly:
   subscribes to Tauri's path-carrying drag event. Rust accepts only a regular
   non-symlink file outside the Workspace, copies it under
   `attachments/<note-id>/`, and persists no external source path; a pasted
-  image's temporary PNG is deleted when its import ends. Never execute,
+  image's temporary PNG is deleted when its import ends, when it is refused,
+  or when its token expires. Never execute,
   preview arbitrary formats, adopt unknown files, upload, or share them across
   Notes.
 - Desktop and site import only `@charon/theme`, never each other. The theme

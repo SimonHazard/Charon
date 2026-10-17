@@ -396,7 +396,7 @@
   "drawing_copy_image": "Copier l’image",
   "drawing_image_copied": "Dessin copié en image",
   "drawing_image_copy_failed": "Le dessin n’a pas pu être copié en image. Réessayez.",
-  "drawing_new_title": "Nouveau dessin",
   "drawing_created": "Dessin enregistré dans une nouvelle note",
-  "command_group_new_tag": "Nouveau tag"
+  "command_group_new_tag": "Nouveau tag",
+  "drawing_new_save_error": "La note n’a pas été créée. Votre dessin est conservé ; réessayez après avoir résolu le problème de l’espace de travail."
 }

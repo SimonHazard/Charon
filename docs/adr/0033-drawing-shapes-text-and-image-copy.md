@@ -38,6 +38,11 @@ stored as stroked `<path>` elements in a fenced `svg` block.
    Note.
 4. **New drawing.** The command menu's New drawing opens the same dialog;
    Insert creates a Note whose body is the drawing block, in the focused Tag.
+   The dialog stays open until that Note exists: a failed creation keeps the
+   strokes beside an inline error, and Insert becomes Retry. While it holds
+   strokes, Quit, closing the window where closing quits, and an update
+   restart ask first through the dialog's discard prompt, as an editor's
+   drawing does.
 
 ## Alternatives rejected
 

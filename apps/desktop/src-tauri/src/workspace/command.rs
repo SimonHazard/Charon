@@ -89,6 +89,9 @@ impl WorkspaceCommand {
 pub struct WorkspaceCommandResult {
     pub snapshot: super::model::WorkspaceSnapshot,
     pub transaction_id: String,
+    /// The id `createNote` gave its new Note, so a caller never guesses it from
+    /// the snapshot; `None` for every other command.
+    pub created_note_id: Option<String>,
 }
 
 pub(crate) struct AppliedCommand {

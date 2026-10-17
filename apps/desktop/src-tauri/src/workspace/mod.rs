@@ -135,6 +135,7 @@ impl Workspace {
         self.retry_cleanup_if_needed()?;
         self.reconcile_external_changes()?;
         self.ensure_quarantine_allows(&command)?;
+        let mut created_note_id = None;
         let (applied, new_attachments) = match &command {
             WorkspaceCommand::ImportNoteAttachments {
                 expected_revision,
@@ -160,7 +161,11 @@ impl Workspace {
                     &self.manifest,
                     &self.bodies,
                     &command,
-                    || Uuid::new_v4().to_string(),
+                    || {
+                        let id = Uuid::new_v4().to_string();
+                        created_note_id = Some(id.clone());
+                        id
+                    },
                     now_utc,
                 )?,
                 HashMap::new(),
@@ -207,6 +212,8 @@ impl Workspace {
         Ok(WorkspaceCommandResult {
             snapshot,
             transaction_id: output.transaction_id,
+            created_note_id: created_note_id
+                .filter(|_| matches!(command, WorkspaceCommand::CreateNote { .. })),
         })
     }
 

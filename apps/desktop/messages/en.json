@@ -396,7 +396,7 @@
   "drawing_copy_image": "Copy image",
   "drawing_image_copied": "Drawing copied as an image",
   "drawing_image_copy_failed": "The drawing could not be copied as an image. Try again.",
-  "drawing_new_title": "New drawing",
   "drawing_created": "Drawing saved as a new note",
-  "command_group_new_tag": "New tag"
+  "command_group_new_tag": "New tag",
+  "drawing_new_save_error": "The note was not created. Your drawing is kept; retry after resolving the workspace issue."
 }

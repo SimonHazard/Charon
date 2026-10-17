@@ -45,6 +45,7 @@ export function NoteList({
   onRetryCleanup,
   onDirtyChange,
   registerDraftGuard,
+  confirmNewDrawingDiscard,
 }: {
   notes: readonly NoteDto[];
   expandedId: string | null;
@@ -68,6 +69,8 @@ export function NoteList({
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
   registerDraftGuard?(guard: () => Promise<boolean>): () => void;
+  /** Asks about the shelf's unsaved New drawing before the window closes; true keeps it open. */
+  confirmNewDrawingDiscard?(): boolean;
 }) {
   const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -223,6 +226,7 @@ export function NoteList({
                 onDelete={onDelete}
                 onDirtyChange={onDirtyChange}
                 registerDraftGuard={registerDraftGuard}
+                confirmNewDrawingDiscard={confirmNewDrawingDiscard}
                 onExpand={onExpand}
                 onFocusAttachments={onFocusAttachments}
                 onRemoveAttachment={onRemoveAttachment}

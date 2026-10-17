@@ -15,6 +15,23 @@ import { captureClients } from '@/test/capture-fixture';
 import { shellClients } from '@/test/shell-fixture';
 import { note, snapshot, workspaceClient } from '@/test/workspace-fixture';
 
+const nativeWindow = vi.hoisted(() => ({
+  enabled: false,
+  closeHandler: undefined as ((event: { preventDefault(): void }) => void) | undefined,
+}));
+
+vi.mock('@/lib/platform', () => ({ isTauriRuntime: () => nativeWindow.enabled }));
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => ({
+    onCloseRequested: async (handler: (event: { preventDefault(): void }) => void) => {
+      nativeWindow.closeHandler = handler;
+      return () => {
+        if (nativeWindow.closeHandler === handler) nativeWindow.closeHandler = undefined;
+      };
+    },
+  }),
+}));
+
 const current = snapshot([
   note({ id: 'alpha', body: '# Alpha\nPrompt for the agent', tags: ['Agent'] }),
   note({ id: 'beta', body: '# Beta release notes', tags: ['Research'] }),
@@ -26,6 +43,7 @@ function intakeClient() {
   let drop: ((event: AttachmentDropEvent) => void) | undefined;
   const client = {
     paste: vi.fn<AttachmentIntakeClient['paste']>(),
+    discard: vi.fn<AttachmentIntakeClient['discard']>(async () => undefined),
     subscribeDrag: vi.fn<AttachmentIntakeClient['subscribeDrag']>(async (listener) => {
       drag = listener;
       return () => undefined;
@@ -71,6 +89,37 @@ function renderShelf({
   return { commands, shell, preferencesClient: nativeClients.preferencesClient };
 }
 
+async function openNewDrawing(user: ReturnType<typeof userEvent.setup>) {
+  await user.keyboard('{Meta>}k{/Meta}');
+  await user.type(await screen.findByRole('combobox'), 'new drawing');
+  await user.keyboard('{Enter}');
+  const dialog = await screen.findByRole('dialog', { name: 'Drawing' });
+  const canvas = within(dialog).getByRole('img', { name: 'Drawing canvas' });
+  Object.defineProperty(canvas, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({
+      left: 0,
+      top: 0,
+      width: 960,
+      height: 600,
+      right: 960,
+      bottom: 600,
+      x: 0,
+      y: 0,
+    }),
+  });
+  fireEvent.pointerDown(canvas, {
+    pointerId: 1,
+    button: 0,
+    buttons: 1,
+    clientX: 100,
+    clientY: 100,
+  });
+  fireEvent.pointerMove(canvas, { pointerId: 1, buttons: 1, clientX: 200, clientY: 160 });
+  fireEvent.pointerUp(canvas, { pointerId: 1, button: 0, clientX: 200, clientY: 160 });
+  return dialog;
+}
+
 const liveRegion = () =>
   document.querySelector<HTMLElement>('.note-screen > [aria-live="polite"]')?.textContent;
 
@@ -84,6 +133,8 @@ describe('shelf flows of ADRs 0029-0033', () => {
   });
 
   afterEach(() => {
+    nativeWindow.enabled = false;
+    nativeWindow.closeHandler = undefined;
     vi.restoreAllMocks();
   });
 
@@ -320,6 +371,43 @@ describe('shelf flows of ADRs 0029-0033', () => {
       ),
     );
     expect(commands).toEqual([]);
+    expect(intake.client.discard).toHaveBeenCalledWith(tokens);
+  });
+
+  it('imports each of two quick pastes into the exact Note its creation returned', async () => {
+    const intake = intakeClient();
+    intake.client.paste
+      .mockResolvedValueOnce({ tokens: ['first'], fileNames: ['one.png'] })
+      .mockResolvedValueOnce({ tokens: ['second'], fileNames: ['two.png'] });
+    const { commands } = renderShelf({ attachmentIntake: intake.client });
+    fireEvent.paste(document.body, { clipboardData: { types: ['Files'] } });
+    fireEvent.paste(document.body, { clipboardData: { types: ['Files'] } });
+    await waitFor(() => expect(commands).toHaveLength(4));
+    const [firstCreate, firstImport, secondCreate, secondImport] = commands;
+    expect(firstCreate).toMatchObject({ type: 'createNote', body: 'one.png' });
+    expect(secondCreate).toMatchObject({ type: 'createNote', body: 'two.png' });
+    expect(firstImport).toMatchObject({ type: 'importNoteAttachments', sourceTokens: ['first'] });
+    expect(secondImport).toMatchObject({ type: 'importNoteAttachments', sourceTokens: ['second'] });
+    const firstId = firstImport?.type === 'importNoteAttachments' ? firstImport.noteId : null;
+    const secondId = secondImport?.type === 'importNoteAttachments' ? secondImport.noteId : null;
+    expect(firstId).toMatch(/^created-/);
+    expect(secondId).toMatch(/^created-/);
+    expect(firstId).not.toBe(secondId);
+    expect(intake.client.discard).not.toHaveBeenCalled();
+  });
+
+  it('forgets the pasted files when their Note cannot be created', async () => {
+    const intake = intakeClient();
+    intake.client.paste.mockResolvedValue({ tokens: ['shot'], fileNames: ['Pasted image.png'] });
+    const { commands } = renderShelf({
+      attachmentIntake: intake.client,
+      onCommand: (command) => {
+        if (command.type === 'createNote') throw new Error('disk full');
+      },
+    });
+    fireEvent.paste(document.body, { clipboardData: { types: ['Files'] } });
+    await waitFor(() => expect(intake.client.discard).toHaveBeenCalledWith(['shot']));
+    expect(commands.map((command) => command.type)).toEqual(['createNote']);
   });
 
   it('opens a new drawing from the menu', async () => {
@@ -331,5 +419,66 @@ describe('shelf flows of ADRs 0029-0033', () => {
     expect(await screen.findByRole('dialog', { name: 'Drawing' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Arrow' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Text' })).toBeTruthy();
+  });
+
+  it('keeps a New drawing with strokes when Quit is requested', async () => {
+    const user = userEvent.setup();
+    const add = vi.spyOn(toast, 'add');
+    const { shell } = renderShelf();
+    const dialog = await openNewDrawing(user);
+
+    act(() => shell.requestQuit());
+    await waitFor(() => expect(shell.shellClient.cancelQuit).toHaveBeenCalledTimes(1));
+    expect(shell.shellClient.quit).not.toHaveBeenCalled();
+    expect(add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: 'Finish saving the open note or drawing before quitting.',
+      }),
+    );
+    expect(within(dialog).getByText('Discard this drawing?')).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Drawing' })).toBe(dialog);
+  });
+
+  it('keeps a New drawing open with Retry until its Note exists', async () => {
+    const user = userEvent.setup();
+    let failures = 1;
+    const { commands } = renderShelf({
+      onCommand: (command) => {
+        if (command.type === 'createNote' && failures > 0) {
+          failures -= 1;
+          throw new Error('disk full');
+        }
+      },
+    });
+    const dialog = await openNewDrawing(user);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Insert' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(
+      'The note was not created. Your drawing is kept; retry after resolving the workspace issue.',
+    );
+    expect(screen.getByRole('dialog', { name: 'Drawing' })).toBe(dialog);
+
+    await user.click(within(dialog).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Drawing' })).toBeNull());
+    const created = commands.filter((command) => command.type === 'createNote');
+    expect(created).toHaveLength(2);
+    expect(created[1]).toEqual(created[0]);
+    await waitFor(() => expect(liveRegion()).toBe('Drawing saved as a new note'));
+  });
+
+  it('keeps the window open while a New drawing holds strokes', async () => {
+    const user = userEvent.setup();
+    renderShelf({ attachmentIntake: intakeClient().client });
+    nativeWindow.enabled = true;
+    const dialog = await openNewDrawing(user);
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeDefined());
+
+    const preventDefault = vi.fn();
+    act(() => nativeWindow.closeHandler?.({ preventDefault }));
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(within(dialog).getByText('Discard this drawing?')).toBeTruthy();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(nativeWindow.closeHandler).toBeUndefined());
   });
 });

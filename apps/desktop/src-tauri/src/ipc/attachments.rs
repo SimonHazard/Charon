@@ -14,11 +14,14 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, PoisonError};
-use std::time::Instant;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, DragDropEvent, Emitter, Manager, State, Window};
 
-use super::workspace::{register_attachment_sources, WorkspaceRuntime, PICKED_SOURCE_TTL};
+use super::workspace::{
+    discard_attachment_sources, register_attachment_sources, WorkspaceRuntime, PICKED_SOURCE_TTL,
+};
 use crate::workspace::{
     AttachmentDragEvent, AttachmentDropEvent, AttachmentSources, WorkspaceIpcError,
     MAX_ATTACHMENT_BYTES,
@@ -37,9 +40,45 @@ const MAX_PASTED_PIXELS_BYTES: usize = 256 * 1024 * 1024;
 
 #[derive(Default)]
 pub struct AttachmentIntakeRuntime {
-    /// Temporary PNG copies of pasted images, with the moment their token expires.
-    temporaries: Mutex<HashMap<PathBuf, Instant>>,
+    temporaries: Mutex<Temporaries>,
 }
+
+/// Temporary PNG copies of pasted images, each with the moment its token
+/// expires. Only paths recorded here are ever deleted.
+#[derive(Default)]
+struct Temporaries(HashMap<PathBuf, Instant>);
+
+impl Temporaries {
+    fn insert(&mut self, path: PathBuf, expires_at: Instant) {
+        self.0.insert(path, expires_at);
+    }
+
+    /// Forgets the recorded copies among `paths` and returns them for deletion.
+    fn release<'a>(&mut self, paths: impl IntoIterator<Item = &'a str>) -> Vec<PathBuf> {
+        paths
+            .into_iter()
+            .map(PathBuf::from)
+            .filter(|path| self.0.remove(path).is_some())
+            .collect()
+    }
+
+    /// Forgets the copies whose token expired by `now` and returns them.
+    fn take_expired(&mut self, now: Instant) -> Vec<PathBuf> {
+        let expired = self
+            .0
+            .iter()
+            .filter(|(_, expires_at)| **expires_at <= now)
+            .map(|(path, _)| path.clone())
+            .collect::<Vec<_>>();
+        for path in &expired {
+            self.0.remove(path);
+        }
+        expired
+    }
+}
+
+/// How long after its token expires an unused copy is deleted.
+const EXPIRY_MARGIN: Duration = Duration::from_secs(1);
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
@@ -204,7 +243,32 @@ fn write_temporary_png(
     }
     lock(&app.state::<AttachmentIntakeRuntime>().temporaries)
         .insert(path.clone(), Instant::now() + PICKED_SOURCE_TTL);
+    schedule_expiry(app);
     Ok(path)
+}
+
+/// Deletes the copy, if it is still unused, as soon as its token expires.
+fn schedule_expiry(app: &AppHandle) {
+    let app = app.clone();
+    let _ = thread::Builder::new()
+        .name("charon-pasted-expiry".to_owned())
+        .spawn(move || {
+            thread::sleep(PICKED_SOURCE_TTL + EXPIRY_MARGIN);
+            purge_expired(&app);
+        });
+}
+
+/// Forgets tokens React will not import (a refused drop or paste, or a Note
+/// that could not be created) and deletes their temporary copies at once.
+#[tauri::command(async)]
+pub fn workspace_discard_attachment_sources(
+    app: AppHandle,
+    runtime: State<'_, WorkspaceRuntime>,
+    tokens: Vec<String>,
+) -> Result<(), WorkspaceIpcError> {
+    let paths = discard_attachment_sources(&runtime, &tokens)?;
+    release_temporaries(&app, &paths);
+    Ok(())
 }
 
 fn encode_png(path: &Path, width: u32, height: u32, rgba: &[u8]) -> std::io::Result<()> {
@@ -258,24 +322,19 @@ pub fn release_temporaries(app: &AppHandle, consumed: &[String]) {
         return;
     }
     let runtime = app.state::<AttachmentIntakeRuntime>();
-    let mut temporaries = lock(&runtime.temporaries);
-    for path in consumed.iter().map(PathBuf::from) {
-        if temporaries.remove(&path).is_some() {
-            let _ = fs::remove_file(&path);
-        }
+    let released = lock(&runtime.temporaries).release(consumed.iter().map(String::as_str));
+    for path in released {
+        let _ = fs::remove_file(path);
     }
 }
 
 /// Deletes temporary copies whose token expired unused.
 fn purge_expired(app: &AppHandle) {
-    let now = Instant::now();
-    lock(&app.state::<AttachmentIntakeRuntime>().temporaries).retain(|path, expires_at| {
-        let keep = *expires_at > now;
-        if !keep {
-            let _ = fs::remove_file(path);
-        }
-        keep
-    });
+    let runtime = app.state::<AttachmentIntakeRuntime>();
+    let expired = lock(&runtime.temporaries).take_expired(Instant::now());
+    for path in expired {
+        let _ = fs::remove_file(path);
+    }
 }
 
 /// Removes copies an earlier run left behind (a crash or a forced quit before
@@ -299,6 +358,36 @@ mod tests {
             "oddname.txt"
         );
         assert_eq!(display_name(Path::new("/")), "");
+    }
+
+    #[test]
+    fn only_recorded_copies_are_released_and_only_once() {
+        let mut temporaries = Temporaries::default();
+        let expires_at = Instant::now() + PICKED_SOURCE_TTL;
+        temporaries.insert(PathBuf::from("/tmp/charon-pasted/a.png"), expires_at);
+        let released = temporaries.release(["/tmp/charon-pasted/a.png", "/Users/me/brief.pdf"]);
+        assert_eq!(released, [PathBuf::from("/tmp/charon-pasted/a.png")]);
+        assert!(temporaries.release(["/tmp/charon-pasted/a.png"]).is_empty());
+    }
+
+    #[test]
+    fn copies_expire_with_their_token() {
+        let mut temporaries = Temporaries::default();
+        let now = Instant::now();
+        temporaries.insert(PathBuf::from("/tmp/charon-pasted/old.png"), now);
+        temporaries.insert(
+            PathBuf::from("/tmp/charon-pasted/new.png"),
+            now + PICKED_SOURCE_TTL,
+        );
+        assert_eq!(
+            temporaries.take_expired(now),
+            [PathBuf::from("/tmp/charon-pasted/old.png")]
+        );
+        assert!(temporaries.take_expired(now).is_empty());
+        assert_eq!(
+            temporaries.take_expired(now + PICKED_SOURCE_TTL + EXPIRY_MARGIN),
+            [PathBuf::from("/tmp/charon-pasted/new.png")]
+        );
     }
 
     #[test]

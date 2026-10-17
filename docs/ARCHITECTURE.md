@@ -116,8 +116,11 @@ display names, and drag positions on `attachments://drag` and
 `attachments://drop`; the webview never subscribes to Tauri's own
 path-carrying drag event. A clipboard bitmap is encoded once as PNG into an
 owner-only temporary folder, registered like a picked file, and deleted when
-the import that consumed its token ends, when the token expires, or at the
-next startup.
+the import that consumed its token ends, when React discards tokens it will
+not import (`workspace_discard_attachment_sources`), when a timer finds the
+token expired, or at the next startup. A new Note's files go to the
+`createdNoteId` that its `createNote` result carries, and React runs one drop
+or paste sequence, creation then import, at a time.
 
 Removing an Attachment follows the same permanent cleanup rules as deleting its
 Note.
@@ -196,7 +199,9 @@ A selected-text capture adds the focused Tag (ADR 0030) that the application
 layer reads from native preferences when it maps the capture to `createNote`;
 a stored Tag that no longer satisfies the Tag rules is skipped rather than
 failing the capture. `createNote` carries an optional `tags` list validated
-like `setNoteTags`; recovery records written before it omit the field.
+like `setNoteTags`; recovery records written before it omit the field. Its
+command result names the new Note as `createdNoteId` (null for every other
+command), so neither a capture nor a drop guesses it from the snapshot.
 
 The composer accelerator is the platform default or the user's one chosen
 replacement (ADR 0025). `capture::shortcut` validates and canonicalizes it with

@@ -11,6 +11,7 @@ fn main() {
             "workspace_snapshot",
             "workspace_execute",
             "workspace_paste_attachments",
+            "workspace_discard_attachment_sources",
             "clipboard_compose_and_write",
             "clipboard_write_drawing_image",
             "capture_capabilities",

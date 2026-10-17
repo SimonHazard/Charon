@@ -71,7 +71,7 @@ describe('workspace command queue', () => {
         seen.push(command);
         if (seen.length === 1) await firstBlocked;
         current = { ...current, revision: current.revision + 1 } as WorkspaceSnapshot;
-        return { snapshot: current, transactionId: `tx-${current.revision}` };
+        return { snapshot: current, transactionId: `tx-${current.revision}`, createdNoteId: null };
       }),
     };
     render(

@@ -142,6 +142,23 @@ pub(crate) fn register_attachment_sources(
     register_sources(&runtime.attachment_sources, paths, ttl)
 }
 
+/// Forgets the given Attachment tokens without importing them (ADR 0032) and
+/// returns the source paths they named. Unknown or expired tokens are ignored.
+pub(crate) fn discard_attachment_sources(
+    runtime: &WorkspaceRuntime,
+    tokens: &[String],
+) -> Result<Vec<String>, WorkspaceIpcError> {
+    let mut sources = runtime
+        .attachment_sources
+        .lock()
+        .map_err(|_| runtime_lock_error())?;
+    Ok(tokens
+        .iter()
+        .filter_map(|token| sources.remove(token))
+        .filter_map(|source| source.path.into_os_string().into_string().ok())
+        .collect())
+}
+
 fn consume_attachment_sources(
     runtime: &WorkspaceRuntime,
     tokens: &[String],
@@ -471,23 +488,16 @@ fn execute_capture_note(
         return Ok(CaptureNoteOutcome::Empty);
     }
     let before = workspace.snapshot()?;
-    let known: HashSet<String> = before.notes.into_iter().map(|note| note.id).collect();
     let result = workspace.execute(WorkspaceCommand::CreateNote {
         expected_revision: before.revision,
         body,
         tags,
     })?;
-    // CreateNote adds exactly one Note under the held runtime lock, so the
-    // snapshot diff names it. Should it ever not, stay silent rather than
-    // report a failure for a Note that was saved.
+    // Should the id ever be missing, stay silent rather than report a failure
+    // for a Note that was saved.
     Ok(result
-        .snapshot
-        .notes
-        .into_iter()
-        .find(|note| !known.contains(&note.id))
-        .map_or(CaptureNoteOutcome::Empty, |note| {
-            CaptureNoteOutcome::Created(note.id)
-        }))
+        .created_note_id
+        .map_or(CaptureNoteOutcome::Empty, CaptureNoteOutcome::Created))
 }
 
 fn emit_pending(app: &AppHandle, workspace: &mut Workspace) {
@@ -505,11 +515,11 @@ mod tests {
     use std::path::PathBuf;
 
     use super::{
-        consume_attachment_sources, consume_folder_source, execute_capture_note,
-        open_or_create_workspace, register_attachment_sources, register_folder_source,
-        replace_workspace_remembering, resolve_default_workspace_path, selected_attachment_paths,
-        selected_folder_path, validate_candidate, workspace_choose_directory, CaptureNoteOutcome,
-        WorkspaceRuntime,
+        consume_attachment_sources, consume_folder_source, discard_attachment_sources,
+        execute_capture_note, open_or_create_workspace, register_attachment_sources,
+        register_folder_source, replace_workspace_remembering, resolve_default_workspace_path,
+        selected_attachment_paths, selected_folder_path, validate_candidate,
+        workspace_choose_directory, CaptureNoteOutcome, WorkspaceRuntime,
     };
     use crate::workspace::{
         Workspace, WorkspaceCommand, WorkspaceFolderChoice, WorkspaceHealthIssueKind,
@@ -656,6 +666,28 @@ mod tests {
     }
 
     #[test]
+    fn create_note_reports_the_exact_id_of_its_note() {
+        let mut workspace = Workspace::in_memory().expect("workspace");
+        let created = workspace
+            .execute(WorkspaceCommand::CreateNote {
+                expected_revision: 0,
+                body: "first".to_owned(),
+                tags: Vec::new(),
+            })
+            .expect("create");
+        let id = created.created_note_id.clone().expect("created id");
+        assert_eq!(created.snapshot.notes[0].id, id);
+        let updated = workspace
+            .execute(WorkspaceCommand::UpdateNote {
+                expected_revision: created.snapshot.revision,
+                note_id: id,
+                body: "edited".to_owned(),
+            })
+            .expect("update");
+        assert_eq!(updated.created_note_id, None);
+    }
+
+    #[test]
     fn capture_note_rejects_whitespace() {
         let mut workspace = Workspace::in_memory().expect("workspace");
         assert_eq!(
@@ -710,6 +742,29 @@ mod tests {
             vec![path.to_string_lossy().into_owned()]
         );
         assert!(consume_attachment_sources(&runtime, &tokens).is_err());
+    }
+
+    #[test]
+    fn discarded_attachment_tokens_can_never_be_imported() {
+        let runtime = WorkspaceRuntime::default();
+        let path = PathBuf::from("/tmp/charon-pasted/pasted.png");
+        let tokens = register_attachment_sources(
+            &runtime,
+            vec![path.clone()],
+            std::time::Duration::from_secs(60),
+        )
+        .expect("register token");
+        let mut with_unknown = tokens.clone();
+        with_unknown.push("unknown".to_owned());
+
+        assert_eq!(
+            discard_attachment_sources(&runtime, &with_unknown).expect("discard tokens"),
+            vec![path.to_string_lossy().into_owned()]
+        );
+        assert!(consume_attachment_sources(&runtime, &tokens).is_err());
+        assert!(discard_attachment_sources(&runtime, &tokens)
+            .expect("discard again")
+            .is_empty());
     }
 
     #[test]

@@ -1,4 +1,5 @@
 import { IconFilePlus, IconHash, IconSearch, IconX } from '@tabler/icons-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   useCallback,
   useDeferredValue,
@@ -46,7 +47,7 @@ import { useShelfCommands } from '@/features/commands/shelf-commands';
 import { type IntakeOutcome, useAttachmentIntake } from '@/features/notes/attachment-intake';
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
 import { DrawingCopyProvider } from '@/features/notes/drawing/drawing-copy-context';
-import { DrawingDialog } from '@/features/notes/drawing/drawing-dialog';
+import { DrawingDialog, type DrawingDialogControl } from '@/features/notes/drawing/drawing-dialog';
 import type { Drawing } from '@/features/notes/drawing/drawing-format';
 import { drawingToPng } from '@/features/notes/drawing/drawing-image';
 import { NoteList, type NoteRevealRequest } from '@/features/notes/note-list';
@@ -106,7 +107,7 @@ export function NoteScreen({
   const { registerQuitHandler, hide: hideCharon } = useQuitRequest();
   const [query, setQuery] = useState('');
   // The focused Tag filters the shelf and tags new Notes (ADR 0030).
-  const { preferences, setFocusedTag } = useNativePreferences();
+  const { capabilities, preferences, setFocusedTag } = useNativePreferences();
   const tag = preferences.focusedTag;
   const setTag = useCallback(
     (value: string | null) => {
@@ -130,6 +131,8 @@ export function NoteScreen({
   const [revealRequest, setRevealRequest] = useState<NoteRevealRequest | null>(null);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const [newDrawingOpen, setNewDrawingOpen] = useState(false);
+  const [newDrawingDirty, setNewDrawingDirty] = useState(false);
+  const newDrawingRef = useRef<DrawingDialogControl>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<CaptureInputHandle>(null);
   const announcementTimerRef = useRef<number | null>(null);
@@ -248,21 +251,29 @@ export function NoteScreen({
   }, [announce, deferredQuery, m, tag]);
 
   useEffect(() => {
-    setWorkspaceSwitchBlocked(editorDirty || composerDirty);
+    setWorkspaceSwitchBlocked(editorDirty || composerDirty || newDrawingDirty);
     return () => setWorkspaceSwitchBlocked(false);
-  }, [composerDirty, editorDirty, setWorkspaceSwitchBlocked]);
+  }, [composerDirty, editorDirty, newDrawingDirty, setWorkspaceSwitchBlocked]);
 
   const composerDirtyRef = useRef(composerDirty);
   useEffect(() => {
     composerDirtyRef.current = composerDirty;
   }, [composerDirty]);
 
-  // An explicit Quit (tray or Preferences) never loses unsent text: the open editor saves
-  // first, and an unsaved drawing, a failed save, or composer text keeps Charon running,
-  // revealed, with the reason beside the text it protects.
+  // An explicit Quit (tray or Preferences) never loses unsent text: a New drawing with
+  // strokes asks first, the open editor saves, and an unsaved drawing, a failed save, or
+  // composer text keeps Charon running, revealed, with the reason beside the text it protects.
   useEffect(
     () =>
       registerQuitHandler(async () => {
+        if (newDrawingRef.current?.confirmDiscard()) {
+          toast.add({
+            title: m.shell_quit_blocked_title(),
+            description: m.shell_quit_blocked_draft(),
+            type: 'warning',
+          });
+          return false;
+        }
         const guard = draftGuardRef.current;
         if (guard && !(await guard())) {
           toast.add({
@@ -285,6 +296,39 @@ export function NoteScreen({
       }),
     [m, registerQuitHandler],
   );
+
+  // macOS hides the window on close (see `lib.rs`); elsewhere close quits unless background
+  // mode keeps Charon in the notification area (ADR 0023).
+  const closeHides =
+    capabilities?.platform === 'macos' ||
+    (!capabilities && navigator.platform.startsWith('Mac')) ||
+    preferences.backgroundActive;
+  const confirmNewDrawingDiscard = useCallback(
+    () => newDrawingRef.current?.confirmDiscard() ?? false,
+    [],
+  );
+  // Closing the window never destroys a New drawing's strokes: they keep the window open
+  // behind the drawing's discard prompt. An open editor decides for both, asking this drawing
+  // through `confirmNewDrawingDiscard`, so only one listener can destroy the window.
+  useEffect(() => {
+    if (!newDrawingOpen || !isTauriRuntime()) return;
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow()
+      .onCloseRequested((event) => {
+        if (closeHides || draftGuardRef.current || confirmNewDrawingDiscard()) {
+          event.preventDefault();
+        }
+      })
+      .then((stopListening) => {
+        if (active) unlisten = stopListening;
+        else stopListening();
+      });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [closeHides, confirmNewDrawingDiscard, newDrawingOpen]);
 
   useLayoutEffect(() => {
     const pending = pendingDeleteFocusRef.current;
@@ -579,17 +623,16 @@ export function NoteScreen({
         : undefined,
     [announce, m, writeDrawingImage],
   );
+  // The New drawing stays open with its strokes until its Note exists; false shows the
+  // dialog's inline error and Retry.
   const createDrawingNote = useCallback(
     async (block: string) => {
       try {
         await executeWorkspaceCommand({ type: 'createNote', body: block, tags: tag ? [tag] : [] });
         announce(m.drawing_created());
+        return true;
       } catch {
-        toast.add({
-          title: m.drawing_new_title(),
-          description: m.capture_input_error(),
-          type: 'warning',
-        });
+        return false;
       }
     },
     [announce, executeWorkspaceCommand, m, tag],
@@ -709,6 +752,7 @@ export function NoteScreen({
             onDelete={requestDelete}
             onDirtyChange={setEditorDirty}
             registerDraftGuard={registerDraftGuard}
+            confirmNewDrawingDiscard={confirmNewDrawingDiscard}
             onExpand={expandNote}
             onFocusAttachments={focusAttachments}
             onRemoveAttachment={removeAttachment}
@@ -763,10 +807,15 @@ export function NoteScreen({
         <CommandMenu entries={commandEntries} onOpenChange={setCommandsOpen} open={commandsOpen} />
         {newDrawingOpen ? (
           <DrawingDialog
+            controlRef={newDrawingRef}
             finalFocus={() => document.querySelector<HTMLElement>('.capture-field-input')}
             initial={null}
-            onClose={() => setNewDrawingOpen(false)}
-            onSubmit={(block) => void createDrawingNote(block)}
+            onClose={() => {
+              setNewDrawingOpen(false);
+              setNewDrawingDirty(false);
+            }}
+            onDirtyChange={setNewDrawingDirty}
+            onSubmit={createDrawingNote}
             open
           />
         ) : null}

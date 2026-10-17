@@ -94,6 +94,7 @@ const clientCalls = [
     () => tauriClipboardClient.writeDrawingImage?.(new Uint8Array([137, 80, 78, 71])),
   ],
   ['workspace_paste_attachments', () => tauriAttachmentIntakeClient.paste()],
+  ['workspace_discard_attachment_sources', () => tauriAttachmentIntakeClient.discard(['token-1'])],
   ['capture_capabilities', () => tauriCaptureClient.capabilities()],
   ['capture_open', () => tauriCaptureClient.open()],
   ['capture_request_permission', () => tauriCaptureClient.requestPermission('accessibility')],

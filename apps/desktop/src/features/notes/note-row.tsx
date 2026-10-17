@@ -78,6 +78,7 @@ export const NoteRow = memo(function NoteRow({
   onRetryCleanup,
   onDirtyChange,
   registerDraftGuard,
+  confirmNewDrawingDiscard,
 }: {
   note: NoteDto;
   expanded: boolean;
@@ -101,6 +102,8 @@ export const NoteRow = memo(function NoteRow({
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
   registerDraftGuard?(guard: () => Promise<boolean>): () => void;
+  /** Asks about the shelf's unsaved New drawing before the window closes; true keeps it open. */
+  confirmNewDrawingDiscard?(): boolean;
 }) {
   const m = useMessages();
   const reduceMotion = useReducedMotion() ?? false;
@@ -330,6 +333,7 @@ export const NoteRow = memo(function NoteRow({
             onClose={() => onCloseEditor(note.id)}
             onDirtyChange={onDirtyChange}
             registerDraftGuard={registerDraftGuard}
+            confirmNewDrawingDiscard={confirmNewDrawingDiscard}
             onRemoveAttachment={(attachment) => onRemoveAttachment(note.id, attachment)}
             onRetryCleanup={onRetryCleanup}
             onSave={(body) => onSave(note.id, body)}

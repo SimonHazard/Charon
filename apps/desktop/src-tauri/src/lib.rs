@@ -51,6 +51,7 @@ pub fn run() {
             ipc::workspace::workspace_snapshot,
             ipc::workspace::workspace_execute,
             ipc::attachments::workspace_paste_attachments,
+            ipc::attachments::workspace_discard_attachment_sources,
             ipc::clipboard::clipboard_compose_and_write,
             ipc::clipboard::clipboard_write_drawing_image,
             ipc::capture::capture_capabilities,

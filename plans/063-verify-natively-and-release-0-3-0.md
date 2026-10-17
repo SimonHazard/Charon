@@ -67,6 +67,9 @@ Mark each line with the platform and result in the pull request body.
       and with focus on the shelf.
 - [ ] Paste a screenshot (`Cmd+Ctrl+Shift+4`, `Win+Shift+S`): one PNG
       Attachment; the temporary folder `charon-pasted` is empty afterwards.
+- [ ] Paste two screenshots in quick succession on the shelf: two Notes, each
+      holding its own image. Paste a screenshot into a Note that already has
+      20 Attachments: refused, and `charon-pasted` is empty at once.
 - [ ] Linux X11 and Wayland: file paste through `text/uri-list`.
 
 ### Drawings (ADR 0033)
@@ -75,6 +78,9 @@ Mark each line with the platform and result in the pull request body.
       in a label.
 - [ ] Copy image from the dialog and from Preview, then paste into ChatGPT,
       Claude, and a document: dark ink on white.
+- [ ] New drawing with strokes, then Quit from the tray (and close the window
+      on Windows and Linux without background mode): Charon stays open and
+      the drawing asks to discard or keep.
 
 ### Owed from v0.2.0
 

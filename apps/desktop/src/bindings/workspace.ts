@@ -88,7 +88,15 @@ export type WorkspaceCommand =
   | { type: 'setNoteStatus'; expectedRevision: number; noteId: string; status: NoteStatus }
   | { type: 'deleteNote'; expectedRevision: number; noteId: string };
 
-export type WorkspaceCommandResult = { snapshot: WorkspaceSnapshot; transactionId: string };
+export type WorkspaceCommandResult = {
+  snapshot: WorkspaceSnapshot;
+  transactionId: string;
+  /**
+   * The id `createNote` gave its new Note, so a caller never guesses it from
+   * the snapshot; `None` for every other command.
+   */
+  createdNoteId: string | null;
+};
 
 export type WorkspaceIpcError = {
   code: string;
