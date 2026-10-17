@@ -16,9 +16,10 @@ pub use error::{WorkspaceError, WorkspaceIpcError};
 #[doc(hidden)]
 pub use migration::MigrationFailure;
 pub use model::{
-    AttachmentDto, NoteDto, NoteStatus, WorkspaceChangedEvent, WorkspaceEventOrigin,
-    WorkspaceFolderChoice, WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind,
-    WorkspaceSnapshot,
+    AttachmentDragEvent, AttachmentDropEvent, AttachmentDto, AttachmentSources, NoteDto,
+    NoteStatus, WorkspaceChangedEvent, WorkspaceEventOrigin, WorkspaceFolderChoice,
+    WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceSnapshot,
+    MAX_ATTACHMENT_BYTES,
 };
 
 use command::{apply_command, find_note, find_note_mut, validate_ids, AppliedCommand};
@@ -37,6 +38,12 @@ use storage::{FailingWorkspaceStorage, RealWorkspaceStorage, WorkspaceStorage};
 use watch::WorkspaceWatcher;
 
 const MAX_IMPORT_BATCH_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Whether one already-trimmed Tag satisfies the Note Tag rules, so a focused
+/// Tag (ADR 0030) is checked by the same rules before it is remembered.
+pub fn is_valid_tag(tag: &str) -> bool {
+    model::validate_tags(&[tag.to_owned()]).is_ok()
+}
 
 pub struct Workspace {
     storage: Box<dyn WorkspaceStorage>,
@@ -128,6 +135,7 @@ impl Workspace {
         self.retry_cleanup_if_needed()?;
         self.reconcile_external_changes()?;
         self.ensure_quarantine_allows(&command)?;
+        let mut created_note_id = None;
         let (applied, new_attachments) = match &command {
             WorkspaceCommand::ImportNoteAttachments {
                 expected_revision,
@@ -153,7 +161,11 @@ impl Workspace {
                     &self.manifest,
                     &self.bodies,
                     &command,
-                    || Uuid::new_v4().to_string(),
+                    || {
+                        let id = Uuid::new_v4().to_string();
+                        created_note_id = Some(id.clone());
+                        id
+                    },
                     now_utc,
                 )?,
                 HashMap::new(),
@@ -200,6 +212,8 @@ impl Workspace {
         Ok(WorkspaceCommandResult {
             snapshot,
             transaction_id: output.transaction_id,
+            created_note_id: created_note_id
+                .filter(|_| matches!(command, WorkspaceCommand::CreateNote { .. })),
         })
     }
 
@@ -827,6 +841,7 @@ mod tests {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: initial.revision,
                 body: "hello".to_owned(),
+                tags: Vec::new(),
             })
             .expect("create note");
         assert_eq!(created.snapshot.notes.len(), 1);

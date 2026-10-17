@@ -107,6 +107,21 @@ budget, derives a validated display basename and generated UUID relative path,
 and commits bytes plus manifest metadata atomically without retaining the full
 Attachment batch in memory.
 
+Files dropped on the main window or pasted into it (ADR 0032) reach the same
+import. `ipc/attachments.rs`, an application-layer adapter beside the picker,
+turns Tauri's native `WindowEvent::DragDrop` paths, or the clipboard's file
+list read through `arboard` (the crate the official clipboard plugin already
+uses), into the picker's one-shot tokens. It sends the webview only tokens,
+display names, and drag positions on `attachments://drag` and
+`attachments://drop`; the webview never subscribes to Tauri's own
+path-carrying drag event. A clipboard bitmap is encoded once as PNG into an
+owner-only temporary folder, registered like a picked file, and deleted when
+the import that consumed its token ends, when React discards tokens it will
+not import (`workspace_discard_attachment_sources`), when a timer finds the
+token expired, or at the next startup. A new Note's files go to the
+`createdNoteId` that its `createNote` result carries, and React runs one drop
+or paste sequence, creation then import, at a time.
+
 Removing an Attachment follows the same permanent cleanup rules as deleting its
 Note.
 
@@ -180,6 +195,14 @@ Workspace command. It maps the portable accelerator to a main-window focus
 event. This keeps `CaptureCoordinator` independent from persistence and React
 view state.
 
+A selected-text capture adds the focused Tag (ADR 0030) that the application
+layer reads from native preferences when it maps the capture to `createNote`;
+a stored Tag that no longer satisfies the Tag rules is skipped rather than
+failing the capture. `createNote` carries an optional `tags` list validated
+like `setNoteTags`; recovery records written before it omit the field. Its
+command result names the new Note as `createdNoteId` (null for every other
+command), so neither a capture nor a drop guesses it from the snapshot.
+
 The composer accelerator is the platform default or the user's one chosen
 replacement (ADR 0025). `capture::shortcut` validates and canonicalizes it with
 content-free errors and a reserved list. `CaptureCoordinator` registers a new
@@ -247,6 +270,12 @@ bytes or external source paths, changes Note status, uploads, pastes, or mutates
 Workspace files. It remains separate from the transient
 pasteboard transaction owned by `CaptureCoordinator`.
 
+A drawing's Copy image (ADR 0033) is `ClipboardComposer`'s second explicit
+write: the webview renders the validated drawing to PNG and sends the bytes to
+`clipboard_write_drawing_image`; Rust decodes them within bounds (8 MiB, 8,192
+pixels a side) and writes one image through the same adapter. It reads no
+Workspace file.
+
 ### Update integration
 
 The official Tauri updater plugin is an application adapter, not a fourth domain
@@ -292,8 +321,13 @@ for that answer, and a watchdog exits if the webview never answers. No exit is
 prevented after it was requested: Tauri sends `ExitRequested` without a code
 only once the last window is destroyed. The persisted choice lives in native
 preferences; the tray's availability and liveness are runtime-only snapshot
-fields. The adapter also records the main window's focus from
-`WindowEvent::Focused`: capture threads read that flag rather than
+fields. `hide_main` hides Charon so the previous application gets focus back (ADR
+0031): it hides the application on macOS, the window on Windows while the tray
+icon exists, and otherwise minimizes the window. macOS close, the
+`shell_hide` command (Escape at the shelf's root and the command menu), and the
+composer shortcut while the main window has focus all use it; revealing
+unhides the macOS application first. The adapter also records the main
+window's focus from `WindowEvent::Focused`: capture threads read that flag rather than
 `is_focused`, which waits for the main thread, and quitting waits at most 2 s
 for a capture in progress before the process exits without it.
 
@@ -313,9 +347,13 @@ process-wide lock that covers file I/O only, so concurrent commands never drop
 each other's changes and no thread holds it while waiting for the main thread.
 
 React receives a complete Workspace snapshot at open, followed by ordered
-domain events or replacement snapshots. It owns only ephemeral search, Tag
-filter, expanded-editor presentation, draft, copy feedback, and Preferences-
-surface state. Note-row focus remains browser-native rather than product state.
+domain events or replacement snapshots. It owns only ephemeral search,
+expanded-editor presentation, draft, copy feedback, command menu, drop
+target, and Preferences-surface state. The focused Tag (ADR 0030) is native
+preference state that `preferences_set_focused_tag` validates and persists;
+React shows it at once and restores it if the write is refused. The command
+menu (ADR 0029) is React-only: each entry calls the code of the control it
+stands for and reads only the snapshot React already holds. Note-row focus remains browser-native rather than product state.
 Durable state becomes real only after a successful Rust command response.
 Contextual failures preserve user input and expose typed, content-free recovery
 without a generic error destination.
@@ -354,9 +392,11 @@ apps/site    -> packages/theme
 Neither application imports the other. `packages/theme` is framework-neutral
 and exports semantic CSS variables, theme names, and motion and radius contracts
 only. Brand assets, localization, components, native types, and Motion helpers
-remain app-owned. Astro stays static and currently serves a media-free early access
-page. If product media returns, it must come from the real app rather than fake
-styled UI. Astro gains no server adapter, account, form, analytics, CMS, or
+remain app-owned. Astro stays static and serves one early access page per
+language (ADR 0034), whose only client code is a React island for the
+decorative river and a small inline script that previews `Copy as Markdown`;
+the build allows each inline script by hash in the static CSP. If product media
+returns, it must come from the real app rather than fake styled UI. Astro gains no server adapter, account, form, analytics, CMS, or
 runtime API.
 
 The public build is deployed as ordinary Cloudflare Workers Static Assets. The
@@ -375,7 +415,10 @@ releases, and the updater boundary; ADR 0027 keeps macOS releases on Tauri's
 ad-hoc identity (superseding ADR 0018's self-signed identity). ADR 0021 adds
 inline Markdown drawings, ADR 0022 the Note-list scroll-edge mask, ADR 0023
 opt-in background mode, ADR 0024 opt-in capture notifications, and ADR 0026
-opt-in formatted selected-text capture.
+opt-in formatted selected-text capture. ADR 0028 adopts the Iris design
+system; ADRs 0029-0033 add the command menu, the focused
+Tag, hiding that returns focus, dropped and pasted files, and drawing shapes,
+labels, and image copy; ADR 0034 gives the site the Iris design and its river.
 Create another ADR before changing persistence, local-only
 privacy, shortcut support, bulk interaction, cross-app sharing, the static-site
 boundary, updater data flow, or the dependency rule. New adapters must

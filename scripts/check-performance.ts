@@ -11,7 +11,9 @@ const scripts = files.filter((file) => file.endsWith('.js'));
 let gzipBytes = 0;
 for (const script of scripts)
   gzipBytes += gzipSync(await Bun.file(`${desktopAssets}/${script}`).bytes()).byteLength;
-const desktopBudget = 230 * 1024;
+// v0.2.0 shipped 229 KiB; the 2026-10-17 dependency bumps (Motion 14, Base UI 1.9, React 19.3,
+// TanStack Markdown 1.0) added about 11 KiB and ADRs 0029-0033 about 9 KiB.
+const desktopBudget = 260 * 1024;
 if (gzipBytes > desktopBudget)
   throw new Error(`desktop JS gzip ${gzipBytes} exceeds ${desktopBudget}`);
 

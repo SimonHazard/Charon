@@ -1,5 +1,6 @@
 ---
-import { copy, downloadUrl, type Locale } from '../content/site';
+import { composeMarkdown, copy, downloadUrl, keyParts, type Locale } from '../content/site';
+import Threads from '../islands/react-bits/Threads';
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 interface Props {
@@ -8,21 +9,205 @@ interface Props {
 
 const { locale } = Astro.props;
 const c = copy[locale];
+const [first, ...examples] = c.samples;
+const lastExchange = c.exchanges.length - 1;
+// The longer title line sets the display size, so it runs close to the full measure.
+const titleChars = Math.max(...c.titleLines.map((line) => line.length));
 ---
 
 <BaseLayout locale={locale} page="home" title="Charon" description={c.intro}>
-  <section class="home section-shell">
-    <div class="home-copy">
-      <h1>{c.title}</h1>
-      <p class="lede">{c.intro}</p>
-      <div class="download">
-        <p class="release-status">{c.releaseStatus}</p>
-        <a class="primary-action" href={downloadUrl} rel="noreferrer" aria-describedby="download-note">
+  <nav slot="nav" class="page-links" aria-label={c.pageLinks}>
+    <a href="#how">{c.nav.how}</a>
+    <a href="#try">{c.nav.try}</a>
+    <a href="#privacy">{c.nav.privacy}</a>
+  </nav>
+
+  <section class="hero" aria-labelledby="hero-title" style={`--title-chars: ${titleChars}`}>
+    <h1 id="hero-title" class="hero-title">
+      {
+        c.titleLines.map((line) => (
+          <span class="hero-line">
+            <span>{line}</span>
+          </span>
+        ))
+      }
+    </h1>
+    <div class="hero-river" aria-hidden="true">
+      <Threads
+        client:only="react"
+        color="#9d7df2"
+        accentColor="#f099d8"
+        amplitude={1.3}
+        distance={0.34}
+        lineCount={84}
+        thickness={0.8}
+        angle={4}
+        speed={0.4}
+        brightness={1.7}
+        enableMouseInteraction
+      />
+    </div>
+    <div class="hero-foot">
+      <p class="hero-intro">{c.intro}</p>
+      <div class="hero-action">
+        <a class="primary-action" href={downloadUrl} rel="noreferrer" aria-describedby="release-status">
           {c.download}
         </a>
-        <p id="download-note" class="download-note">{c.downloadNote}</p>
-        <p class="release-note">{c.releaseNote}</p>
+        <p id="release-status" class="release-status">{c.releaseStatus}</p>
       </div>
     </div>
   </section>
+
+  <section id="how" class="how" aria-labelledby="how-title">
+    <h2 id="how-title" class="reveal">{c.howTitle}</h2>
+    <div class="how-column">
+    <ol class="exchanges">
+      {
+        c.exchanges.map((exchange, index) => (
+          <li class:list={['exchange', { 'exchange-final': index === lastExchange }]}>
+            <p class="exchange-step reveal">
+              {keyParts(exchange.step).map((part) => (part.key ? <kbd>{part.text}</kbd> : part.text))}
+            </p>
+            <div class="exchange-call reveal">
+              <p class="panel-label">{exchange.callLabel}</p>
+              <p class="call-text">{exchange.call}</p>
+            </div>
+            <figure class="exchange-response reveal">
+              <figcaption class="panel-label">{exchange.responseLabel}</figcaption>
+              <pre><code>{exchange.response}</code></pre>
+            </figure>
+          </li>
+        ))
+      }
+    </ol>
+    <p class="platform-note reveal">{c.platformNote}</p>
+    </div>
+  </section>
+
+  <section
+    id="try"
+    class="try"
+    aria-labelledby="try-title"
+    data-empty={c.tryEmpty}
+    data-copy={c.tryCopy}
+    data-copied={c.tryCopied}
+  >
+    <h2 id="try-title" class="visually-hidden">{c.tryTitle}</h2>
+    <label class="visually-hidden" for="try-input">{c.tryLabel}</label>
+    <input
+      id="try-input"
+      class="try-input"
+      data-ui
+      type="text"
+      value={first.body}
+      data-tags={JSON.stringify(first.tags)}
+      maxlength="80"
+      autocomplete="off"
+      autocapitalize="sentences"
+      spellcheck="false"
+    />
+    <figure class="try-answer" data-ui>
+      <figcaption class="panel-label" id="try-answer-label">{c.tryAnswer}</figcaption>
+      <pre aria-labelledby="try-answer-label"><code id="try-output" aria-live="polite">{composeMarkdown(first.body, first.tags)}</code></pre>
+      <button class="try-copy" type="button" hidden>{c.tryCopy}</button>
+    </figure>
+    <div class="try-examples" role="group" aria-label={c.tryExamples}>
+      {
+        examples.map((sample) => (
+          <button type="button" data-body={sample.body} data-tags={JSON.stringify(sample.tags)}>
+            {sample.body}
+          </button>
+        ))
+      }
+    </div>
+  </section>
+
+  <section id="privacy" class="privacy" aria-labelledby="privacy-title">
+    <h2 id="privacy-title" class="visually-hidden">{c.privacyTitle}</h2>
+    <div class="privacy-row">
+      <dl class="facts reveal">
+        {
+          c.facts.map((fact) => (
+            <div>
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))
+        }
+      </dl>
+      <p class="privacy-statement reveal">{c.privacy}</p>
+    </div>
+    <div class="privacy-row privacy-records">
+      {
+        c.lists.map((list) => (
+          <div class="record reveal">
+            <h3>{list.title}</h3>
+            <dl>
+              {list.items.map(([name, detail]) => (
+                <div>
+                  <dt>{name}</dt>
+                  <dd>{detail}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <div slot="close" class="close">
+    <p class="close-title">
+      {c.closeLines.map((line) => <span>{line}</span>)}
+    </p>
+    <a class="primary-action" href={downloadUrl} rel="noreferrer">{c.download}</a>
+    <p class="close-note">{c.releaseNote}</p>
+  </div>
 </BaseLayout>
+
+<script>
+  import { composeMarkdown } from '../content/site';
+
+  const section = document.querySelector<HTMLElement>('#try');
+  const input = section?.querySelector<HTMLInputElement>('#try-input');
+  const output = section?.querySelector<HTMLElement>('#try-output');
+  const copyButton = section?.querySelector<HTMLButtonElement>('.try-copy');
+  if (section && input && output && copyButton) {
+    let tags: string[] = JSON.parse(input.dataset.tags ?? '[]');
+    let copiedTimer = 0;
+    const render = () => {
+      const body = input.value;
+      const empty = !body.trim();
+      output.textContent = empty ? (section.dataset.empty ?? '') : composeMarkdown(body, tags);
+      output.toggleAttribute('data-empty', empty);
+      copyButton.disabled = empty;
+    };
+    input.addEventListener('input', render);
+    for (const button of section.querySelectorAll<HTMLButtonElement>('.try-examples button')) {
+      button.addEventListener('click', () => {
+        input.value = button.dataset.body ?? '';
+        tags = JSON.parse(button.dataset.tags ?? '[]');
+        render();
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+    }
+    if (navigator.clipboard) {
+      copyButton.hidden = false;
+      copyButton.addEventListener('click', async () => {
+        if (!input.value.trim()) return;
+        try {
+          await navigator.clipboard.writeText(composeMarkdown(input.value, tags));
+          copyButton.textContent = section.dataset.copied ?? '';
+          window.clearTimeout(copiedTimer);
+          copiedTimer = window.setTimeout(() => {
+            copyButton.textContent = section.dataset.copy ?? '';
+          }, 1600);
+        } catch {
+          // A refused clipboard leaves the text on the page to select by hand.
+        }
+      });
+    }
+    render();
+  }
+</script>

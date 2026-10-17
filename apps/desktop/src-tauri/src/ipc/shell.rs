@@ -83,11 +83,57 @@ pub(crate) fn quit_step(
     }
 }
 
-/// macOS always hides on close (plan 039); elsewhere only a live tray icon
+/// macOS always hides on close (ADR 0023); elsewhere only a live tray icon
 /// lets closing hide Charon, so a hidden window is never left without a way
 /// back.
 pub(crate) fn hides_on_close(is_macos: bool, background_active: bool) -> bool {
     is_macos || background_active
+}
+
+/// How hiding Charon gives focus back to the previously active application
+/// (ADR 0031). macOS hides the whole application, which reactivates the last
+/// one; elsewhere a hidden window needs the background-mode tray icon to come
+/// back, so without it the window is minimized instead.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum HideMethod {
+    Application,
+    Window,
+    Minimize,
+}
+
+pub(crate) fn hide_method(is_macos: bool, background_active: bool) -> HideMethod {
+    if is_macos {
+        HideMethod::Application
+    } else if background_active {
+        HideMethod::Window
+    } else {
+        HideMethod::Minimize
+    }
+}
+
+/// Hides Charon so focus returns to the application used before it
+/// (ADR 0031). Capture stays armed; the composer shortcut, the Dock or
+/// tray icon, or a second launch reveals Charon again. False when nothing
+/// could be hidden.
+pub fn hide_main(app: &AppHandle) -> bool {
+    let Some(window) = app.get_webview_window("main") else {
+        return false;
+    };
+    match hide_method(cfg!(target_os = "macos"), background_active(app)) {
+        HideMethod::Application => hide_application(app),
+        HideMethod::Window => window.hide().is_ok(),
+        HideMethod::Minimize => window.minimize().is_ok(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn hide_application(app: &AppHandle) -> bool {
+    app.hide().is_ok()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn hide_application(_app: &AppHandle) -> bool {
+    false
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -233,6 +279,13 @@ pub fn shell_set_labels(app: AppHandle, labels: NativeLabels) -> Result<(), Pref
         let _ = enable_background(&app);
     }
     Ok(())
+}
+
+/// Hides Charon and returns focus to the previous application (ADR 0031):
+/// Escape at the shelf's root and the command menu's Hide Charon.
+#[tauri::command(async)]
+pub fn shell_hide(app: AppHandle) {
+    hide_main(&app);
 }
 
 /// The webview found nothing unsent: Charon exits.
@@ -417,6 +470,15 @@ mod tests {
         assert!(hides_on_close(true, true));
         assert!(hides_on_close(false, true));
         assert!(!hides_on_close(false, false));
+    }
+
+    #[test]
+    fn hiding_returns_focus_without_stranding_the_window() {
+        assert_eq!(hide_method(true, false), HideMethod::Application);
+        assert_eq!(hide_method(true, true), HideMethod::Application);
+        assert_eq!(hide_method(false, true), HideMethod::Window);
+        // Without a tray icon a hidden window would have no visible way back.
+        assert_eq!(hide_method(false, false), HideMethod::Minimize);
     }
 
     #[test]

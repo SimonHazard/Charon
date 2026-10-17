@@ -54,8 +54,23 @@ export type WorkspaceChangedEvent = {
 
 export type WorkspaceFolderChoice = { token: string };
 
+export type AttachmentSources = { tokens: Array<string>; fileNames: Array<string> };
+
+export type AttachmentDragEvent = { over: boolean; x: number; y: number };
+
+export type AttachmentDropEvent = { sources: AttachmentSources; x: number; y: number };
+
 export type WorkspaceCommand =
-  | { type: 'createNote'; expectedRevision: number; body: string }
+  | {
+      type: 'createNote';
+      expectedRevision: number;
+      body: string;
+      /**
+       * The focused Tag a new Note starts with (ADR 0030). Older recovery
+       * records omit it.
+       */
+      tags: Array<string>;
+    }
   | { type: 'updateNote'; expectedRevision: number; noteId: string; body: string }
   | { type: 'setNoteTags'; expectedRevision: number; noteId: string; tags: Array<string> }
   | {
@@ -73,7 +88,15 @@ export type WorkspaceCommand =
   | { type: 'setNoteStatus'; expectedRevision: number; noteId: string; status: NoteStatus }
   | { type: 'deleteNote'; expectedRevision: number; noteId: string };
 
-export type WorkspaceCommandResult = { snapshot: WorkspaceSnapshot; transactionId: string };
+export type WorkspaceCommandResult = {
+  snapshot: WorkspaceSnapshot;
+  transactionId: string;
+  /**
+   * The id `createNote` gave its new Note, so a caller never guesses it from
+   * the snapshot; `None` for every other command.
+   */
+  createdNoteId: string | null;
+};
 
 export type WorkspaceIpcError = {
   code: string;

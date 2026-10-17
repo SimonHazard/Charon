@@ -3,7 +3,9 @@
 This contract implements [ADR 0011](adr/0011-rapid-capture-product.md), as
 amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
 [ADR 0013](adr/0013-direct-note-actions.md), under the interaction and motion
-invariants of ADR 0005.
+invariants of ADR 0005, in the Iris design system
+([ADR 0028](adr/0028-iris-design-system.md)), with the command menu, focused
+Tag, hiding, file intake, and drawing tools of ADRs 0029-0033.
 
 ## Product posture
 
@@ -16,39 +18,41 @@ deletion.
 
 ## Visual language
 
-The appearance follows the OS by default (ADR 0019); Light and Graphite (the
-dark appearance) are explicit choices that never flip with the OS. The
-approved Charon Prune, Lavender, and Cream primitives map through semantic theme
-roles; product components never use raw palette values or theme conditionals.
-Drawing ink colours are the exception: they are user content stored in the
-Note (ADR 0021), not theme roles, shown as swatches in the drawing dialog.
-Lavender is the interaction accent for focus and active controls.
-It appears through semantic surfaces and boundaries, never as a decorative
-vertical rail beside content.
-Destructive, warning, and success colors remain semantic.
+The appearance follows the OS by default (ADR 0019); Light and Dark are
+explicit choices that never flip with the OS. Both use the Iris palette
+(ADR 0028) through semantic theme roles; product components never use raw
+palette values or theme conditionals. Drawing ink colours are the exception:
+they are user content stored in the Note (ADR 0021), not theme roles, shown as
+swatches in the drawing dialog. The Iris violet (`#7253b9` Light, `#9d7df2`
+Dark) is the accent for focus, selection, and active controls; the Iris
+magenta (`#a82c87` Light, `#f099d8` Dark) is the one solid primary action. The
+accent appears through semantic surfaces and boundaries, never as a decorative
+vertical rail beside content. Destructive, warning, and success colors remain
+semantic.
 
-Use the platform system UI font stack with optical sizing where supported,
-size-specific tracking, and tighter leading only for large headings. Use system
-monospace for Markdown editing. Tabler outline icons are the sole UI icon family
-with consistent stroke. Do not use Inter, painted gradients (the Note list
-scroll-edge mask of ADR 0022 excepted), glow, emoji iconography, permanent
-glass, oversized marketing type, generic rounded cards, or a bento grid.
+Use the platform system UI font stack (`-apple-system`, `BlinkMacSystemFont`,
+`Segoe UI`, `system-ui` order) with optical sizing where supported, and system
+monospace for Markdown editing. Body text is 14px, default controls 32px and
+compact ones 28px. Tabler outline icons
+are the sole UI icon family with consistent stroke. Do not use Inter, painted
+gradients (the Note list scroll-edge mask of ADR 0022 excepted), glow, emoji
+iconography, permanent glass, oversized marketing type, or a bento grid.
 
-Surface radius is 16px, field radius is 12px, and compact-control radius is
-8px. Pills are reserved for quiet Tag chips or compact segmented semantics.
-Borders, alignment, spacing, and restrained surface contrast establish
-hierarchy; shadows appear only when a layer genuinely floats.
+The Note radius is 14px, field radius 10px, compact-control radius 8px, dialog
+radius 18px, and composer radius 22px. Tag chips are 6px-radius chips with a
+quiet leading `#`. Borders, alignment, spacing, and restrained surface contrast
+establish hierarchy.
 
-`tokens.css` alone references the Lavender ramp (`--lavender-50` to
-`--lavender-900`, anchored on `--brand-lavender` at step 400); components
-consume its semantic roles, including `--action-border` for a Lavender
-control's silhouette. Two per-theme shadows exist: `--shadow-floating` for
-transient surfaces (Popovers, Tooltips, Select, toasts) and `--shadow-modal`
-for dialogs; Note rows and the composer stay shadowless. Text uses the
-`--type-2xs` to `--type-xl` steps and the regular (450), medium (560), and
-strong (650) weights; hit targets use the `--size-control-*` steps. These names
-stay outside Tailwind's `--text-*`, `--tracking-*`, and `--leading-*`
-namespaces.
+`tokens.css` alone references the Iris primitives; components consume its
+semantic roles, including `--action-border` for the primary control's
+silhouette. Per-theme shadows: `--shadow-control` (a 1px control and Note-row
+shadow in Light, a top highlight in Dark), `--shadow-composer` for the floating
+composer, `--shadow-floating` for transient surfaces (Popovers, Tooltips,
+Select, toasts), and `--shadow-modal` for dialogs. Text uses the `--type-2xs`
+to `--type-xl` steps and the regular (400), medium (500), and strong (600)
+weights; controls use the `--size-control-*` steps, and invisible `::after`
+areas keep every icon control's hit target at least 44px. These names stay
+outside Tailwind's `--text-*`, `--tracking-*`, and `--leading-*` namespaces.
 
 ## Single-shelf layout
 
@@ -79,12 +83,14 @@ by logging out still quits at once on macOS: AppKit terminates there without a
 hook Tauri exposes.
 
 The shelf column is at most `34rem`/544px and stays centered in wider restored
-windows rather than stretching Notes across spare canvas. A minimal native drag
-region sits above search on macOS/Linux; Windows uses its native title bar
-without an additional webview drag strip. Help and Preferences trail the search
-input inside the same surface. One virtualized stack of bounded vertical Note
-surfaces fills the available middle region. The solid composer remains anchored and visible at the
-bottom. Capture status toasts appear at the top of the shelf column below the
+windows rather than stretching Notes across spare canvas. A minimal 28px drag
+region sits above search on macOS/Linux; on macOS the native title bar is an
+overlay with a hidden title, so the traffic lights sit in that region on the
+grained canvas (ADR 0028). Windows uses its native title bar without an
+additional webview drag strip. The search field and its trailing Commands,
+Help, and Preferences icon buttons form one toolbar row. One virtualized stack
+of bounded vertical Note surfaces fills the available middle region. The
+floating composer remains anchored and visible at the bottom. Capture status toasts appear at the top of the shelf column below the
 drag region, never over the composer, dismiss after 5 seconds, and can be
 swiped up or right.
 
@@ -92,7 +98,7 @@ swiped up or right.
 +----------------------------------------------+
 |                                              |
 +----------------------------------------------+
-| [ Search Notes and Tags...       ][?][gear] |
+| [ Search notes, tags, and files... ] ⌘ ? ⚙ |
 |                                              |
 | +------------------------------------------+ |
 | | o  Agent handoff             copy edit x| |
@@ -103,7 +109,8 @@ swiped up or right.
 | +------------------------------------------+ |
 | |             ... virtualized stack ...   | |
 |                                              |
-| [ Add a note...                          ^ ]|
+| ( Add a note...                          ^ )|
+|   # New notes are tagged Research          |
 +----------------------------------------------+
 
 Expanded from the live Note row:
@@ -122,13 +129,13 @@ Expanded from the live Note row:
 Control labels in the diagram are structural placeholders; implementation uses
 Tabler outline icons and localized accessible names, never emoji glyphs.
 
-The minimal drag region and composer use the solid canvas. The search surface
-owns Help and Preferences without a separate wordmark row; native outer-window
-controls and macOS traffic-light space remain platform-owned. Lavender-backed
-surfaces and borders are reserved for focus, active controls, or a successful
-new-Note acknowledgement. Note rows use one semantic fill, a restrained one-
-pixel border, 6-8px vertical rhythm, and no lift or shadow. They remain a list,
-never a card grid.
+The minimal drag region shares the grained canvas. The toolbar row has no
+separate wordmark row; native outer-window controls and macOS traffic-light
+space remain platform-owned. Accent-backed surfaces and borders are reserved
+for focus, active controls, a file drop target, or a successful new-Note
+acknowledgement. Note rows are hairline cards: one semantic fill, a one-pixel
+border, the 1px control shadow in Light (none on Done rows), and 6px vertical
+rhythm, with no lift on hover. They remain a list, never a card grid.
 
 The top chrome remains compact at large text sizes. At narrow desktop widths,
 secondary Tag metadata collapses before title, preview, status, row actions,
@@ -160,12 +167,16 @@ layout pressure.
 
 | Job | Compact home | Required compact behavior |
 | --- | --- | --- |
-| Search body, Tags, and Attachment names | Full-width top search row | The clear action remains reachable and a no-result state keeps the composer visible. |
+| Search body, Tags, and Attachment names | Toolbar search field | The clear action remains reachable and a no-result state keeps the composer visible. |
+| Command menu (ADR 0029) | `CmdOrCtrl+K` or the Commands button | One glass dialog high in the shelf: Tags to focus, up to six matching Notes, actions, appearance, language, and a new Tag last; it fits 400 by 480 and never opens over another modal dialog. |
+| Focused Tag (ADR 0030) | Tag chips, the command menu, the label above the list, and a strip under the composer | One remembered Tag filters the shelf and tags new Notes; leaving it is one click, the menu's Show all notes, or Escape in search. |
+| Hide Charon (ADR 0031) | Escape at the shelf's root, the composer shortcut while Charon is frontmost, the command menu | Hides Charon so the previous app gets focus back (macOS hides the app; Windows with the tray icon hides the window; otherwise the window is minimized). |
+| Drop or paste files (ADR 0032) | The whole shelf | A drag marks the Note row under the pointer with the accent, or shows a dashed overlay that offers a new Note; a paste with files inside an open editor attaches to it, anywhere else it creates a Note named after the files. |
 | Open and Done | Unified Note stack | Done stays in place with a checked control, muted surface, and struck-through primary text. Tag chips keep a visible boundary on the muted surface. |
 | Open a Note | Main row surface | A plain click, Enter, or Space expands that Note directly; Arrow keys move native focus without creating a mode. |
 | Scan and act on a Note | Bounded virtualized row | Derived title, preview, quiet Tags, Attachment count, status, Copy, Edit, and Delete remain present. |
 | Edit Markdown | Expanded live Note row | Write/Preview, autosave state, close, and contextual errors stay in the same row. |
-| Draw in a Note | Expanded Note, Draw button beside Markdown help | One modal drawing dialog fits 400 by 480; Preview shows validated drawings with an Edit drawing action. |
+| Draw in a Note | Expanded Note, Draw button beside Markdown help, or New drawing in the command menu | One modal drawing dialog fits 400 by 480 with pen, line, arrow, rectangle, ellipse, text, and eraser tools and Copy image; Preview shows validated drawings with Edit drawing and Copy image actions. |
 | Edit Tags | Expanded Note, stacked section | Chips wrap, the add input stays usable, and limits and errors remain local. |
 | Manage Attachments | Expanded Note, stacked section | Generic file metadata, pending and error states, add, and remove remain available without previews. |
 | Copy as Markdown | Direct row action | One Note keeps its body exact; completion, failure, and local-path disclosure remain contextual and reachable. |
@@ -177,7 +188,7 @@ layout pressure.
 | Formatted capture | Preferences Capture section (macOS only) | Default-off and marked Experimental; the description states, without hover, that the Copy fallback also reads the formatted copy and that plain text is kept when it does not match; a failed save keeps the toggle off with a local alert; no Windows or Linux control. |
 | Capture notifications | Preferences Capture section and the system notification center | Default-off; one fixed "Charon" / "Note captured." notification at most every 2 s, only while the window is unfocused; no Note text; the click opens no Note; the unverifiable OS permission is stated, never guessed. |
 | Workspace loading, empty, error, and recovery | Main shelf region | Layout-shaped progress and local recovery preserve composer or chooser priority. |
-| Manual capture | Anchored body-only composer | Input survives failure, shortcut focus is immediate, and there is no Attachment queue. |
+| Manual capture | Anchored body-only composer | Input survives failure, shortcut focus is immediate, there is no Attachment queue, and the focused Tag shows in a strip below it. |
 
 Compact layout thresholds are explicit:
 
@@ -209,9 +220,12 @@ Compact layout thresholds are explicit:
   accessible label and keyboard Tooltip.
 - Removal keeps the existing filename-specific irreversible confirmation and
   cleanup-retry contract.
+- Dropped and pasted files (ADR 0032) reach React only as single-use tokens and
+  display names; the import is the same Rust-owned command. A pasted image
+  becomes one PNG Attachment.
 - React never reads Attachment bytes or source paths and never offers a
-  thumbnail, arbitrary MIME preview, upload, drag and drop, external execution,
-  cross-Note sharing, or pre-Note Attachment state.
+  thumbnail, arbitrary MIME preview, upload, external execution, cross-Note
+  sharing, or pre-Note Attachment state.
 
 ## Note row and direct actions
 
@@ -231,7 +245,8 @@ swaps its icon for a check for 2.5 seconds without reflowing the row and is
 announced through the shelf status region; a copy failure stays inline until
 the next copy, expansion, or delete.
 
-Tag chips are quiet metadata, not colored categories or navigation. The
+Tag chips are quiet metadata, not colored categories or navigation. Activating
+one focuses its Tag (ADR 0030). The
 paperclip count opens or focuses the Attachment area only within the same
 expanded Note. Keyboard focus keeps its own visible ring in every theme and is
 never communicated by color alone. A plain click on the main surface expands
@@ -250,18 +265,22 @@ active Workspace, the same failure remains actionable in the startup surface.
 
 ## Composer
 
-The solid bottom composer is always visible, accepts a short Markdown body,
+The floating bottom composer (a rounded glass host, ADR 0028) is always
+visible, accepts a short Markdown body,
 creates one Open Note on Enter, inserts a line break on `Shift+Enter`, and does
 nothing for empty or whitespace-only input. The field grows with its content to
 about five lines, then scrolls; pasted line breaks are preserved. It preserves
-text on failure and shows retry beside the error. Longer work moves into the
+text on failure and shows retry beside the error. While a Tag is focused, a
+quiet strip under it reads "New notes are tagged" and the Tag. Longer work moves into the
 same expanded Note editor after creation rather than opening another window. It
 has no permanent help sentence, pre-Note Attachment queue, thumbnail strip, drag
 and drop, or arbitrary preview; essential capture help remains available from
 Help and Preferences.
 
 Invoking the composer shortcut reveals Charon and focuses the composer when
-global operating-system delivery is available. It is the platform default
+global operating-system delivery is available. While Charon's window has
+focus, the same shortcut hides Charon and returns focus to the previous
+application (ADR 0031). It is the platform default
 (`Cmd+Shift+Space` on macOS, `Alt+Shift+Space` on Windows and X11) or the one
 key combination the user chose in Preferences (ADR 0025). On Wayland, the
 portal may assign a different shortcut, which Charon displays.
@@ -288,7 +307,7 @@ surface,
 creates one Note only for non-empty selected text, and never steals source
 focus. When the user next reveals Charon, the shelf announces the captured
 Note, scrolls to it unless an editor is open or a text field has focus, and
-briefly tints its row Lavender. Capture itself stays silent unless the user
+briefly tints its row with the selection accent. Capture itself stays silent unless the user
 turned on capture notifications (ADR 0024). Permission denial keeps the
 portable shortcut and composer usable.
 
@@ -314,21 +333,29 @@ images), without changing the draft. Escape closes help first and restores its
 trigger focus.
 
 A Draw icon button sits beside the compact Markdown help. It opens a modal
-dialog titled Drawing with a toolbar (Pen and Eraser, five ink swatches, three
-widths, Undo, Redo, Clear), a 16:10 canvas, and Cancel plus Insert, or Save
-when editing. Ink appears on pointer down and follows the pointer 1:1 through
-pointer capture; the eraser removes whole strokes it passes over. Insert is
+dialog titled Drawing with a toolbar (Pen, Line, Arrow, Rectangle, Ellipse,
+Text, and Eraser, five ink swatches, three widths, Undo, Redo, Clear), a 16:10
+canvas, and Copy image, Cancel, plus Insert, or Save when editing. Ink appears
+on pointer down and follows the pointer 1:1 through pointer capture; a shape
+follows the drag from its start and Shift constrains it (45° lines, squares,
+circles); the Text tool opens a field where the user clicks, Enter or leaving
+the field adds the label, and Escape drops only the label. The eraser removes
+whole strokes and labels it passes over. Copy image writes the drawing as one
+PNG, dark ink on white (ADR 0033), and announces it. Insert is
 disabled until a stroke exists, and a drawing over the format limit keeps its
-strokes and shows an inline error. Cancel or Escape with unsaved strokes asks
-inline to discard or keep drawing, and so does closing the window on Windows
-and Linux, which then stays open; without changes the dialog closes at once.
+strokes and shows an inline error. A New drawing stays open, disabled, while
+its Note is created; if that fails it keeps its strokes beside an inline error
+and Insert becomes Retry. Cancel or Escape with unsaved strokes asks
+inline to discard or keep drawing, and so do Quit and closing the window on
+Windows and Linux, which then keep Charon open; without changes the dialog
+closes at once.
 Focus returns to the Draw button or to the Edit drawing button that opened it.
 In Write, Draw inserts at the caret, or edits the drawing whose block holds
 the caret; a new drawing never lands inside another code block, and one the
 Note leaves unclosed takes it before its opening line. Preview renders each
 valid drawing as a quiet inset figure whose ink uses the text colour; a
-top-level drawing carries an Edit drawing icon button, while one inside a
-quote, list item, or footnote is shown without it. Invalid `svg` blocks remain
+top-level drawing carries Edit drawing and Copy image icon buttons, while one
+inside a quote, list item, or footnote is shown with Copy image only. Invalid `svg` blocks remain
 code. The dialog uses the dialog transient-surface motion and its
 reduced-motion, reduced-transparency, and increased-contrast fallbacks.
 
@@ -368,7 +395,7 @@ Every flow and reusable control defines:
 - destructive: exact scope and irreversible wording for Note or Attachment
   removal;
 - focus: a high-contrast visible ring independent of status;
-- active: Lavender-backed controls remain distinct from focus and status;
+- active: accent-backed controls remain distinct from focus and status;
 - disabled: unavailable appearance plus an accessible reason when needed;
 - permission-denied: affected capture capability, purpose, settings path, retry,
   and the functional portable shortcut and composer fallback; for capture
@@ -397,7 +424,13 @@ recovery behavior.
 - `CmdOrCtrl+A` keeps its native text-selection meaning; Charon assigns it no
   Note-list command.
 - `CmdOrCtrl+F` focuses search. Escape in the search field clears the query
-  and Tag filter and keeps focus there; with nothing to clear it does nothing.
+  and the focused Tag and keeps focus there.
+- `CmdOrCtrl+K` opens or closes the command menu (ADR 0029) unless another
+  modal dialog is open. In the menu, arrows, PageUp/PageDown, and
+  `Ctrl+N`/`Ctrl+P` move the highlight, Enter runs it, and Escape closes.
+- Escape with nothing to close, clear, or cancel (no dialog, popover, menu,
+  editor, search query, or IME composition) hides Charon and returns focus to
+  the previous application (ADR 0031).
 - `CmdOrCtrl+C` on a focused Note row with no text selected copies that one
   Note as Markdown, exactly like its Copy button, including the disclosed
   managed local Attachment paths. A text selection, editable text, and dialogs
@@ -420,8 +453,9 @@ recovery behavior.
 - The composer shortcut reveals Charon and focuses the bottom composer when
   global delivery is available: the platform default (`Cmd+Shift+Space` on
   macOS, `Alt+Shift+Space` on Windows/X11) or the user's chosen shortcut (ADR
-  0025). Wayland may display a portal-assigned shortcut instead. No other
-  shortcut is configurable.
+  0025). While Charon is frontmost it hides Charon instead (ADR 0031). Wayland
+  may display a portal-assigned shortcut instead. No other shortcut is
+  configurable.
 
 Displayed shortcut glyphs resolve from `capabilities.platform`, and Help and
 Preferences always show the active composer accelerator: macOS uses `⌘ ⌃ ⌥ ⇧`,
@@ -429,7 +463,7 @@ Windows names the Windows key `Win`, and Linux names it `Super`. Keys named by
 a word (Shift, Space, Home, End, Page Up, Page Down, Esc) come from Paraglide,
 so French shows Maj, Espace, Début, Fin, Pg. préc., Pg. suiv., and Échap. Help
 lists the Note shortcuts (`CmdOrCtrl+C`, `CmdOrCtrl+S`, Home/End,
-PageUp/PageDown, Escape) under a Notes subheading; any new shortcut joins Help and this contract in the
+PageUp/PageDown, Escape, `CmdOrCtrl+K`) under a Notes subheading; any new shortcut joins Help and this contract in the
 same change. Standard editing keys local to one field or dialog
 (`Shift+Enter` in the composer, undo and redo in the drawing dialog) are
 exempt from Help and listed only here. Help opens focused on its own surface
@@ -492,6 +526,8 @@ to its nested surface. Virtualization keeps a stable visual placeholder while
 the expanded surface owns focus.
 
 Preferences and Markdown help use fully opaque semantic surfaces in both themes.
+The canvas carries a 3.5 % surface grain, removed under increased
+contrast (ADR 0028).
 The Note list and confirmation dialogs reserve no empty scrollbar gutter.
 Where the Note list clips content against search or the composer, that edge
 alone fades the rows into the canvas through an alpha mask that paints no
@@ -504,10 +540,11 @@ width even with classic Windows scrollbars.
 
 Only transform and opacity animate spatially; paint-only colour transitions on
 the direct motion tokens are allowed for feedback states (ADR 0020).
-Translucency is limited to transient
-Popovers, menus, Tooltips, dialogs, and toasts where it communicates hierarchy,
-is never stacked, and has solid semantic fallbacks. The drag region, shelf,
-search, Notes, and composer stay solid. With `prefers-reduced-motion`, shared
+Translucency is limited to glass on transient
+Popovers, menus, Tooltips, dialogs, toasts, and the command menu, plus the
+floating composer, where it communicates hierarchy; it is never stacked and has
+solid semantic fallbacks. The drag region, shelf, search, and Notes stay
+solid. With `prefers-reduced-motion`, shared
 travel, scale, springs, parallax, and momentum become a short opacity crossfade
 or static swap. With reduced transparency, transient materials become solid.
 Increased contrast adds clear boundaries without changing information
@@ -520,7 +557,7 @@ same transform property as its transition, with the trigger as its origin.
 ## Accessibility and acceptance review
 
 Review keyboard-only use, screen-reader names and announcements, larger text,
-EN/FR strings, Light/Graphite, reduced motion, reduced transparency,
+EN/FR strings, Light/Dark, reduced motion, reduced transparency,
 increased contrast, loading, empty, failure, destructive, focus, active,
 disabled, and permission-denied states. Note counts, status, Tags, Attachment
 counts, import progress, copy success, captured Notes, and deletion result are
@@ -536,10 +573,11 @@ layout clipping with large French text.
 
 ### Shared control polish
 
-Lavender remains `#8f8be8`; primary controls use the semantic action, hover, and
-pressed roles rather than opacity mixtures. Compact buttons and toggle items use
-the 8px control radius; fields retain 12px. Tabs and pressed toggles use the
-same selection surface/border/text roles and a distinct two-pixel focus ring.
+Primary controls use the semantic action, hover, and pressed roles (Iris
+magenta) with a 1px top highlight rather than opacity mixtures; quiet
+controls show muted icons that turn to the text colour on hover. Compact buttons
+and toggle items use the 8px control radius; fields retain 10px. Tabs use a raised segment on an inset track; pressed toggles use the
+selection surface/border/text roles; both keep a distinct two-pixel focus ring.
 Fine-pointer hover keeps three distinct levels: a quiet row surface, a clearer
 control surface, and an explicit destructive surface. Active tabs and toggles
 retain their selected surface when hovered, while coarse pointers expose direct

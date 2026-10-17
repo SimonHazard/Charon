@@ -32,6 +32,7 @@ export function captureClients(): {
     backgroundActive: false,
     captureNotifications: false,
     richCapture: false,
+    focusedTag: null,
   } as const;
   return {
     captureClient: {
@@ -52,6 +53,7 @@ export function captureClients(): {
       setBackgroundMode: async () => preferences,
       setCaptureNotifications: async () => preferences,
       setRichCapture: async () => preferences,
+      setFocusedTag: async () => preferences,
     },
     emitStatus: (status) => {
       for (const listener of listeners) listener(status);

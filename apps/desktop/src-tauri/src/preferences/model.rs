@@ -28,10 +28,17 @@ pub struct PersistedPreferences {
     /// The opt-in formatted capture (ADR 0026). Older schema-v1 files omit it.
     #[serde(default)]
     pub rich_capture: bool,
+    /// The focused Tag new Notes start with (ADR 0030). Older schema-v1 files
+    /// omit it. `ipc::preferences` checks it against the Note Tag rules; this
+    /// file only bounds its shape.
+    #[serde(default)]
+    pub focused_tag: Option<String>,
 }
 
 /// Matches `capture::shortcut::MAX_ACCELERATOR_LEN`.
 const COMPOSER_SHORTCUT_MAX_BYTES: usize = 64;
+/// Matches `workspace::MAX_TAG_SCALARS`.
+const FOCUSED_TAG_MAX_SCALARS: usize = 48;
 
 impl Default for PersistedPreferences {
     fn default() -> Self {
@@ -43,6 +50,7 @@ impl Default for PersistedPreferences {
             capture_notifications: false,
             composer_shortcut: None,
             rich_capture: false,
+            focused_tag: None,
         }
     }
 }
@@ -69,6 +77,14 @@ impl PersistedPreferences {
         }) {
             return Err(PreferencesError::InvalidValue);
         }
+        if self.focused_tag.as_deref().is_some_and(|tag| {
+            tag.trim().is_empty()
+                || tag.trim() != tag
+                || tag.chars().count() > FOCUSED_TAG_MAX_SCALARS
+                || tag.chars().any(char::is_control)
+        }) {
+            return Err(PreferencesError::InvalidValue);
+        }
         Ok(())
     }
 
@@ -83,6 +99,7 @@ impl PersistedPreferences {
             background_active: false,
             capture_notifications: self.capture_notifications,
             rich_capture: self.rich_capture,
+            focused_tag: self.focused_tag.clone(),
         }
     }
 }
@@ -287,6 +304,38 @@ mod tests {
     }
 
     #[test]
+    fn focused_tag_is_a_bounded_single_line_label() {
+        let with = |tag: &str| PersistedPreferences {
+            focused_tag: Some(tag.to_owned()),
+            ..PersistedPreferences::default()
+        };
+        assert!(with("Research").validate().is_ok());
+        assert!(with(&"é".repeat(48)).validate().is_ok());
+        for invalid in [
+            "",
+            "   ",
+            " padded",
+            "line\nbreak",
+            "bell\u{7}",
+            &"t".repeat(49),
+        ] {
+            assert!(matches!(
+                with(invalid).validate(),
+                Err(PreferencesError::InvalidValue)
+            ));
+        }
+        assert_eq!(
+            with("Research").snapshot().focused_tag.as_deref(),
+            Some("Research")
+        );
+        let older: PersistedPreferences = serde_json::from_str(
+            r#"{"schemaVersion":1,"lastWorkspacePath":null,"captureHintDismissed":false}"#,
+        )
+        .expect("schema-v1 file without a focused Tag");
+        assert_eq!(older.focused_tag, None);
+    }
+
+    #[test]
     fn snapshot_omits_unsafe_workspace_basenames() {
         let preferences = PersistedPreferences {
             last_workspace_path: Some("/tmp/unsafe\nname".to_owned()),
@@ -314,4 +363,6 @@ pub struct PreferencesSnapshot {
     pub capture_notifications: bool,
     /// The persisted formatted-capture choice (ADR 0026).
     pub rich_capture: bool,
+    /// The focused Tag new Notes start with (ADR 0030), if any.
+    pub focused_tag: Option<String>,
 }

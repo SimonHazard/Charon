@@ -1,7 +1,9 @@
-import { IconHelp } from '@tabler/icons-react';
-import { useId, useRef } from 'react';
+import { IconCommand, IconHelp } from '@tabler/icons-react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useMessages } from '@/app/providers';
+import { useShelfSurface } from '@/app/shelf-surface-context';
 import { Button } from '@/components/ui/button';
+import { Kbd } from '@/components/ui/kbd';
 import {
   Popover,
   PopoverContent,
@@ -20,10 +22,18 @@ export function WindowDragRegion() {
   return <div aria-hidden="true" className="window-drag-region" data-tauri-drag-region />;
 }
 
-export function ShelfActions() {
+export function ShelfActions({ onOpenCommands }: { onOpenCommands?(): void }) {
   const m = useMessages();
   const notesTitleId = useId();
   const helpPopupRef = useRef<HTMLDivElement>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const shelfSurface = useShelfSurface();
+  useEffect(() => {
+    const request = shelfSurface.request;
+    if (request?.surface !== 'help') return;
+    shelfSurface.consume(request.requestId);
+    setHelpOpen(true);
+  }, [shelfSurface]);
   const { capabilities } = useNativePreferences();
   const isMacos =
     capabilities?.platform === 'macos' || (!capabilities && navigator.platform.startsWith('Mac'));
@@ -48,6 +58,7 @@ export function ShelfActions() {
     [[noteKey('Home'), noteKey('End')], m.note_shortcut_home_end()],
     [[noteKey('PageUp'), noteKey('PageDown')], m.note_shortcut_page()],
     [[noteKey('Esc')], m.note_shortcut_clear_search()],
+    [[noteKey('CmdOrCtrl+K')], m.command_shortcut_help()],
   ] as const;
   const shortcutLabel = capabilities
     ? capabilities.activeShortcut
@@ -60,7 +71,24 @@ export function ShelfActions() {
       );
   return (
     <div className="shelf-actions">
-      <Popover>
+      {onOpenCommands ? (
+        <Tooltip>
+          <TooltipTrigger
+            aria-keyshortcuts="Meta+K Control+K"
+            aria-label={m.command_menu_open()}
+            className="shelf-action-button"
+            onClick={onOpenCommands}
+            render={<Button size="icon-sm" variant="ghost" />}
+          >
+            <IconCommand aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent>
+            {m.command_menu_open()}
+            <Kbd>{noteKey('CmdOrCtrl+K')}</Kbd>
+          </TooltipContent>
+        </Tooltip>
+      ) : null}
+      <Popover open={helpOpen} onOpenChange={setHelpOpen}>
         <Tooltip>
           <TooltipTrigger
             render={

@@ -61,6 +61,7 @@ export const NoteRow = memo(function NoteRow({
   note,
   expanded,
   acknowledged = false,
+  dropTarget = false,
   allTags,
   copyState,
   onCopy,
@@ -77,11 +78,14 @@ export const NoteRow = memo(function NoteRow({
   onRetryCleanup,
   onDirtyChange,
   registerDraftGuard,
+  confirmNewDrawingDiscard,
 }: {
   note: NoteDto;
   expanded: boolean;
   /** Briefly tints a Note that a selected-text capture just created. */
   acknowledged?: boolean;
+  /** Marks the Note a file drag over the shelf would attach to (ADR 0032). */
+  dropTarget?: boolean;
   allTags: readonly string[];
   copyState: { status: 'copied' | 'error'; message: string } | null;
   onCopy(noteId: string): Promise<void>;
@@ -98,6 +102,8 @@ export const NoteRow = memo(function NoteRow({
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
   registerDraftGuard?(guard: () => Promise<boolean>): () => void;
+  /** Asks about the shelf's unsaved New drawing before the window closes; true keeps it open. */
+  confirmNewDrawingDiscard?(): boolean;
 }) {
   const m = useMessages();
   const reduceMotion = useReducedMotion() ?? false;
@@ -153,6 +159,7 @@ export const NoteRow = memo(function NoteRow({
     <motion.article
       className="note-row"
       data-acknowledged={acknowledged || undefined}
+      data-drop-target={dropTarget || undefined}
       data-expanded={expanded}
       data-note-id={note.id}
       data-status={status}
@@ -326,6 +333,7 @@ export const NoteRow = memo(function NoteRow({
             onClose={() => onCloseEditor(note.id)}
             onDirtyChange={onDirtyChange}
             registerDraftGuard={registerDraftGuard}
+            confirmNewDrawingDiscard={confirmNewDrawingDiscard}
             onRemoveAttachment={(attachment) => onRemoveAttachment(note.id, attachment)}
             onRetryCleanup={onRetryCleanup}
             onSave={(body) => onSave(note.id, body)}

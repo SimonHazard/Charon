@@ -41,15 +41,24 @@ the Workspace location, external synchronization, backup policy, and cleanup.
 Charon reads or writes only the active Workspace and app-owned local preferences
 needed to remember settings. Preferences store a successfully validated folder
 choice, presentation choices, the background-mode choice, the
-capture-notification choice, the formatted-capture choice, and the chosen
+capture-notification choice, the formatted-capture choice, the chosen
 composer shortcut (a key combination such as `Ctrl+Alt+N`, or nothing for the
-default), never Note content. While recording a new composer shortcut, Preferences reads only the
+default), and the focused Tag (ADR 0030; one Tag name the user chose, or
+nothing), never Note content. While recording a new composer shortcut, Preferences reads only the
 keys pressed inside its focused recorder and keeps only the accepted
 combination.
 
-Adding an Attachment is an explicit file-picker action. The picker runs in Rust
-and gives the webview only short-lived opaque one-shot tokens, never source
-paths. Rust accepts a bounded regular file outside every Charon Workspace, does
+Adding an Attachment is an explicit file-picker action, a drop of files on the
+shelf, or a paste of files or an image (ADR 0032). The picker runs in Rust, and
+Rust receives the paths of a drop or of the clipboard's file list itself; the
+webview gets only short-lived opaque one-shot tokens and display names, never
+source paths. A paste reads the clipboard once, only after the paste gesture,
+and only when it holds files or an image; text keeps the ordinary paste. A
+pasted image is written once as a PNG file to an owner-only temporary folder,
+imported, and deleted when its import ends, as soon as it is refused or its
+Note cannot be created, when its five-minute token expires unused (a timer
+removes it then), or at the next launch; operating-system snapshots of the temporary folder are
+outside that guarantee. Rust accepts a bounded regular file outside every Charon Workspace, does
 not follow symlinks, copies it into `attachments/<note-id>/`, and persists only
 safe display metadata plus a generated managed relative path. The external
 source path is never persisted. Imported bytes remain local. Charon never
@@ -57,8 +66,11 @@ executes them, previews arbitrary formats, uploads them, or maintains a
 cross-Note asset library.
 
 Drawings are stored as SVG text inside the local Note body and its Markdown
-file. Drawing makes no network request and the Preview of a drawing loads no
-resource. `Copy as Markdown` includes a drawing's SVG text exactly as stored.
+file, including the plain text of any label. Drawing makes no network request
+and the Preview of a drawing loads no resource. `Copy as Markdown` includes a
+drawing's SVG text exactly as stored. A drawing's Copy image (ADR 0033), only
+after an explicit action, renders that drawing in the webview and writes one PNG
+image to the system clipboard; it reads no file and changes no Note.
 
 Local logs and diagnostics exclude Note bodies, Tag values, Attachment bytes,
 clipboard payloads, selected text, and sensitive filesystem paths by default. A

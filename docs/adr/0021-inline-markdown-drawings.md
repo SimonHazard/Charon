@@ -6,6 +6,10 @@ Accepted on 2026-10-02 by operator request ("add the ability to draw in the
 Markdown; base it on the official Tauri API"). Adds an editor capability; it
 changes no schema, Workspace, IPC, persistence, or deletion contract.
 
+Amended on 2026-10-17 by ADR 0033: Line, Arrow, Rectangle, Ellipse, and Text
+tools, one `<text>` element in the format whitelist, a New drawing command, and
+Copy image through one new `ClipboardComposer` command.
+
 ## Context
 
 People who capture notes for agents sometimes need a quick sketch: an arrow

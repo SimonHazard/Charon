@@ -3,7 +3,8 @@
 This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) as
 amended by [ADR 0012](adr/0012-unified-note-shelf.md) and
 [ADR 0013](adr/0013-direct-note-actions.md), with distribution and platform
-direction from ADRs 0014-0016.
+direction from ADRs 0014-0016, the capture-flow additions of ADRs 0029-0033,
+and the Iris design system of ADR 0028.
 
 ## Product promise and users
 
@@ -28,8 +29,17 @@ durable Note visible to users, editors, backup tools, and local agents.
   where completed Notes remain visible.
 - Expand one Note to write or preview Markdown, edit lightweight Tags, and add
   or remove locally managed Attachments.
-- Sketch a quick drawing inside a Note's Markdown, stored as one small inline
-  SVG code block, and edit it again later.
+- Sketch a quick drawing with the pen, lines, arrows, rectangles, ellipses, and
+  text labels inside a Note's Markdown, stored as one small inline SVG code
+  block, edit it again later, or copy it as an image for a prompt (ADR 0033).
+- Focus one Tag: the shelf shows its Notes and every new Note joins it until
+  the user leaves it (ADR 0030).
+- Reach Tags, Notes, actions, appearance, and language from one `CmdOrCtrl+K`
+  command menu (ADR 0029).
+- Drop files on the shelf, or paste files or an image into it, to attach them
+  to a Note or capture them as a new Note (ADR 0032).
+- Hide Charon and return to the previous application with Escape or the
+  composer shortcut (ADR 0031).
 - Act directly on one Note to change status, copy, edit, or request permanent
   deletion without entering a selection mode.
 - Copy one deterministic agent-ready Markdown document containing the Note body,
@@ -40,7 +50,7 @@ durable Note visible to users, editors, backup tools, and local agents.
 - Keep content in readable local files and recover safely from invalid data,
   interrupted transactions, migration, external edits, or lost permissions.
 - Choose English or French, and follow the system appearance or pin Light or
-  Graphite, without changing command meaning.
+  Dark, without changing command meaning.
 - Inspect the current Notes folder and choose another validated local Workspace.
 - Opt into signed update checks, review an available version, and explicitly
   download, install, and restart without sending Workspace content.
@@ -84,10 +94,16 @@ Uniqueness on a Note is case-insensitive, while first-entered spelling and order
 are preserved. Tags have no IDs, colors, nesting, global registry, management
 destination, or navigation hierarchy.
 
+At most one Tag is **focused** at a time (ADR 0030). The focus is remembered in
+native preferences, filters the shelf, and adds its Tag to every new Note:
+composer Notes, selected-text captures, new drawings, and dropped or pasted
+files. Focusing or leaving a Tag edits no Note.
+
 ### Attachment
 
 An `Attachment` is a regular non-symlink file outside the Workspace explicitly
-chosen by the user. A Note owns at most 20 Attachments of at most 100 MiB each.
+chosen by the user through the file picker, a drop on the shelf, or a paste
+(ADR 0032); a pasted image becomes one PNG file first. A Note owns at most 20 Attachments of at most 100 MiB each.
 Rust copies each file to
 `attachments/<note-id>/<attachment-id>[.<safe-extension>]` and persists its
 UUID, validated display basename, generated relative managed path, and creation
@@ -135,7 +151,8 @@ body becomes Markdown, but only when it matches the plain text; direct
 Accessibility captures, other platforms, and every uncertain case keep the
 exact plain text. When the user next reveals Charon, the
 shelf announces the captured Note, scrolls to it unless an editor is open or a
-text field has focus, and briefly tints its row Lavender. Capture itself stays
+text field has focus, and briefly tints its row with the selection accent. A
+focused Tag (ADR 0030) is added to the captured Note. Capture itself stays
 silent unless the user turned on capture notifications (ADR 0024): then a
 capture that created a Note while Charon's window is not focused shows one
 system notification with only the fixed text "Charon" and "Note captured.", at
@@ -156,9 +173,12 @@ makes no double-Shift claim.
 
 The composer is always visible at the bottom of the shelf. It names the active
 local Notes folder context, preserves failed input, creates exactly one open
-Note on Enter, inserts a line break on `Shift+Enter`, and ignores empty input. The composer shortcut reveals Charon
+Note on Enter, inserts a line break on `Shift+Enter`, and ignores empty input.
+While a Tag is focused, a strip under it names the Tag the new Note receives.
+The composer shortcut reveals Charon
 and focuses that composer: `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on
-Windows and X11 by default. It does not open a second window or empty editor.
+Windows and X11 by default. While Charon is frontmost, the same shortcut hides
+it and returns focus to the previous application (ADR 0031). It does not open a second window or empty editor.
 On macOS, Windows, and X11 the user can replace it with one chosen key
 combination in Preferences and reset it to the default (ADR 0025); Charon
 refuses invalid or reserved combinations, keeps the previous shortcut when the
@@ -196,8 +216,9 @@ The expansion uses transform and opacity based shared layout, remains
 interruptible and reversible, starts from the current presentation value, and
 never locks input. Reduced motion uses a short crossfade or static swap.
 
-Draw opens a modal drawing surface with pen, stroke eraser, five inks, three
-widths, undo, redo, and Clear. Insert writes one fenced `svg` block into the
+Draw opens a modal drawing surface with a pen, line, arrow, rectangle,
+ellipse, text label, and stroke eraser, five inks, three widths, undo, redo,
+Clear, and Copy image. Insert writes one fenced `svg` block into the
 draft at the Write caret; a drawing under the caret or a Preview drawing's
 Edit action replaces exactly that block. The block is ordinary Note text, so
 autosave, `Copy as Markdown`, and permanent deletion treat it like the rest of
@@ -206,9 +227,11 @@ whitelist of ADR 0021; anything else stays a code block.
 
 ### Attachment import and removal
 
-The user explicitly opens a file picker. Rust validates a bounded regular
-non-symlink file, copies it into the Note-owned managed directory, and commits
-metadata and bytes together. Validation, collision, filesystem, and interrupted-
+The user explicitly opens a file picker, drops files on a Note row, or pastes
+files or an image inside an open editor. Files dropped or pasted anywhere else
+create one Note named after them, in the focused Tag. Rust validates a bounded
+regular non-symlink file, copies it into the Note-owned managed directory, and
+commits metadata and bytes together. Validation, collision, filesystem, and interrupted-
 copy errors retain the editor input and offer a contextual retry. Removal opens
 one concise confirmation naming the managed file, then permanently cleans its
 bytes and completed normal transaction backup in the same transaction.
@@ -244,9 +267,8 @@ removes the bounded recovery record before normal mutation resumes.
 ### Theme, language, and folder choice
 
 The appearance follows the operating system by default (ADR 0019). Light and
-Graphite, the dark appearance, map the approved Charon Prune, Lavender, and
-Cream identity through quiet neutral semantic roles and stay fixed once
-chosen; a persisted legacy Solarized value resolves to Light. Theme and
+Dark map the Iris palette (ADR 0028) through semantic roles and stay
+fixed once chosen; a persisted legacy Solarized value resolves to Light. Theme and
 English/French language changes update the current surface without restart or
 focus loss.
 Preferences shows the active Workspace and remembers a new
@@ -299,7 +321,7 @@ acknowledgement.
 
 A visitor sees a concise early access page with the approved PNG icon, a short
 introduction to local Markdown capture, and one GitHub Releases download link.
-The page announces the published v0.1.0 early access for macOS, Windows, and Linux.
+The page announces the v0.3.0 early access for macOS, Windows, and Linux.
 The minimal footer links to the operator's website and Ko-fi without repeating
 Charon. Detailed workflow, platform, privacy, and changelog claims remain in the
 repository contracts. The static site performs no tracking and embeds no

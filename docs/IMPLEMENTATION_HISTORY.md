@@ -110,3 +110,43 @@ available in Git history; active work lives only in `plans/`.
   the Tauri CLI instead of Cargo; no tag or partial release appeared. `242d51e`
   (#57) forwarded the flag correctly and published v0.1.3 for Apple Silicon
   macOS, Linux, and Windows.
+
+## v0.2.0: the September audit queue (2026-10-02)
+
+- `714fdab` (#67), after #64-#66, shipped plans 038-062 and inline Markdown
+  drawings as v0.2.0: system-following appearance and pre-paint canvas (ADR
+  0019), the Lavender token foundation and paint-only feedback (ADR 0020), a
+  multi-line composer, optimistic row actions, top-anchored toasts, the
+  captured-Note acknowledgement, keyboard and search fluidity, the hoisted
+  update dialog, Tooltip rules, the About section, accurate Markdown help, the
+  Note list edge fade (ADR 0022), the macOS window lifecycle, the IPC trust
+  boundary with single-use folder tokens, motion tests, opt-in background mode
+  (ADR 0023), capture notifications (ADR 0024), a user-chosen composer shortcut
+  (ADR 0025), opt-in formatted capture (ADR 0026), and drawings (ADR 0021).
+- Plan 052 was rejected when macOS releases returned to Tauri's ad-hoc
+  identity (ADR 0027, superseding ADR 0018). The plans were removed on
+  2026-10-17; their native checks that no automated test covers moved to plan
+  063.
+
+## v0.3.0: Iris design and faster capture flows (prepared 2026-10-17)
+
+- On 2026-10-17 the operator asked to finish the project, extend its capture
+  flows, adopt the Iris design system, and bump every dependency. Tauri 3
+  being only in alpha, dependencies moved to the latest stable releases
+  instead: Tauri 2.12.4 and its plugins, Base UI 1.9, Motion 14, TanStack
+  Markdown 1.0, Vitest 5, Vite 8.3, Astro 7.4, and Biome 2.5.15 (whose
+  out-of-root formatting crash `scripts/check-bindings.ts` now avoids by
+  formatting through stdin).
+- ADR 0028 maps the Iris palette, density, glass, grain, floating composer, and
+  control styles onto Charon's semantic roles; Light and Dark replace
+  Graphite; the macOS title bar becomes an overlay.
+- ADRs 0029-0033 add the `CmdOrCtrl+K` command menu, the focused Tag (with
+  tagged selected-text captures), hiding that returns focus with a toggling
+  composer shortcut and Escape, dropped and pasted files and screenshots as
+  Attachments, and drawing shapes, text labels, a New drawing command, and
+  Copy image.
+- The manifests, release notes, and site moved to 0.3.0 on the
+  `codex/v0.3` branch; plan 063 holds the native checks before the release.
+- ADR 0034 redesigns the site in Iris Dark around a live river (React Bits'
+  Threads), Charon's real outputs, a live `Copy as Markdown` preview, and an
+  accent-field privacy section, with a hash-checked CSP for its scripts.

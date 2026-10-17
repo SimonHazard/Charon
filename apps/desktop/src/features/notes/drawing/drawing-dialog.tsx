@@ -1,10 +1,16 @@
 import {
   IconArrowBackUp,
   IconArrowForwardUp,
+  IconArrowUpRight,
+  IconCircle,
   IconClearAll,
   IconEraser,
+  IconLine,
   IconMinus,
   IconPencil,
+  IconPhoto,
+  IconSquare,
+  IconTypography,
 } from '@tabler/icons-react';
 import {
   type KeyboardEvent,
@@ -32,6 +38,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DrawingCanvas, type DrawingTool } from '@/features/notes/drawing/drawing-canvas';
+import { useDrawingCopy } from '@/features/notes/drawing/drawing-copy-context';
 import {
   DRAWING_MAX_PATHS,
   DRAWING_SPACE,
@@ -39,6 +46,7 @@ import {
   type DrawingInk,
   type DrawingWidth,
   drawingInks,
+  drawingTextSizes,
   drawingWidths,
   finalizeDrawing,
   unionBox,
@@ -65,6 +73,22 @@ const widthLabel: Record<DrawingWidth, (m: Messages) => string> = {
   medium: (m) => m.drawing_width_medium(),
   bold: (m) => m.drawing_width_bold(),
 };
+
+const tools: readonly {
+  value: DrawingTool;
+  icon: typeof IconPencil;
+  label: (m: Messages) => string;
+}[] = [
+  { value: 'pen', icon: IconPencil, label: (m) => m.drawing_pen() },
+  { value: 'line', icon: IconLine, label: (m) => m.drawing_line() },
+  { value: 'arrow', icon: IconArrowUpRight, label: (m) => m.drawing_arrow() },
+  { value: 'rectangle', icon: IconSquare, label: (m) => m.drawing_rectangle() },
+  { value: 'ellipse', icon: IconCircle, label: (m) => m.drawing_ellipse() },
+  { value: 'text', icon: IconTypography, label: (m) => m.drawing_text() },
+  { value: 'eraser', icon: IconEraser, label: (m) => m.drawing_eraser() },
+];
+const isTool = (value: unknown): value is DrawingTool =>
+  tools.some((candidate) => candidate.value === value);
 
 /** Icon stroke weights that depict the three line widths. */
 const widthIconStroke: Record<DrawingWidth, number> = { thin: 1.25, medium: 2.25, bold: 3.5 };
@@ -127,8 +151,14 @@ export type DrawingDialogProps = {
   open: boolean;
   /** The drawing being edited, or null for a new drawing. */
   initial: Drawing | null;
-  onSubmit(block: string): void;
+  /**
+   * Receives the finished block. A promise keeps the dialog open until it settles; false keeps
+   * the strokes with an inline error so Retry can try again.
+   */
+  onSubmit(block: string): Promise<boolean> | undefined;
   onClose(): void;
+  /** Reports whether the dialog holds unsaved strokes. */
+  onDirtyChange?(dirty: boolean): void;
   /** Element that regains focus after closing; null uses the default. */
   finalFocus(): HTMLElement | null;
   /** Lets the editor protect unsaved strokes when the window closes. */
@@ -146,6 +176,7 @@ export function DrawingDialog({
   onClose,
   finalFocus,
   controlRef,
+  onDirtyChange,
 }: DrawingDialogProps) {
   const m = useMessages();
   const descriptionId = useId();
@@ -161,6 +192,8 @@ export function DrawingDialog({
   const [width, setWidth] = useState<DrawingWidth>('medium');
   const [confirming, setConfirming] = useState(false);
   const [tooLarge, setTooLarge] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   // A session mounts this dialog already open, and Base UI plays the transient entrance only
   // when `open` turns true after mount: open one layout pass later, before the first paint.
   const [entering, setEntering] = useState(true);
@@ -176,10 +209,13 @@ export function DrawingDialog({
   const dirty = hasDrawingChanges(history);
   const empty = history.strokes.length === 0;
   const editing = initial !== null;
+  const copyImage = useDrawingCopy();
 
   useEffect(() => {
     if (confirming) keepRef.current?.focus();
   }, [confirming]);
+
+  useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
   useImperativeHandle(
     controlRef,
@@ -201,6 +237,7 @@ export function DrawingDialog({
 
   const apply = (action: DrawingHistoryAction) => {
     setTooLarge(false);
+    setSaveFailed(false);
     setConfirming(false);
     dispatch(action);
   };
@@ -211,12 +248,25 @@ export function DrawingDialog({
   };
 
   const requestClose = () => {
+    if (saving) return;
     if (confirming) keepDrawing();
     else if (dirty) setConfirming(true);
     else onClose();
   };
 
-  const submit = () => {
+  // Copies what is drawn now as an image, without inserting it (ADR 0033).
+  const copyDrawing = () => {
+    if (!copyImage) return;
+    const result = finalizeDrawing(history.strokes, space);
+    if (!result.ok) {
+      setTooLarge(result.reason === 'too-large');
+      return;
+    }
+    void copyImage(result.drawing);
+  };
+
+  const submit = async () => {
+    if (saving) return;
     if (editing && !dirty) {
       onClose();
       return;
@@ -226,7 +276,17 @@ export function DrawingDialog({
       setTooLarge(result.reason === 'too-large');
       return;
     }
-    onSubmit(result.block);
+    const pending = onSubmit(result.block);
+    if (pending instanceof Promise) {
+      setSaveFailed(false);
+      setSaving(true);
+      const saved = await pending;
+      setSaving(false);
+      if (!saved) {
+        setSaveFailed(true);
+        return;
+      }
+    }
     onClose();
   };
 
@@ -277,16 +337,22 @@ export function DrawingDialog({
             className="drawing-toggle"
             onValueChange={(values) => {
               const next = values[0];
-              if (next === 'pen' || next === 'eraser') setTool(next);
+              if (isTool(next)) setTool(next);
             }}
             value={[tool]}
           >
-            <ToggleItem label={m.drawing_pen()} value="pen">
-              <IconPencil aria-hidden="true" />
-            </ToggleItem>
-            <ToggleItem label={m.drawing_eraser()} value="eraser">
-              <IconEraser aria-hidden="true" />
-            </ToggleItem>
+            {tools.map((candidate) => {
+              const ToolIcon = candidate.icon;
+              return (
+                <ToggleItem
+                  key={candidate.value}
+                  label={candidate.label(m)}
+                  value={candidate.value}
+                >
+                  <ToolIcon aria-hidden="true" />
+                </ToggleItem>
+              );
+            })}
           </ToggleGroup>
           <ToggleGroup
             aria-label={m.drawing_ink_label()}
@@ -295,7 +361,7 @@ export function DrawingDialog({
               const next = values[0];
               if (!isInk(next)) return;
               setInk(next);
-              setTool('pen');
+              if (tool === 'eraser') setTool('pen');
             }}
             value={[ink]}
           >
@@ -316,7 +382,7 @@ export function DrawingDialog({
               const next = values[0];
               if (!isWidth(next)) return;
               setWidth(next);
-              setTool('pen');
+              if (tool === 'eraser') setTool('pen');
             }}
             value={[width]}
           >
@@ -364,12 +430,19 @@ export function DrawingDialog({
           onEraseStrokes={(strokes) => apply({ type: 'erase', strokes })}
           space={space}
           strokes={history.strokes}
+          textLabel={m.drawing_text_field_label()}
+          textSize={drawingTextSizes[width]}
           tool={tool}
           width={widthValue}
         />
         {tooLarge ? (
           <p className="inline-error drawing-error" role="alert">
             {m.drawing_too_large()}
+          </p>
+        ) : null}
+        {saveFailed ? (
+          <p className="inline-error drawing-error" role="alert">
+            {m.drawing_new_save_error()}
           </p>
         ) : null}
         <DialogFooter className="drawing-footer">
@@ -396,15 +469,26 @@ export function DrawingDialog({
             </div>
           ) : (
             <>
-              <Button onClick={requestClose} ref={cancelRef} variant="outline">
+              {copyImage ? (
+                <Button
+                  className="drawing-copy-image"
+                  disabled={empty}
+                  onClick={copyDrawing}
+                  variant="ghost"
+                >
+                  <IconPhoto aria-hidden="true" data-icon="inline-start" />
+                  {m.drawing_copy_image()}
+                </Button>
+              ) : null}
+              <Button disabled={saving} onClick={requestClose} ref={cancelRef} variant="outline">
                 {m.common_cancel()}
               </Button>
               <Button
                 aria-describedby={empty ? emptyId : undefined}
-                disabled={empty}
-                onClick={submit}
+                disabled={empty || saving}
+                onClick={() => void submit()}
               >
-                {editing ? m.drawing_save() : m.drawing_insert()}
+                {saveFailed ? m.common_retry() : editing ? m.drawing_save() : m.drawing_insert()}
               </Button>
               {empty ? (
                 <span className="sr-only" id={emptyId}>

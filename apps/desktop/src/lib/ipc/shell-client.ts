@@ -11,6 +11,8 @@ export interface ShellClient {
   quit(): Promise<void>;
   /** Keeps Charon running and reveals its window after a blocked quit. */
   cancelQuit(): Promise<void>;
+  /** Hides Charon and returns focus to the previous application (ADR 0031). */
+  hide(): Promise<void>;
   /** The tray's Quit asks the webview to run its draft guard first. */
   subscribeQuitRequest(listener: () => void): Promise<() => void>;
 }
@@ -19,6 +21,7 @@ export const tauriShellClient: ShellClient = {
   setLabels: (labels) => invoke<void>('shell_set_labels', { labels }),
   quit: () => invoke<void>('shell_quit'),
   cancelQuit: () => invoke<void>('shell_cancel_quit'),
+  hide: () => invoke<void>('shell_hide'),
   subscribeQuitRequest: async (listener) => {
     const unlisten = await listen<null>('shell://quit-requested', () => listener());
     return unlisten;

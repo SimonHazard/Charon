@@ -85,6 +85,9 @@ describe('captured Note acknowledgement', () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+    // TanStack Virtual sizes the scroll element from its client box.
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900);
   });
 
   it('waits for the snapshot that contains the Note, then announces, marks, and scrolls to it', async () => {
@@ -179,6 +182,9 @@ describe('single note shelf', () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+    // TanStack Virtual sizes the scroll element from its client box.
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900);
   });
 
   it('preserves a failed editor through search and a request to open another Note', async () => {
@@ -221,7 +227,7 @@ describe('single note shelf', () => {
     expect(await screen.findByText('Attachment note')).toBeTruthy();
     expect(screen.queryByText('Alpha')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Clear search and tag filter' }));
-    await user.click(screen.getByRole('button', { name: 'Show notes tagged Agent' }));
+    await user.click(screen.getByRole('button', { name: 'Focus tag Agent' }));
     expect(screen.getByText('Alpha')).toBeTruthy();
     expect(screen.queryByText('Attachment note')).toBeNull();
   });
@@ -234,7 +240,7 @@ describe('single note shelf', () => {
     // With nothing to clear, Escape is left alone.
     expect(fireEvent.keyDown(search, { key: 'Escape' })).toBe(true);
 
-    await user.click(screen.getByRole('button', { name: 'Show notes tagged Agent' }));
+    await user.click(screen.getByRole('button', { name: 'Focus tag Agent' }));
     await user.type(search, 'alpha');
     expect(document.querySelector('.active-tag-filter')).not.toBeNull();
     expect(screen.queryByText('Completed note')).toBeNull();
@@ -311,14 +317,17 @@ describe('single note shelf', () => {
       'composer-dock',
     ]);
     const workbar = shelf?.querySelector('.note-workbar');
-    expect(workbar?.firstElementChild?.className).toBe('note-search');
-    expect(workbar?.children).toHaveLength(1);
-    const search = workbar?.firstElementChild;
-    expect(search?.querySelector('.shelf-actions')).not.toBeNull();
+    // One toolbar row (ADR 0028): the search field, then its trailing shelf actions.
+    expect(Array.from(workbar?.children ?? []).map((child) => child.className)).toEqual([
+      'note-search',
+      'shelf-actions',
+    ]);
+    const actions = workbar?.querySelector('.shelf-actions');
+    expect(within(actions as HTMLElement).getByRole('button', { name: 'Commands' })).toBeTruthy();
     expect(
-      within(search as HTMLElement).getByRole('button', { name: 'Keyboard shortcuts' }),
+      within(actions as HTMLElement).getByRole('button', { name: 'Keyboard shortcuts' }),
     ).toBeTruthy();
-    expect(within(search as HTMLElement).getByRole('button', { name: 'Settings' })).toBeTruthy();
+    expect(within(actions as HTMLElement).getByRole('button', { name: 'Settings' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Open' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Done' })).toBeNull();
     expect(document.querySelector('.capture-hint')).toBeNull();
@@ -486,6 +495,9 @@ describe('draft-safe Quit', () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+    // TanStack Virtual sizes the scroll element from its client box.
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900);
   });
 
   afterEach(() => {

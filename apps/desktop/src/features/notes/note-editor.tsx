@@ -68,6 +68,8 @@ type NoteEditorProps = {
   onDirtyChange(dirty: boolean): void;
   onClose(): void;
   registerDraftGuard?(guard: () => Promise<boolean>): () => void;
+  /** Asks about the shelf's unsaved New drawing before the window closes; true keeps it open. */
+  confirmNewDrawingDiscard?(): boolean;
 };
 
 export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function NoteEditor(
@@ -82,6 +84,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
     onDirtyChange,
     onClose,
     registerDraftGuard,
+    confirmNewDrawingDiscard,
   },
   ref,
 ) {
@@ -247,10 +250,11 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
       .onCloseRequested(async (event) => {
         // On macOS, or while background mode is active, the window only hides, so
         // the draft and any open drawing stay in memory; flush the draft and never
-        // destroy the window. Otherwise, unsaved strokes keep the window open
-        // behind the drawing's discard prompt.
+        // destroy the window. Otherwise, unsaved strokes, here or in the shelf's New
+        // drawing, keep the window open behind that drawing's discard prompt.
         const hides = macosRef.current || backgroundActiveRef.current;
-        const keepOpen = hides || confirmDrawingDiscard();
+        const keepOpen =
+          hides || confirmDrawingDiscard() || (confirmNewDrawingDiscard?.() ?? false);
         if (!keepOpen && !inFlight.current && draftRef.current.value === lastSavedBodyRef.current) {
           return;
         }
@@ -269,7 +273,7 @@ export const NoteEditor = forwardRef<HTMLElement, NoteEditorProps>(function Note
           : Promise.resolve();
       if (unlisten) void cleanupBarrier.finally(unlisten);
     };
-  }, [confirmDrawingDiscard, flushDraft]);
+  }, [confirmDrawingDiscard, confirmNewDrawingDiscard, flushDraft]);
 
   useEffect(() => {
     if (draft.status !== 'dirty' && draft.status !== 'error') return;

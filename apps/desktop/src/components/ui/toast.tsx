@@ -30,7 +30,7 @@ function ToastViewport({ className, ...props }: ToastPrimitive.Viewport.Props) {
       data-slot="toast-viewport"
       className={cn(
         // Top of the shelf column, below the drag region: never over the always-visible composer.
-        'pointer-events-none fixed top-(--toast-top) left-1/2 w-[min(calc(100%_-_2rem),34rem)] -translate-x-1/2 outline-none',
+        'pointer-events-none fixed top-(--toast-top) left-1/2 w-[min(calc(100%_-_2rem),22.5rem)] -translate-x-1/2 outline-none',
         className,
       )}
       {...props}
@@ -44,7 +44,7 @@ function Toast({ className, ...props }: ToastPrimitive.Root.Props) {
       data-slot="toast"
       swipeDirection={['up', 'right']}
       className={cn(
-        'group/toast pointer-events-auto absolute top-0 right-0 w-full origin-top rounded-2xl border bg-popover text-popover-foreground shadow-[var(--shadow-floating)] outline-none select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        'dropdown-glass group/toast pointer-events-auto absolute top-0 right-0 w-full origin-top rounded-[var(--radius-field)] text-popover-foreground shadow-[var(--shadow-floating)] outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring',
         '[--gap:0.75rem] [--height:var(--toast-frontmost-height,var(--toast-height))] [--offset-y:calc(var(--toast-offset-y)+(var(--toast-index)*var(--gap))+var(--toast-swipe-movement-y))] [--peek:0.75rem] [--scale:calc(max(0,1-(var(--toast-index)*0.1)))] [--shrink:calc(1-var(--scale))]',
         'h-(--height) [transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)+(var(--toast-index)*var(--peek))+(var(--shrink)*var(--height))))_scale(var(--scale))] [transition:transform_var(--motion-duration-surface)_var(--motion-easing-surface),opacity_var(--motion-duration-surface)_var(--motion-easing-surface)] motion-reduce:[transition-property:opacity]',
         "after:absolute after:bottom-full after:left-0 after:h-[calc(var(--gap)+1px)] after:w-full after:content-['']",
@@ -68,7 +68,7 @@ function ToastContent({ className, ...props }: ToastPrimitive.Content.Props) {
     <ToastPrimitive.Content
       data-slot="toast-content"
       className={cn(
-        'flex h-full items-center gap-3 overflow-hidden p-4 transition-opacity [transition-duration:var(--motion-duration-surface)] [transition-timing-function:var(--motion-easing-surface)] data-behind:opacity-0 data-expanded:opacity-100',
+        'flex h-full items-center gap-2.5 overflow-hidden py-3 pr-2.5 pl-3.5 transition-opacity [transition-duration:var(--motion-duration-surface)] [transition-timing-function:var(--motion-easing-surface)] data-behind:opacity-0 data-expanded:opacity-100',
         className,
       )}
       {...props}

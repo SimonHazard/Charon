@@ -9,6 +9,7 @@ export function shellClients() {
     setLabels: vi.fn<ShellClient['setLabels']>().mockResolvedValue(undefined),
     quit: vi.fn<ShellClient['quit']>().mockResolvedValue(undefined),
     cancelQuit: vi.fn<ShellClient['cancelQuit']>().mockResolvedValue(undefined),
+    hide: vi.fn<ShellClient['hide']>().mockResolvedValue(undefined),
     subscribeQuitRequest: vi.fn<ShellClient['subscribeQuitRequest']>(async (listener) => {
       listeners.add(listener);
       return () => {

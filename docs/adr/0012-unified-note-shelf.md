@@ -8,6 +8,10 @@ Amended on 2026-09-23 by ADR 0019: the first-run appearance follows the
 operating system; Light and Graphite remain explicit choices, and a legacy
 `solarized` value still resolves to Light.
 
+Amended on 2026-10-17 by ADR 0028: the Iris design system replaces the Prune,
+Lavender, and Cream palette, the dark appearance is named Dark, Note rows are
+hairline cards, and the composer floats. The single shelf is unchanged.
+
 ## Context
 
 The compact shelf implemented the Open/Done filter and one Actions menu per

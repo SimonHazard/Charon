@@ -1,4 +1,5 @@
-import { IconSearch, IconX } from '@tabler/icons-react';
+import { IconFilePlus, IconHash, IconSearch, IconX } from '@tabler/icons-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
   useCallback,
   useDeferredValue,
@@ -41,15 +42,29 @@ import {
 } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toast';
+import { CommandMenu } from '@/features/commands/command-menu';
+import { useShelfCommands } from '@/features/commands/shelf-commands';
+import { type IntakeOutcome, useAttachmentIntake } from '@/features/notes/attachment-intake';
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
+import { DrawingCopyProvider } from '@/features/notes/drawing/drawing-copy-context';
+import { DrawingDialog, type DrawingDialogControl } from '@/features/notes/drawing/drawing-dialog';
+import type { Drawing } from '@/features/notes/drawing/drawing-format';
+import { drawingToPng } from '@/features/notes/drawing/drawing-image';
 import { NoteList, type NoteRevealRequest } from '@/features/notes/note-list';
 import { createNoteIndex, type NoteIndex } from '@/features/notes/search';
+import { useNativePreferences } from '@/features/preferences/preferences-context';
+import {
+  type AttachmentIntakeClient,
+  tauriAttachmentIntakeClient,
+  unavailableAttachmentIntakeClient,
+} from '@/lib/ipc/attachment-intake-client';
 import {
   asClipboardError,
   type ClipboardClient,
   tauriClipboardClient,
 } from '@/lib/ipc/clipboard-client';
 import { tauriWorkspaceClient } from '@/lib/ipc/workspace-client';
+import { isTauriRuntime } from '@/lib/platform';
 
 type AttachmentPicker = () => Promise<string[]>;
 
@@ -75,18 +90,31 @@ export function NoteScreen({
   snapshot,
   clipboardClient = tauriClipboardClient,
   pickAttachments = nativeAttachmentPicker,
+  attachmentIntake = isTauriRuntime()
+    ? tauriAttachmentIntakeClient
+    : unavailableAttachmentIntakeClient,
 }: {
   snapshot: WorkspaceSnapshot;
   clipboardClient?: ClipboardClient;
   pickAttachments?: AttachmentPicker;
+  /** Files dropped on or pasted into the shelf (ADR 0032). */
+  attachmentIntake?: AttachmentIntakeClient;
 }) {
   const m = useMessages();
   const composerFocus = useComposerFocus();
   const { acknowledgement, consume: consumeAcknowledgement } = useCaptureAcknowledgement();
   const { executeWorkspaceCommand, refreshWorkspace, setWorkspaceSwitchBlocked } = useWorkspace();
-  const { registerQuitHandler } = useQuitRequest();
+  const { registerQuitHandler, hide: hideCharon } = useQuitRequest();
   const [query, setQuery] = useState('');
-  const [tag, setTag] = useState<string | null>(null);
+  // The focused Tag filters the shelf and tags new Notes (ADR 0030).
+  const { capabilities, preferences, setFocusedTag } = useNativePreferences();
+  const tag = preferences.focusedTag;
+  const setTag = useCallback(
+    (value: string | null) => {
+      void setFocusedTag(value);
+    },
+    [setFocusedTag],
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const [composerDirty, setComposerDirty] = useState(false);
@@ -101,6 +129,10 @@ export function NoteScreen({
   const [announcement, setAnnouncement] = useState('');
   const [acknowledgedId, setAcknowledgedId] = useState<string | null>(null);
   const [revealRequest, setRevealRequest] = useState<NoteRevealRequest | null>(null);
+  const [commandsOpen, setCommandsOpen] = useState(false);
+  const [newDrawingOpen, setNewDrawingOpen] = useState(false);
+  const [newDrawingDirty, setNewDrawingDirty] = useState(false);
+  const newDrawingRef = useRef<DrawingDialogControl>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const captureRef = useRef<CaptureInputHandle>(null);
   const announcementTimerRef = useRef<number | null>(null);
@@ -219,21 +251,29 @@ export function NoteScreen({
   }, [announce, deferredQuery, m, tag]);
 
   useEffect(() => {
-    setWorkspaceSwitchBlocked(editorDirty || composerDirty);
+    setWorkspaceSwitchBlocked(editorDirty || composerDirty || newDrawingDirty);
     return () => setWorkspaceSwitchBlocked(false);
-  }, [composerDirty, editorDirty, setWorkspaceSwitchBlocked]);
+  }, [composerDirty, editorDirty, newDrawingDirty, setWorkspaceSwitchBlocked]);
 
   const composerDirtyRef = useRef(composerDirty);
   useEffect(() => {
     composerDirtyRef.current = composerDirty;
   }, [composerDirty]);
 
-  // An explicit Quit (tray or Preferences) never loses unsent text: the open editor saves
-  // first, and an unsaved drawing, a failed save, or composer text keeps Charon running,
-  // revealed, with the reason beside the text it protects.
+  // An explicit Quit (tray or Preferences) never loses unsent text: a New drawing with
+  // strokes asks first, the open editor saves, and an unsaved drawing, a failed save, or
+  // composer text keeps Charon running, revealed, with the reason beside the text it protects.
   useEffect(
     () =>
       registerQuitHandler(async () => {
+        if (newDrawingRef.current?.confirmDiscard()) {
+          toast.add({
+            title: m.shell_quit_blocked_title(),
+            description: m.shell_quit_blocked_draft(),
+            type: 'warning',
+          });
+          return false;
+        }
         const guard = draftGuardRef.current;
         if (guard && !(await guard())) {
           toast.add({
@@ -256,6 +296,39 @@ export function NoteScreen({
       }),
     [m, registerQuitHandler],
   );
+
+  // macOS hides the window on close (see `lib.rs`); elsewhere close quits unless background
+  // mode keeps Charon in the notification area (ADR 0023).
+  const closeHides =
+    capabilities?.platform === 'macos' ||
+    (!capabilities && navigator.platform.startsWith('Mac')) ||
+    preferences.backgroundActive;
+  const confirmNewDrawingDiscard = useCallback(
+    () => newDrawingRef.current?.confirmDiscard() ?? false,
+    [],
+  );
+  // Closing the window never destroys a New drawing's strokes: they keep the window open
+  // behind the drawing's discard prompt. An open editor decides for both, asking this drawing
+  // through `confirmNewDrawingDiscard`, so only one listener can destroy the window.
+  useEffect(() => {
+    if (!newDrawingOpen || !isTauriRuntime()) return;
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    void getCurrentWindow()
+      .onCloseRequested((event) => {
+        if (closeHides || draftGuardRef.current || confirmNewDrawingDiscard()) {
+          event.preventDefault();
+        }
+      })
+      .then((stopListening) => {
+        if (active) unlisten = stopListening;
+        else stopListening();
+      });
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [closeHides, confirmNewDrawingDiscard, newDrawingOpen]);
 
   useLayoutEffect(() => {
     const pending = pendingDeleteFocusRef.current;
@@ -281,15 +354,52 @@ export function NoteScreen({
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === 'f') {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
+      const key = event.key.toLocaleLowerCase();
+      if (key === 'f') {
         if (document.querySelector('[role="alertdialog"][data-open]')) return;
         event.preventDefault();
         searchRef.current?.focus();
+      } else if (key === 'k' && !event.repeat) {
+        // The command menu toggles on its own shortcut but never opens over a modal dialog.
+        if (
+          document.querySelector(
+            '[role="alertdialog"][data-open], [role="dialog"][data-open]:not([data-command-menu])',
+          )
+        ) {
+          return;
+        }
+        event.preventDefault();
+        setCommandsOpen((open) => !open);
       }
     };
     window.addEventListener('keydown', focusSearch);
     return () => window.removeEventListener('keydown', focusSearch);
   }, []);
+
+  // Escape at the shelf's root hides Charon and returns focus to the previous application
+  // (ADR 0031). Every surface, the editor, and a search query consume Escape first.
+  const escapeHidesRef = useRef(false);
+  escapeHidesRef.current = expandedId === null && !query && !commandsOpen && !deleteTargetId;
+  useEffect(() => {
+    const hideOnEscape = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.repeat ||
+        !escapeHidesRef.current ||
+        document.querySelector(
+          '[role="dialog"][data-open], [role="alertdialog"][data-open], [data-slot="popover-content"][data-open], [data-slot="select-content"][data-open]',
+        )
+      ) {
+        return;
+      }
+      hideCharon();
+    };
+    window.addEventListener('keydown', hideOnEscape);
+    return () => window.removeEventListener('keydown', hideOnEscape);
+  }, [hideCharon]);
 
   const copyNote = useCallback(
     async (noteId: string) => {
@@ -449,7 +559,7 @@ export function NoteScreen({
       executeWorkspaceCommand({ type: 'setNoteTags', noteId, tags }).then(() => undefined),
     [executeWorkspaceCommand],
   );
-  const filterByTag = useCallback((value: string) => setTag(value), []);
+  const filterByTag = useCallback((value: string) => setTag(value), [setTag]);
   const setNoteStatus = useCallback(
     async (noteId: string, status: NoteStatus) => {
       await executeWorkspaceCommand({ type: 'setNoteStatus', noteId, status });
@@ -457,6 +567,99 @@ export function NoteScreen({
     },
     [announce, executeWorkspaceCommand, m],
   );
+
+  const reportIntake = useCallback(
+    (outcome: IntakeOutcome) => {
+      if (outcome.status === 'attached') {
+        announce(m.attachment_intake_done({ count: outcome.count }));
+        setAcknowledgedId(outcome.noteId);
+        if (expandedId === null && !focusIsEditable()) setRevealRequest({ noteId: outcome.noteId });
+        if (acknowledgementTimerRef.current !== null) {
+          window.clearTimeout(acknowledgementTimerRef.current);
+        }
+        acknowledgementTimerRef.current = window.setTimeout(() => {
+          setAcknowledgedId((current) => (current === outcome.noteId ? null : current));
+          acknowledgementTimerRef.current = null;
+        }, ACKNOWLEDGEMENT_MARK_MS);
+        return;
+      }
+      toast.add({
+        title: m.attachment_intake_failed_title(),
+        description:
+          outcome.status === 'too-many'
+            ? m.attachment_intake_too_many()
+            : m.attachment_intake_failed(),
+        type: 'warning',
+      });
+    },
+    [announce, expandedId, m],
+  );
+  const { dropTarget } = useAttachmentIntake({
+    client: attachmentIntake,
+    notes: snapshot.notes,
+    focusedTag: tag,
+    executeWorkspaceCommand,
+    onOutcome: reportIntake,
+  });
+
+  const writeDrawingImage = clipboardClient.writeDrawingImage;
+  const copyDrawingImage = useMemo(
+    () =>
+      writeDrawingImage
+        ? async (drawing: Drawing) => {
+            try {
+              await writeDrawingImage(await drawingToPng(drawing));
+              announce(m.drawing_image_copied());
+              return true;
+            } catch {
+              toast.add({
+                title: m.drawing_copy_image(),
+                description: m.drawing_image_copy_failed(),
+                type: 'warning',
+              });
+              return false;
+            }
+          }
+        : undefined,
+    [announce, m, writeDrawingImage],
+  );
+  // The New drawing stays open with its strokes until its Note exists; false shows the
+  // dialog's inline error and Retry.
+  const createDrawingNote = useCallback(
+    async (block: string) => {
+      try {
+        await executeWorkspaceCommand({ type: 'createNote', body: block, tags: tag ? [tag] : [] });
+        announce(m.drawing_created());
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [announce, executeWorkspaceCommand, m, tag],
+  );
+
+  const openNoteFromCommand = useCallback(
+    (noteId: string) => {
+      void expandNote(noteId).then((opened) => {
+        if (opened) setRevealRequest({ noteId });
+      });
+    },
+    [expandNote],
+  );
+  const focusComposer = useCallback(() => captureRef.current?.focus(), []);
+  const focusSearchField = useCallback(() => searchRef.current?.focus(), []);
+  const commandEntries = useShelfCommands({
+    notes: snapshot.notes,
+    allTags,
+    focusedTag: tag,
+    index,
+    onFocusTag: setTag,
+    onOpenNote: openNoteFromCommand,
+    onNewNote: focusComposer,
+    onSearch: focusSearchField,
+    onHide: hideCharon,
+    onNewDrawing: () => setNewDrawingOpen(true),
+  });
 
   const clearSearch = () => {
     setQuery('');
@@ -468,150 +671,187 @@ export function NoteScreen({
   const emptyDescription =
     query || tag ? m.note_empty_search_description() : m.note_empty_all_description();
   return (
-    <section className="note-screen">
-      <div aria-live="polite" className="sr-only" role="status">
-        {announcement}
-      </div>
-      <div className="note-workbar">
-        <div className="note-search">
-          <IconSearch aria-hidden="true" />
-          <Input
-            aria-label={m.note_search_label()}
-            autoComplete="off"
-            name="noteSearch"
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (
-                event.key !== 'Escape' ||
-                event.nativeEvent.isComposing ||
-                event.nativeEvent.keyCode === 229 ||
-                !(query || tag)
-              )
-                return;
-              event.preventDefault();
-              event.stopPropagation();
-              clearSearch();
-            }}
-            placeholder={m.note_search_placeholder()}
-            ref={searchRef}
-            value={query}
-          />
-          {query || tag ? (
-            <Button
-              aria-label={m.note_search_clear()}
-              className="note-search-clear"
-              onClick={clearSearch}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <IconX aria-hidden="true" />
-            </Button>
-          ) : null}
-          <ShelfActions />
+    <DrawingCopyProvider value={copyDrawingImage}>
+      <section className="note-screen" data-file-drag={dropTarget ? '' : undefined}>
+        <div aria-live="polite" className="sr-only" role="status">
+          {announcement}
         </div>
-      </div>
-      <div className="note-context">
-        {tag ? (
-          <div className="active-tag-filter">
-            <Badge>{tag}</Badge>
-            <Button
-              aria-label={m.tag_filter_clear({ tag })}
-              onClick={() => setTag(null)}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <IconX aria-hidden="true" />
-            </Button>
+        <div className="note-workbar">
+          <div className="note-search">
+            <IconSearch aria-hidden="true" />
+            <Input
+              aria-label={m.note_search_label()}
+              autoComplete="off"
+              name="noteSearch"
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.key !== 'Escape' ||
+                  event.nativeEvent.isComposing ||
+                  event.nativeEvent.keyCode === 229 ||
+                  !(query || tag)
+                )
+                  return;
+                event.preventDefault();
+                event.stopPropagation();
+                clearSearch();
+              }}
+              placeholder={m.note_search_placeholder()}
+              ref={searchRef}
+              value={query}
+            />
+            {query || tag ? (
+              <Button
+                aria-label={m.note_search_clear()}
+                className="note-search-clear"
+                onClick={clearSearch}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <IconX aria-hidden="true" />
+              </Button>
+            ) : null}
+          </div>
+          <ShelfActions onOpenCommands={() => setCommandsOpen(true)} />
+        </div>
+        <div className="note-context">
+          {tag ? (
+            <div className="active-tag-filter">
+              <span className="active-tag-filter-label">{m.tag_focus_label()}</span>
+              <Badge>
+                <IconHash aria-hidden="true" />
+                {tag}
+              </Badge>
+              <Button
+                aria-label={m.tag_filter_clear({ tag })}
+                onClick={() => setTag(null)}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <IconX aria-hidden="true" />
+              </Button>
+            </div>
+          ) : null}
+        </div>
+        {dropTarget === 'new' ? (
+          <div aria-hidden="true" className="file-drop-overlay">
+            <IconFilePlus />
+            <span>{m.attachment_drop_new()}</span>
           </div>
         ) : null}
-      </div>
-      {notes.length ? (
-        <NoteList
-          acknowledgedId={acknowledgedId}
-          allTags={allTags}
-          expandedId={expandedId}
-          notes={notes}
-          onAddAttachments={importAttachments}
-          onCloseEditor={closeEditor}
-          onCopy={copyNote}
-          onDelete={requestDelete}
-          onDirtyChange={setEditorDirty}
-          registerDraftGuard={registerDraftGuard}
-          onExpand={expandNote}
-          onFocusAttachments={focusAttachments}
-          onRemoveAttachment={removeAttachment}
-          onRetryCleanup={retryCleanup}
-          onSave={saveNote}
-          onSetTags={setNoteTags}
-          onTagFilter={filterByTag}
-          onSetStatus={setNoteStatus}
-          copyState={copyState}
-          revealRequest={revealRequest}
-        />
-      ) : (
-        <Empty className="note-empty">
-          <EmptyHeader>
-            <EmptyMedia>
-              <IconSearch aria-hidden="true" />
-            </EmptyMedia>
-            <EmptyTitle>{emptyTitle}</EmptyTitle>
-            <EmptyDescription>{emptyDescription}</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            {query || tag ? (
-              <Button onClick={clearSearch} variant="outline">
-                {m.note_search_clear()}
-              </Button>
-            ) : (
-              <Button onClick={() => captureRef.current?.focus()} variant="outline">
-                {m.capture_focus()}
-              </Button>
-            )}
-          </EmptyContent>
-        </Empty>
-      )}
-      <div className="composer-dock">
-        <CaptureInput
-          onDirtyChange={setComposerDirty}
-          onCreate={async (body) => {
-            await executeWorkspaceCommand({ type: 'createNote', body });
-            announce(m.capture_created());
-          }}
-          ref={captureRef}
-        />
-      </div>
-
-      <AlertDialog
-        open={Boolean(deleteTargetId)}
-        onOpenChange={(open) => {
-          if (!open && !deletePending) setDeleteTargetId(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{m.delete_title()}</AlertDialogTitle>
-            <AlertDialogDescription>{m.delete_description()}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <p className="delete-boundary">{m.delete_external_boundary()}</p>
-          {deleteError ? (
-            <p className="inline-error" role="alert">
-              {deleteError === 'cleanup' ? m.delete_cleanup_required() : m.delete_error()}
+        {notes.length ? (
+          <NoteList
+            acknowledgedId={acknowledgedId}
+            dropTargetId={dropTarget && dropTarget !== 'new' ? dropTarget.noteId : null}
+            allTags={allTags}
+            expandedId={expandedId}
+            notes={notes}
+            onAddAttachments={importAttachments}
+            onCloseEditor={closeEditor}
+            onCopy={copyNote}
+            onDelete={requestDelete}
+            onDirtyChange={setEditorDirty}
+            registerDraftGuard={registerDraftGuard}
+            confirmNewDrawingDiscard={confirmNewDrawingDiscard}
+            onExpand={expandNote}
+            onFocusAttachments={focusAttachments}
+            onRemoveAttachment={removeAttachment}
+            onRetryCleanup={retryCleanup}
+            onSave={saveNote}
+            onSetTags={setNoteTags}
+            onTagFilter={filterByTag}
+            onSetStatus={setNoteStatus}
+            copyState={copyState}
+            revealRequest={revealRequest}
+          />
+        ) : (
+          <Empty className="note-empty">
+            <EmptyHeader>
+              <EmptyMedia>
+                <IconSearch aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>{emptyTitle}</EmptyTitle>
+              <EmptyDescription>{emptyDescription}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              {query || tag ? (
+                <Button onClick={clearSearch} variant="outline">
+                  {m.note_search_clear()}
+                </Button>
+              ) : (
+                <Button onClick={() => captureRef.current?.focus()} variant="outline">
+                  {m.capture_focus()}
+                </Button>
+              )}
+            </EmptyContent>
+          </Empty>
+        )}
+        <div className="composer-dock">
+          <CaptureInput
+            onDirtyChange={setComposerDirty}
+            onCreate={async (body) => {
+              await executeWorkspaceCommand({ type: 'createNote', body, tags: tag ? [tag] : [] });
+              announce(m.capture_created());
+            }}
+            ref={captureRef}
+          />
+          {tag ? (
+            <p className="composer-context">
+              <IconHash aria-hidden="true" />
+              <span>{m.tag_focus_composer_context()}</span>
+              <strong>{tag}</strong>
             </p>
           ) : null}
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletePending}>{m.common_cancel()}</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={deletePending}
-              onClick={() =>
-                void (deleteError === 'cleanup' ? retryDeletionCleanup() : deleteNote())
-              }
-              variant="destructive"
-            >
-              {deleteError ? m.common_retry() : m.delete_confirm()}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </section>
+        </div>
+
+        <CommandMenu entries={commandEntries} onOpenChange={setCommandsOpen} open={commandsOpen} />
+        {newDrawingOpen ? (
+          <DrawingDialog
+            controlRef={newDrawingRef}
+            finalFocus={() => document.querySelector<HTMLElement>('.capture-field-input')}
+            initial={null}
+            onClose={() => {
+              setNewDrawingOpen(false);
+              setNewDrawingDirty(false);
+            }}
+            onDirtyChange={setNewDrawingDirty}
+            onSubmit={createDrawingNote}
+            open
+          />
+        ) : null}
+
+        <AlertDialog
+          open={Boolean(deleteTargetId)}
+          onOpenChange={(open) => {
+            if (!open && !deletePending) setDeleteTargetId(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{m.delete_title()}</AlertDialogTitle>
+              <AlertDialogDescription>{m.delete_description()}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <p className="delete-boundary">{m.delete_external_boundary()}</p>
+            {deleteError ? (
+              <p className="inline-error" role="alert">
+                {deleteError === 'cleanup' ? m.delete_cleanup_required() : m.delete_error()}
+              </p>
+            ) : null}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletePending}>{m.common_cancel()}</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deletePending}
+                onClick={() =>
+                  void (deleteError === 'cleanup' ? retryDeletionCleanup() : deleteNote())
+                }
+                variant="destructive"
+              >
+                {deleteError ? m.common_retry() : m.delete_confirm()}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </section>
+    </DrawingCopyProvider>
   );
 }

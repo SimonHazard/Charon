@@ -76,6 +76,14 @@ refusal keeps the previous one active. Letters follow physical key positions.
 | Linux X11 | `Alt+Shift+Space` | `XGrabKey` `BadAccess` reports a held combination; same handling | not run on Linux (operator to verify) |
 | Linux Wayland | portal-assigned (`Alt+Shift+Space` requested) | not applicable: the desktop owns the trigger; Preferences shows it and says to change it in the desktop's keyboard settings | unchanged |
 
+## Hiding, files, and drawings (ADRs 0031-0033)
+
+| Platform | Hide (Escape, toggling composer shortcut, Hide Charon) | Dropped and pasted files | Copy image | Native evidence |
+| --- | --- | --- | --- | --- |
+| macOS 14+ (`arm64`) | hides the application, so the previous app comes to the front; closing the window does the same | native drop; clipboard file URLs, else the bitmap as PNG | PNG through the clipboard plugin | compiled and unit-tested on Apple Silicon; the overlay title bar, focus return, drops, and pastes are not yet observed natively (operator to verify, plan 063) |
+| Windows | hides the window while the background-mode icon exists, otherwise minimizes | native drop; `CF_HDROP` file list, else the bitmap as PNG | same | not built or run on Windows (operator to verify) |
+| Linux X11 and Wayland | minimizes | native drop; `text/uri-list`, else the bitmap as PNG | same | not run on Linux (operator to verify) |
+
 ## macOS evidence and limits
 
 Published macOS installers target Apple Silicon (`arm64`) only, starting with

@@ -27,6 +27,7 @@ export function NoteList({
   notes,
   expandedId,
   acknowledgedId = null,
+  dropTargetId = null,
   revealRequest = null,
   allTags,
   copyState,
@@ -44,10 +45,13 @@ export function NoteList({
   onRetryCleanup,
   onDirtyChange,
   registerDraftGuard,
+  confirmNewDrawingDiscard,
 }: {
   notes: readonly NoteDto[];
   expandedId: string | null;
   acknowledgedId?: string | null;
+  /** The Note a file drag would attach to (ADR 0032). */
+  dropTargetId?: string | null;
   revealRequest?: NoteRevealRequest | null;
   allTags: readonly string[];
   copyState: { noteId: string; status: 'copied' | 'error'; message: string } | null;
@@ -65,6 +69,8 @@ export function NoteList({
   onRetryCleanup(): Promise<void>;
   onDirtyChange(dirty: boolean): void;
   registerDraftGuard?(guard: () => Promise<boolean>): () => void;
+  /** Asks about the shelf's unsaved New drawing before the window closes; true keeps it open. */
+  confirmNewDrawingDiscard?(): boolean;
 }) {
   const m = useMessages();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -205,6 +211,7 @@ export function NoteList({
             >
               <NoteRow
                 acknowledged={acknowledgedId === note.id}
+                dropTarget={dropTargetId === note.id}
                 allTags={allTags}
                 copyState={
                   copyState?.noteId === note.id
@@ -219,6 +226,7 @@ export function NoteList({
                 onDelete={onDelete}
                 onDirtyChange={onDirtyChange}
                 registerDraftGuard={registerDraftGuard}
+                confirmNewDrawingDiscard={confirmNewDrawingDiscard}
                 onExpand={onExpand}
                 onFocusAttachments={onFocusAttachments}
                 onRemoveAttachment={onRemoveAttachment}

@@ -58,20 +58,23 @@ try {
       throw new Error(`Rust binding generation exited with ${exitCode}`);
     }
 
+    // Format through stdin under the binding's own repository path: Biome 2.5 refuses to
+    // format a file outside the repository root while VCS integration is enabled.
     const formatProcess = Bun.spawn(
-      ['bun', 'x', 'biome', 'format', '--write', binding.temporaryPath],
+      ['bun', 'x', 'biome', 'format', `--stdin-file-path=${binding.generatedPath}`],
       {
         cwd: repositoryRoot,
-        stdout: 'inherit',
+        stdin: Bun.file(binding.temporaryPath),
+        stdout: 'pipe',
         stderr: 'inherit',
       },
     );
+    const generated = await new Response(formatProcess.stdout).text();
     const formatExitCode = await formatProcess.exited;
     if (formatExitCode !== 0) {
       throw new Error(`binding formatting exited with ${formatExitCode}`);
     }
 
-    const generated = await readFile(binding.temporaryPath, 'utf8');
     if (process.argv.includes('--write')) {
       await Bun.write(binding.generatedPath, generated);
       console.log(`updated ${binding.generatedPath}`);

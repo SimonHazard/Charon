@@ -16,6 +16,7 @@ import { captureStatusTone } from '@/app/capture-status';
 import { ComposerFocusProvider, useComposerFocus } from '@/app/composer-focus-context';
 import { type AppLocale, applyLocale, readLocale } from '@/app/locale';
 import { QuitRequestProvider } from '@/app/quit-request-context';
+import { ShelfSurfaceProvider } from '@/app/shelf-surface-context';
 import { ShellBridge } from '@/app/shell-bridge';
 import {
   applyTheme,
@@ -101,20 +102,22 @@ export function AppProviders({
           >
             <UpdateProvider client={updateClient} enabled={updaterEnabled}>
               <ComposerFocusProvider>
-                <CaptureAcknowledgementProvider>
-                  <QuitRequestProvider client={activeShellClient}>
-                    <CaptureBridge
-                      client={activeCaptureClient}
-                      enabled={nativePreferencesEnabled}
-                    />
-                    <ShellBridge
-                      client={activeShellClient}
-                      enabled={shellEnabled}
-                      locale={locale}
-                    />
-                    {children}
-                  </QuitRequestProvider>
-                </CaptureAcknowledgementProvider>
+                <ShelfSurfaceProvider>
+                  <CaptureAcknowledgementProvider>
+                    <QuitRequestProvider client={activeShellClient} enabled={shellEnabled}>
+                      <CaptureBridge
+                        client={activeCaptureClient}
+                        enabled={nativePreferencesEnabled}
+                      />
+                      <ShellBridge
+                        client={activeShellClient}
+                        enabled={shellEnabled}
+                        locale={locale}
+                      />
+                      {children}
+                    </QuitRequestProvider>
+                  </CaptureAcknowledgementProvider>
+                </ShelfSurfaceProvider>
               </ComposerFocusProvider>
             </UpdateProvider>
           </NativePreferencesProvider>

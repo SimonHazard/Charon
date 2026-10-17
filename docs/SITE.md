@@ -1,48 +1,61 @@
 # Charon public site contract
 
-This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) while
-preserving ADR 0004's static-site and cross-application boundaries.
+This contract implements [ADR 0011](adr/0011-rapid-capture-product.md) and
+[ADR 0034](adr/0034-iris-site-with-a-live-river.md) while preserving ADR 0004's
+static-site and cross-application boundaries.
 
 ## Current public direction
 
-The public home announces v0.1.0 early access with a concise product
-introduction and one ordinary link to GitHub Releases. The initial release was
-published on 2026-09-20 with macOS, Windows, and Linux installers; both languages
-state its availability and refer to the release notes for installation instructions.
+The public home announces v0.3.0 early access and links to GitHub Releases.
+The initial release was published on 2026-09-20, v0.2.0 on 2026-10-02, and
+v0.3.0 follows, with macOS, Windows, and Linux installers; both languages state
+its availability and refer to the release notes for installation instructions.
 
-The operator requested this evolution on 2026-09-19. It preserves the quiet
-visual direction, approved icon assets, and static privacy boundary. ADR 0017
-moved macOS releases to Apple Silicon starting with v0.1.3; it does not
-retroactively change the published v0.1.0 artifact. The homepage still names
-v0.1.0 although v0.1.3 is the latest release; bump the localized copy and its
-assertions together when the operator chooses to announce a newer version.
+On 2026-10-17 the operator asked for the site to wear the desktop app's Iris
+design and to look striking (ADR 0034). It keeps the approved icon assets and
+the static privacy boundary. ADR 0017 moved macOS releases to Apple Silicon
+starting with v0.1.3; it does not retroactively change the published v0.1.0
+artifact. Each release pull request bumps the localized version copy and its
+assertions together.
 
 ## Homepage composition
 
-The English `/` and French `/fr/` pages contain only:
+The English `/` and French `/fr/` pages contain, in order:
 
-1. one compact header with the official Lavender Charon PNG icon and the name
-   `Charon`;
-2. one short headline and a description of local Markdown capture for AI context;
-3. the published early access version and one primary download destination linking
-   to `https://github.com/SimonHazard/Charon/releases`;
-4. short copy explaining that macOS, Windows, and Linux installers are
-   available there, and that this is an experimental personal project with
-   installation instructions in the release notes;
-5. one minimal footer with `Ko-fi` linking to
-   `https://ko-fi.com/simonhazard` and `simonhazard.com` linking to
-   `https://simonhazard.com/`.
+1. a header with the official Lavender Charon PNG icon, the name `Charon`, and
+   three in-page links (How it works, Try it, Privacy), with no bar;
+2. the hero: a two-line statement at poster size, the river (React Bits'
+   Threads) running across the screen beneath it, then the introduction on the
+   left and, on the right, the primary download linking to
+   `https://github.com/SimonHazard/Charon/releases` above the published early
+   access version and its platforms;
+3. how it works: a heading and three steps (capture with double Shift, add
+   Tags, files, or drawings, then `Copy as Markdown`), each with what the user
+   gives and what Charon returns, set as Charon's real output (the Note file,
+   the Workspace folder, and the exact clipboard text) with sample content,
+   followed by the platform note on double Shift;
+4. try it: an input at display size holding a sample Note, the text
+   `Copy as Markdown` would write for it with the sample's Tags, updated as
+   the visitor types, a Copy button that writes that text only after a click,
+   and three other samples that refill the input;
+5. privacy, on the page's one field of accent colour: version, platforms, and
+   price beside one paragraph on the local-only contract, then what Charon
+   captures and keeps;
+6. the footer in Iris Light: a two-line invitation with the second download
+   link, the experimental-project note, the `Ko-fi` link to
+   `https://ko-fi.com/simonhazard` and the `simonhazard.com` link to
+   `https://simonhazard.com/`, the copyright and the React Bits credit, and
+   the name `Charon` set across the full width and cut by the page's edge.
 
-The footer does not repeat `Charon`. The download destination is the release
-listing, which exists before the first release and remains useful afterwards.
-Do not invent installer filenames, publish a dead version-specific link, or
-claim a build is available before publication. When the announced version changes,
-update the localized copy and its verification assertions together.
+The download destination is the release listing, which remains useful across
+releases. Do not invent installer filenames, publish a dead version-specific
+link, or claim a build is available before publication. When the announced
+version changes, update the localized copy and its verification assertions
+together. The how-it-works and try samples must keep matching the desktop
+app's real formats; `composeMarkdown` mirrors `clipboard/composer.rs`.
 
-There is no product navigation, language switch, theme control, source link,
-product screenshot, video, feature section, platform table, privacy proof,
-demo, or content section below the initial statement. The homepage does not
-contain a client script.
+There is no language switch, theme control, source link, product screenshot,
+imitation of the app's interface, video, testimonial, or pricing table.
 
 The localized privacy, release, and changelog routes are not emitted. The
 checked static `404.html` remains only as the hosting fallback for unknown
@@ -50,16 +63,20 @@ paths; it is not a promoted content destination.
 
 ## Design direction
 
-The site is read as a restrained editorial early access page for developers and
-agent users. Design variance is 4/10, motion is 1/10, and density is 2/10. It
-keeps the Light canvas and semantic Charon theme roles, uses the system UI font,
-and uses Lavender for the approved icon and primary download action.
+The page is a typographic poster for developers and agent users, built on the
+desktop app's Iris Dark roles from `@charon/theme`; the footer switches to Iris
+Light through its own `data-theme`, and the privacy section is the one field of
+the action colour. It uses the system UI font in five type steps (display,
+large, statement, body, small), the approved Lavender icon asset, and the
+semantic action role for both download links. Running text is 17 pixels.
 
-Structure comes from type, space, and two hairline rules. The page has no
-gradient, glow, permanent glass, shadowed card, fake interface, decorative
-illustration, remote font, or ambient animation. The primary download and
-technical 404 actions have a small press response, and every interactive link
-respects reduced motion.
+Structure comes from scale, space, and fields of colour. The page has no
+gradient fill, glow, shadow at rest, permanent glass, card grid, eyebrow label,
+decorative illustration, remote font, or fake interface; one CSS mask fades
+the river's ends. Motion is the statement's one-time line reveal, the river,
+scroll-linked entrances where view timelines exist, and press feedback on
+controls. Reduced motion removes the reveal and entrances and holds the river
+still; forced colours hide the river.
 
 The page remains readable at 320 CSS pixels and above, preserves browser zoom,
 uses a visible focus indicator, includes a skip link, and maintains WCAG AA
@@ -83,7 +100,10 @@ No other public content route is emitted for now. In particular, privacy,
 release/download, and changelog URLs are absent in both languages.
 
 Astro output remains static only. There are no accounts, forms, cookies,
-analytics, CMS, newsletter, client framework, runtime fetch, or runtime API.
+analytics, CMS, newsletter, runtime fetch, or runtime API. The only client
+code is the river, hydrated by `@astrojs/react` as one `client:only` island,
+and the try section's inline script; scripts load only from `/_astro/`, and
+the page reads completely without them (ADR 0034).
 
 ## Search and social metadata
 
@@ -102,8 +122,9 @@ generated. Structured application data remains omitted from this compact page.
 The repository privacy and product contracts remain the source of truth for
 local Workspace ownership, permissions, bounded source Copy behavior, explicit
 `Copy as Markdown`, managed Attachment paths, deletion limits, and Cloudflare
-hosting metadata. Those detailed claims are intentionally not published as site
-routes for now.
+hosting metadata. The home page states the local-only contract in one
+paragraph; the detailed claims are intentionally not published as site routes
+for now.
 
 The public site itself stays free of analytics, trackers, fingerprinting,
 cookies, forms, behavioral pixels, third-party embeds, and application request
@@ -134,18 +155,20 @@ deployment credentials.
 
 Cloudflare necessarily processes ordinary HTTP connection metadata to deliver
 and protect the site. The repository privacy contract discloses that hosting
-boundary while the public site remains front-page only.
+boundary while the public site remains a single localized page.
 
 ## Verification gate
 
 Before publication:
 
 - build all localized routes and validate canonical and `hreflang` metadata;
-- verify both homes contain no media, video, secondary navigation, theme or
-  language control, source link, or additional content section; verify one
-  GitHub Releases action and the published early access version in both languages;
-- verify the footer contains only the exact Ko-fi and personal-site links and
-  does not repeat `Charon`;
+- verify both homes contain no video, theme or language control, or source
+  link; verify both title lines, two GitHub Releases links without a referrer,
+  and the published early access version in both languages;
+- verify the footer contains exactly the closing download and the Ko-fi and
+  personal-site links;
+- verify every script loads from `/_astro/` and the `_headers` CSP allows
+  exactly the inline scripts the build emitted, by hash;
 - verify privacy, release/download, and changelog routes are absent in both
   languages and absent from the sitemap;
 - verify all referenced Charon PNG icons are exact site-owned assets and stay
@@ -157,4 +180,5 @@ Before publication:
 
 Performance targets remain LCP below 2.5 seconds, INP below 200 milliseconds,
 and CLS below 0.1 on the production deployment. The homepage has no remote
-font, large media, third-party request, or client script.
+font, large media, or third-party request; its script is the river island and
+the try section, about 75 KB compressed.

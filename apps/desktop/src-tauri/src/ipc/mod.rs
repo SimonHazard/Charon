@@ -1,3 +1,4 @@
+pub mod attachments;
 pub mod capture;
 pub mod clipboard;
 pub mod notification;

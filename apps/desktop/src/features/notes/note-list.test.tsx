@@ -27,6 +27,9 @@ describe('virtual note list', () => {
     vi.clearAllMocks();
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+    // TanStack Virtual sizes the scroll element from its client box.
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900);
   });
 
   it('keeps a 20,000-note fixture below 150 rendered rows', async () => {
@@ -73,9 +76,9 @@ describe('virtual note list', () => {
         />
       </AppProviders>,
     );
-    expect(screen.getByRole('button', { name: 'Show notes tagged Agent' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Show notes tagged Research' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Show notes tagged Local' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Focus tag Agent' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Focus tag Research' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Focus tag Local' })).toBeNull();
     expect(screen.getByText('+1')).toBeTruthy();
     expect(
       screen.getByText(/Status: Open\. Tags: Agent, Research, Local\. 1 attachment\. Files/),

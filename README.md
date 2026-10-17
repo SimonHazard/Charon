@@ -16,7 +16,13 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
 - One compact shelf for open and completed Notes.
 - Fast manual capture from the always-visible composer, revealed and focused
   by `Cmd+Shift+Space` (macOS) or `Alt+Shift+Space` (Windows, Linux X11) by
-  default; you can change or reset that one shortcut in Preferences.
+  default; you can change or reset that one shortcut in Preferences. Pressed
+  while Charon is in front, or with Escape, it hides Charon and returns you to
+  the app you were using.
+- A `Cmd+K` / `Ctrl+K` command menu for Tags, Notes, actions, appearance, and
+  language.
+- Focus one Tag like a section: the shelf shows its Notes and every new Note,
+  typed or captured, joins it until you leave it.
 - Passive double-Shift selected-text capture on macOS, with experimental Windows and Linux X11 adapters.
 - On macOS, closing the window keeps Charon running in the Dock with capture
   armed; `Cmd+Q` quits.
@@ -31,13 +37,16 @@ No account, sync, analytics, telemetry, content upload, or automatic Paste.
   become Markdown, with plain text kept whenever the formatting is uncertain.
 - Search across Markdown, Tags, and managed Attachment names.
 - Markdown editing and preview, up to 16 Tags and 20 managed Attachments per
-  Note.
-- Quick drawings stored in the Note's Markdown as small inline SVG blocks.
+  Note. Drop files on the shelf, or paste files or a screenshot, to attach them
+  or capture them as a new Note.
+- Quick drawings with pen, lines, arrows, rectangles, ellipses, and text
+  labels, stored in the Note's Markdown as small inline SVG blocks, and copied
+  as an image for a prompt when you ask.
 - Deterministic `Copy as Markdown` with optional Tags and disclosed local
   Attachment paths.
 - Explicit, confirmed permanent deletion with bounded recovery behavior.
-- English and French UI, with Light and Graphite appearances that follow the
-  system by default.
+- English and French UI, with Light and Dark appearances in the Iris palette,
+  following the system by default.
 
 Windows uses UI Automation; X11 uses AT-SPI then a bounded PRIMARY request.
 These adapters preserve focus and never synthesize Copy. Application coverage
@@ -170,5 +179,7 @@ define.
 
 ## License
 
-Charon is available under the [MIT License](LICENSE). Copyright © 2026 Simon
+Charon is available under the [MIT License](LICENSE), except the React Bits
+components vendored in `apps/site/src/islands/react-bits/`, which keep their
+own MIT + Commons Clause licence. Copyright © 2026 Simon
 Hazard.

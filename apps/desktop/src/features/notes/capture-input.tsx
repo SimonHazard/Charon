@@ -141,7 +141,7 @@ export const CaptureInput = forwardRef<
               render={
                 <Button
                   disabled={!body || pending}
-                  size="icon-xs"
+                  size="icon"
                   type="submit"
                   variant={body ? 'default' : 'ghost'}
                 />

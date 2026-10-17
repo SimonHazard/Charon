@@ -1,10 +1,11 @@
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { tauriAttachmentIntakeClient } from '@/lib/ipc/attachment-intake-client';
 import { tauriCaptureClient } from '@/lib/ipc/capture-client';
 import { tauriClipboardClient } from '@/lib/ipc/clipboard-client';
 import { tauriPreferencesClient } from '@/lib/ipc/preferences-client';
@@ -76,12 +77,24 @@ const clientCalls = [
   ['workspace_open_or_create', () => tauriWorkspaceClient.openOrCreate?.({ token: 'folder' })],
   [
     'workspace_execute',
-    () => tauriWorkspaceClient.execute?.({ type: 'createNote', expectedRevision: 0, body: 'Body' }),
+    () =>
+      tauriWorkspaceClient.execute?.({
+        type: 'createNote',
+        expectedRevision: 0,
+        body: 'Body',
+        tags: [],
+      }),
   ],
   [
     'clipboard_compose_and_write',
     () => tauriClipboardClient.composeAndWrite({ expectedRevision: 0, noteId: 'note-1' }),
   ],
+  [
+    'clipboard_write_drawing_image',
+    () => tauriClipboardClient.writeDrawingImage?.(new Uint8Array([137, 80, 78, 71])),
+  ],
+  ['workspace_paste_attachments', () => tauriAttachmentIntakeClient.paste()],
+  ['workspace_discard_attachment_sources', () => tauriAttachmentIntakeClient.discard(['token-1'])],
   ['capture_capabilities', () => tauriCaptureClient.capabilities()],
   ['capture_open', () => tauriCaptureClient.open()],
   ['capture_request_permission', () => tauriCaptureClient.requestPermission('accessibility')],
@@ -95,6 +108,7 @@ const clientCalls = [
     () => tauriPreferencesClient.setCaptureNotifications(true),
   ],
   ['preferences_set_rich_capture', () => tauriPreferencesClient.setRichCapture(true)],
+  ['preferences_set_focused_tag', () => tauriPreferencesClient.setFocusedTag('Research')],
   [
     'shell_set_labels',
     () =>
@@ -106,9 +120,26 @@ const clientCalls = [
         notificationBody: 'Note captured.',
       }),
   ],
+  ['shell_hide', () => tauriShellClient.hide()],
   ['shell_quit', () => tauriShellClient.quit()],
   ['shell_cancel_quit', () => tauriShellClient.cancelQuit()],
 ] as const;
+
+describe('file drop boundary (ADR 0032)', () => {
+  it('never subscribes the webview to the path-carrying native drag events', () => {
+    const sources = (directory: string): string[] =>
+      readdirSync(resolve(process.cwd(), directory), { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory()
+          ? sources(`${directory}/${entry.name}`)
+          : /\.tsx?$/u.test(entry.name) && !entry.name.includes('.test.')
+            ? [readFileSync(resolve(process.cwd(), directory, entry.name), 'utf8')]
+            : [],
+      );
+    for (const source of sources('src')) {
+      expect(source).not.toMatch(/tauri:\/\/drag|onDragDropEvent|getCurrentWebview/u);
+    }
+  });
+});
 
 describe('IPC argument contract', () => {
   const rust = rustArgumentKeys();

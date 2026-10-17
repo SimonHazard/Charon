@@ -109,6 +109,25 @@ pub fn preferences_set_rich_capture(
     Ok(with_runtime(&app, preferences.snapshot()))
 }
 
+/// Focuses one Tag (ADR 0030): the shelf shows only its Notes, and new Notes
+/// from the composer or a selected-text capture start with it. `None` clears
+/// the focus. The Tag is trimmed and must satisfy the Note Tag rules.
+#[tauri::command(async)]
+pub fn preferences_set_focused_tag(
+    app: AppHandle,
+    tag: Option<String>,
+) -> Result<PreferencesSnapshot, PreferencesIpcError> {
+    let tag = tag.map(|tag| tag.trim().to_owned());
+    if tag
+        .as_deref()
+        .is_some_and(|tag| !crate::workspace::is_valid_tag(tag))
+    {
+        return Err(crate::preferences::PreferencesError::InvalidValue.into());
+    }
+    let preferences = crate::preferences::set_focused_tag(root(&app)?, tag.as_deref())?;
+    Ok(with_runtime(&app, preferences.snapshot()))
+}
+
 /// Adds the runtime-only facts the persisted file cannot hold.
 fn with_runtime(app: &AppHandle, mut snapshot: PreferencesSnapshot) -> PreferencesSnapshot {
     snapshot.install_kind = *INSTALL_KIND.get_or_init(detect_install_kind);

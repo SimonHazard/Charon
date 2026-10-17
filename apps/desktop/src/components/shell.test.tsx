@@ -48,6 +48,7 @@ function platformClients(
     backgroundActive: false,
     captureNotifications: false,
     richCapture: false,
+    focusedTag: null,
   };
   const preferencesClient: NativePreferencesClient = {
     read: async () => preferences,
@@ -55,6 +56,7 @@ function platformClients(
     setBackgroundMode: async () => preferences,
     setCaptureNotifications: async () => preferences,
     setRichCapture: async () => preferences,
+    setFocusedTag: async () => preferences,
   };
   return { captureClient, preferencesClient };
 }

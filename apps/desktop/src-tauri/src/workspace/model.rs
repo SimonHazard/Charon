@@ -179,6 +179,38 @@ pub struct WorkspaceFolderChoice {
     pub token: String,
 }
 
+/// Files dropped on or pasted into Charon (ADR 0032): one opaque single-use
+/// token per file and the display name React shows. Source paths stay in Rust.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct AttachmentSources {
+    pub tokens: Vec<String>,
+    pub file_names: Vec<String>,
+}
+
+/// Where a file drag is over the main window, in CSS pixels, so the shelf can
+/// mark the Note that would receive it (ADR 0032). `over` is false once the
+/// drag leaves or ends.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct AttachmentDragEvent {
+    pub over: bool,
+    pub x: f64,
+    pub y: f64,
+}
+
+/// Files dropped on the main window at one point, in CSS pixels (ADR 0032).
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct AttachmentDropEvent {
+    pub sources: AttachmentSources,
+    pub x: f64,
+    pub y: f64,
+}
+
 impl PersistedManifest {
     pub(crate) fn empty(workspace_id: String) -> Self {
         Self {
