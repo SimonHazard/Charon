@@ -9,6 +9,11 @@ since grown to include row `CmdOrCtrl+C`, editor `CmdOrCtrl+S`, Home/End,
 PageUp/PageDown, composer `Shift+Enter`, and drawing undo/redo (ADR 0021); the
 keyboard contract in `docs/UX.md` is authoritative for the current set.
 
+Amended on 2026-10-17: ADR 0029 adds `CmdOrCtrl+K` for the command menu, ADR
+0030 lets one remembered focused Tag filter the shelf and tag new Notes (still
+flat Tags, no section or second destination), and ADR 0031 makes the composer
+shortcut and Escape hide Charon when it is frontmost.
+
 ## Context
 
 The initial implementation established a safe local Workspace and proved focus-preserving

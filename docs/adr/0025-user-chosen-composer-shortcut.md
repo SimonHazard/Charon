@@ -10,6 +10,9 @@ composer accelerator becomes a default), `AGENTS.md`, `docs/UX.md`,
 `docs/ARCHITECTURE.md`, `docs/PRIVACY.md` (preferences contents), and
 `docs/platform-support.md`.
 
+Amended on 2026-10-17 by ADR 0031: while Charon's window has focus, the
+composer shortcut hides Charon and returns focus to the previous application.
+
 ## Context
 
 The reveal-and-focus-composer accelerator is hardcoded: `Cmd+Shift+Space` on

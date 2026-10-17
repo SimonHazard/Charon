@@ -9,6 +9,9 @@ job and journey), `docs/UX.md` (close semantics and Preferences contents),
 `docs/ARCHITECTURE.md`, and `AGENTS.md` (one UI bullet). Builds on plan 039's
 window lifecycle (`reveal_main`, macOS close-to-hide, the editor close guard).
 
+Amended on 2026-10-17 by ADR 0031: on macOS, closing hides the application so
+focus returns to the previous one, and revealing unhides it first.
+
 ## Context
 
 `docs/FEATURE_BACKLOG.md` asks for an opt-in mode in which closing the window

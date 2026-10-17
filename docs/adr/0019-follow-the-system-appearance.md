@@ -4,6 +4,9 @@
 
 Accepted on 2026-09-23 by operator decision. Amends ADR 0012 Decision 5.
 
+Amended on 2026-10-17 by ADR 0028: the explicit choices are Light and Dark
+(Graphite is renamed), painted from the Iris canvases before load.
+
 ## Context
 
 ADR 0012 made Light the first-run appearance and stored only `light` or `dark`.
