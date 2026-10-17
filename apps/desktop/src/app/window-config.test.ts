@@ -38,6 +38,9 @@ describe('desktop window contract', () => {
       fullscreen: false,
     });
     expect(mainWindow.maxWidth).toBeUndefined();
+    // ADR 0028: on macOS the drag strip holds the traffic lights; other platforms ignore these.
+    expect(mainWindow.titleBarStyle).toBe('Overlay');
+    expect(mainWindow.hiddenTitle).toBe(true);
     expect(mainWindow.maxHeight).toBeUndefined();
   });
 
@@ -67,7 +70,7 @@ describe('desktop window contract', () => {
     // leaving Charon running without a visible window.
     expect(firstStatement).toBe('reveal_main(app.handle())?;');
     expect(tauriBootstrap).toMatch(
-      /fn reveal_main<R: tauri::Runtime>\(app: &tauri::AppHandle<R>\) -> tauri::Result<\(\)> \{\s*if let Some\(window\) = app\.get_webview_window\("main"\) \{\s*let _ = window\.unminimize\(\);\s*window\.show\(\)\?;/u,
+      /fn reveal_main<R: tauri::Runtime>\(app: &tauri::AppHandle<R>\) -> tauri::Result<\(\)> \{\s*\/\/[^\n]*\n\s*#\[cfg\(target_os = "macos"\)\]\s*let _ = app\.show\(\);\s*if let Some\(window\) = app\.get_webview_window\("main"\) \{\s*let _ = window\.unminimize\(\);\s*window\.show\(\)\?;/u,
     );
     expect(tauriBootstrap).toMatch(
       /tauri_plugin_single_instance::init\(\|app, _args, _cwd\| \{\s*let _ = reveal_main\(app\);/u,
@@ -80,9 +83,13 @@ describe('desktop window contract', () => {
     )?.[1];
 
     // Closing hides only when the shell says so: always on macOS, elsewhere only while the
-    // background-mode tray icon exists (ADR 0023).
+    // background-mode tray icon exists (ADR 0023). macOS hides the application so focus returns
+    // to the previous one (ADR 0031).
     expect(closeToHide).toMatch(
-      /window\.label\(\) == "main"\s*&& ipc::shell::close_hides\(window\.app_handle\(\)\)\s*&& window\.hide\(\)\.is_ok\(\)/u,
+      /window\.label\(\) == "main"\s*&& ipc::shell::close_hides\(window\.app_handle\(\)\)\s*&& ipc::shell::hide_main\(window\.app_handle\(\)\)/u,
+    );
+    expect(shellAdapter).toMatch(
+      /fn hide_method\(is_macos: bool, background_active: bool\) -> HideMethod \{\s*if is_macos \{\s*HideMethod::Application\s*\} else if background_active \{\s*HideMethod::Window\s*\} else \{\s*HideMethod::Minimize/u,
     );
     expect(closeToHide).toContain('api.prevent_close();');
     expect(shellAdapter).toContain(
@@ -139,8 +146,8 @@ describe('desktop window contract', () => {
     )?.[1];
 
     // Linux never compiles Tauri's tray (no AppIndicator library is loaded there).
-    expect(tauriDependency).toBe('{ version = "=2.11.5", features = [] }');
-    expect(trayTarget).toBe('{ version = "=2.11.5", features = ["tray-icon"] }');
+    expect(tauriDependency).toBe('{ version = "=2.12.4", features = [] }');
+    expect(trayTarget).toBe('{ version = "=2.12.4", features = ["tray-icon"] }');
     expect(cargoManifest.match(/"tray-icon"/gu)).toHaveLength(1);
     expect(cargoManifest).not.toContain('linux-libxdo');
     expect(tauriConfig.app.trayIcon).toBeUndefined();
@@ -155,7 +162,7 @@ describe('desktop window contract', () => {
 
   it('shows the capture notification from Rust only, with fixed labels and no Note data', () => {
     // ADR 0024: the official plugin, pinned exactly; no webview permission or JS package.
-    expect(cargoManifest).toMatch(/^tauri-plugin-notification = "=2\.4\.0"$/mu);
+    expect(cargoManifest).toMatch(/^tauri-plugin-notification = "=2\.7\.0"$/mu);
     expect(tauriBootstrap).toContain('.plugin(tauri_plugin_notification::init())');
     expect(JSON.stringify(mainCapability)).not.toMatch(/notification:/u);
     expect(
@@ -185,7 +192,9 @@ describe('desktop window contract', () => {
       'allow-workspace-open-or-create',
       'allow-workspace-snapshot',
       'allow-workspace-execute',
+      'allow-workspace-paste-attachments',
       'allow-clipboard-compose-and-write',
+      'allow-clipboard-write-drawing-image',
       'allow-capture-capabilities',
       'allow-capture-open',
       'allow-capture-request-permission',
@@ -196,7 +205,9 @@ describe('desktop window contract', () => {
       'allow-preferences-set-background-mode',
       'allow-preferences-set-capture-notifications',
       'allow-preferences-set-rich-capture',
+      'allow-preferences-set-focused-tag',
       'allow-shell-set-labels',
+      'allow-shell-hide',
       'allow-shell-quit',
       'allow-shell-cancel-quit',
       'core:event:allow-listen',
@@ -235,7 +246,7 @@ describe('desktop window contract', () => {
       .map((permission: string) => permission.slice('allow-'.length).replaceAll('-', '_'))
       .sort();
 
-    expect(registered).toHaveLength(21);
+    expect(registered).toHaveLength(25);
     expect(declared).toEqual(registered);
     expect(allowed).toEqual(registered);
     expect(tauriBuildScript).toContain('tauri_build::try_build(');

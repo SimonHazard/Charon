@@ -7,7 +7,7 @@ const exemptDismissNames = [
   /^Close$/u,
   /^Close notification$/u,
   /^Clear search and tag filter$/u,
-  /^Clear tag filter /u,
+  /^Leave tag /u,
   /^Dismiss folder error$/u,
 ];
 

@@ -26,6 +26,7 @@ fn watched_workspace() -> (tempfile::TempDir, Workspace, String) {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "initial".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create note");
     let id = created.snapshot.notes[0].id.clone();
@@ -140,6 +141,7 @@ fn status_toggle_stages_only_two_manifests_and_the_record() {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: revision,
                 body: format!("note {index}"),
+                tags: Vec::new(),
             })
             .expect("create note");
         revision = created.snapshot.revision;

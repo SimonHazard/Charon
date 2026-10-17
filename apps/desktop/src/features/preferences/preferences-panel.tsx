@@ -23,6 +23,7 @@ import {
 
 import { useMessages, usePreferences } from '@/app/providers';
 import { useQuitRequest } from '@/app/quit-request-context';
+import { useShelfSurface } from '@/app/shelf-surface-context';
 import { useWorkspace } from '@/app/workspace-context';
 import type {
   CapabilityState,
@@ -278,6 +279,13 @@ export function PreferencesPanel() {
   const quitRequest = useQuitRequest();
   const [open, setOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const shelfSurface = useShelfSurface();
+  useEffect(() => {
+    const request = shelfSurface.request;
+    if (request?.surface !== 'preferences') return;
+    shelfSurface.consume(request.requestId);
+    setOpen(true);
+  }, [shelfSurface]);
   const [aboutLinkFailed, setAboutLinkFailed] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const reviewRef = useRef<HTMLButtonElement>(null);

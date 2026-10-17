@@ -90,6 +90,17 @@ pub fn set_rich_capture(
     update(root, |preferences| preferences.rich_capture = enabled)
 }
 
+/// Persists the focused Tag (ADR 0030), or clears it with `None`, and returns
+/// the stored preferences. The caller checks the Tag rules first.
+pub fn set_focused_tag(
+    root: impl Into<PathBuf>,
+    tag: Option<&str>,
+) -> Result<PersistedPreferences, PreferencesError> {
+    update(root, |preferences| {
+        preferences.focused_tag = tag.map(str::to_owned);
+    })
+}
+
 /// Persists the user's composer accelerator (ADR 0025), or clears it with
 /// `None`, and returns the stored preferences.
 pub fn remember_composer_shortcut(

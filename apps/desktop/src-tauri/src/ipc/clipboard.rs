@@ -1,8 +1,8 @@
 use tauri::{AppHandle, State};
 
 use crate::clipboard::{
-    compose_and_write, ClipboardIpcError, ComposeAttachment, ComposeNote, ComposeRequest,
-    ComposedClipboard, TauriClipboardWriter,
+    compose_and_write, write_drawing_png, ClipboardIpcError, ComposeAttachment, ComposeNote,
+    ComposeRequest, ComposedClipboard, TauriClipboardWriter,
 };
 use crate::workspace::{Workspace, WorkspaceError};
 
@@ -19,6 +19,16 @@ pub fn clipboard_compose_and_write(
     })?;
     let mut writer = TauriClipboardWriter::new(&app);
     compose_and_write(&mut writer, &note).map_err(ClipboardIpcError::from)
+}
+
+/// Copies one drawing, rendered to PNG by the webview, as an image (ADR 0033).
+#[tauri::command(async)]
+pub fn clipboard_write_drawing_image(
+    app: AppHandle,
+    png: Vec<u8>,
+) -> Result<(), ClipboardIpcError> {
+    let mut writer = TauriClipboardWriter::new(&app);
+    write_drawing_png(&mut writer, &png).map_err(ClipboardIpcError::from)
 }
 
 fn resolve_request(
@@ -79,6 +89,7 @@ mod tests {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "note".to_owned(),
+                tags: Vec::new(),
             })
             .expect("create Note");
 

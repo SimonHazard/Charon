@@ -5,17 +5,17 @@ preserving ADR 0004's static-site and cross-application boundaries.
 
 ## Current public direction
 
-The public home announces v0.1.0 early access with a concise product
+The public home announces v0.3.0 early access with a concise product
 introduction and one ordinary link to GitHub Releases. The initial release was
-published on 2026-09-20 with macOS, Windows, and Linux installers; both languages
-state its availability and refer to the release notes for installation instructions.
+published on 2026-09-20, v0.2.0 on 2026-10-02, and v0.3.0 follows, with macOS,
+Windows, and Linux installers; both languages state its availability and refer to the release
+notes for installation instructions.
 
 The operator requested this evolution on 2026-09-19. It preserves the quiet
 visual direction, approved icon assets, and static privacy boundary. ADR 0017
 moved macOS releases to Apple Silicon starting with v0.1.3; it does not
-retroactively change the published v0.1.0 artifact. The homepage still names
-v0.1.0 although v0.1.3 is the latest release; bump the localized copy and its
-assertions together when the operator chooses to announce a newer version.
+retroactively change the published v0.1.0 artifact. Each release pull request
+bumps the localized version copy and its assertions together.
 
 ## Homepage composition
 
@@ -52,8 +52,9 @@ paths; it is not a promoted content destination.
 
 The site is read as a restrained editorial early access page for developers and
 agent users. Design variance is 4/10, motion is 1/10, and density is 2/10. It
-keeps the Light canvas and semantic Charon theme roles, uses the system UI font,
-and uses Lavender for the approved icon and primary download action.
+keeps the Light canvas and semantic Charon theme roles (the Iris palette of ADR
+0028), uses the system UI font, keeps the approved Lavender icon asset, and uses
+the semantic primary action role for the download action.
 
 Structure comes from type, space, and two hairline rules. The page has no
 gradient, glow, permanent glass, shadowed card, fake interface, decorative

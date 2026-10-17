@@ -246,6 +246,11 @@ pub fn initialize(app: &AppHandle) -> Result<(), CaptureError> {
 pub fn handle_global_shortcut(app: &AppHandle) {
     let task_app = app.clone();
     let _ = app.run_on_main_thread(move || {
+        // The composer shortcut toggles (ADR 0031): while Charon is frontmost it
+        // hides Charon and returns focus to the previous application.
+        if super::shell::main_focused(&task_app) && super::shell::hide_main(&task_app) {
+            return;
+        }
         let _ = trigger(&task_app, CaptureTrigger::StandardShortcut);
     });
 }
@@ -432,13 +437,17 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
         action,
         |body, warning| {
             let workspace_runtime = app.state::<WorkspaceRuntime>();
+            // A capture lands in the focused Tag (ADR 0030).
+            let focused_tag = super::preferences::read_persisted(app)
+                .ok()
+                .and_then(|preferences| preferences.focused_tag);
             let outcome =
-                workspace::create_capture_note(app, &workspace_runtime, body).map_err(|error| {
-                    CaptureIpcError {
+                workspace::create_capture_note(app, &workspace_runtime, body, focused_tag).map_err(
+                    |error| CaptureIpcError {
                         code: format!("workspace_{}", error.code),
                         message_key: error.message_key,
-                    }
-                });
+                    },
+                );
             let created = matches!(outcome, Ok(CaptureNoteOutcome::Created(_)));
             let remembered = remember_statuses(app, capture_statuses(outcome, warning));
             // Neither the Note's text nor its id reaches the notification (ADR 0024).
@@ -448,12 +457,11 @@ fn consume_action(app: &AppHandle, action: CaptureAction) -> Result<(), CaptureI
             remembered
         },
         |request_id| {
-            let main = app
-                .get_webview_window("main")
-                .ok_or_else(|| CaptureIpcError::from(CaptureError::MainEditorUnavailable))?;
-            main.show()
-                .map_err(|_| CaptureIpcError::from(CaptureError::MainEditorUnavailable))?;
-            main.set_focus()
+            if app.get_webview_window("main").is_none() {
+                return Err(CaptureIpcError::from(CaptureError::MainEditorUnavailable));
+            }
+            // Unhides a hidden macOS application first (ADR 0031).
+            crate::reveal_main(app)
                 .map_err(|_| CaptureIpcError::from(CaptureError::MainEditorUnavailable))?;
             let runtime = app.state::<CaptureRuntime>();
             *runtime

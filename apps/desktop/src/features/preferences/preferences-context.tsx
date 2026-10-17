@@ -28,6 +28,7 @@ const defaultPreferences: PreferencesSnapshot = {
   backgroundActive: false,
   captureNotifications: false,
   richCapture: false,
+  focusedTag: null,
 };
 
 type NativePreferencesValue = {
@@ -55,6 +56,11 @@ type NativePreferencesValue = {
   setRichCapture(enabled: boolean): Promise<void>;
   /** Replaces the composer accelerator, or restores the default with `null`; true on success. */
   setShortcut(shortcut: string | null): Promise<boolean>;
+  /**
+   * Focuses one Tag for the shelf and new Notes, or clears it with `null` (ADR 0030). The shelf
+   * follows at once; a refused write restores the previous focus and resolves false.
+   */
+  setFocusedTag(tag: string | null): Promise<boolean>;
 };
 
 const NativePreferencesContext = createContext<NativePreferencesValue | null>(null);
@@ -83,6 +89,7 @@ export function NativePreferencesProvider({
   const [pendingShortcut, setPendingShortcut] = useState(false);
   const [shortcutErrorKey, setShortcutErrorKey] = useState<string | null>(null);
   const refreshPromiseRef = useRef<Promise<void> | null>(null);
+  const focusRequestRef = useRef(0);
 
   const refresh = useCallback(() => {
     if (!enabled) return Promise.resolve();
@@ -206,6 +213,31 @@ export function NativePreferencesProvider({
     [captureClient],
   );
 
+  const setFocusedTag = useCallback(
+    async (tag: string | null) => {
+      const next = tag?.trim() || null;
+      const request = ++focusRequestRef.current;
+      let previous: string | null = null;
+      setPreferences((current) => {
+        previous = current.focusedTag;
+        return { ...current, focusedTag: next };
+      });
+      // Outside Tauri (the browser fixture) the focus lives for this session only.
+      if (!enabled) return true;
+      try {
+        const stored = await preferencesClient.setFocusedTag(next);
+        if (focusRequestRef.current === request) setPreferences(stored);
+        return true;
+      } catch {
+        if (focusRequestRef.current === request) {
+          setPreferences((current) => ({ ...current, focusedTag: previous }));
+        }
+        return false;
+      }
+    },
+    [enabled, preferencesClient],
+  );
+
   return (
     <NativePreferencesContext.Provider
       value={{
@@ -228,6 +260,7 @@ export function NativePreferencesProvider({
         setCaptureNotifications,
         setRichCapture,
         setShortcut,
+        setFocusedTag,
       }}
     >
       {children}

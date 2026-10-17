@@ -99,8 +99,8 @@ for (const [index, html] of homes.entries()) {
   if (
     !html.includes(
       index === 0
-        ? 'v0.1.0 is available in early access'
-        : 'La v0.1.0 est disponible en accès anticipé',
+        ? 'v0.3.0 is available in early access'
+        : 'La v0.3.0 est disponible en accès anticipé',
     )
   ) {
     failures.push(`localized home ${index + 1} must announce the published early access version`);

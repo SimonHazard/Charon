@@ -1,10 +1,16 @@
 import {
   IconArrowBackUp,
   IconArrowForwardUp,
+  IconArrowUpRight,
+  IconCircle,
   IconClearAll,
   IconEraser,
+  IconLine,
   IconMinus,
   IconPencil,
+  IconPhoto,
+  IconSquare,
+  IconTypography,
 } from '@tabler/icons-react';
 import {
   type KeyboardEvent,
@@ -32,6 +38,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DrawingCanvas, type DrawingTool } from '@/features/notes/drawing/drawing-canvas';
+import { useDrawingCopy } from '@/features/notes/drawing/drawing-copy-context';
 import {
   DRAWING_MAX_PATHS,
   DRAWING_SPACE,
@@ -39,6 +46,7 @@ import {
   type DrawingInk,
   type DrawingWidth,
   drawingInks,
+  drawingTextSizes,
   drawingWidths,
   finalizeDrawing,
   unionBox,
@@ -65,6 +73,22 @@ const widthLabel: Record<DrawingWidth, (m: Messages) => string> = {
   medium: (m) => m.drawing_width_medium(),
   bold: (m) => m.drawing_width_bold(),
 };
+
+const tools: readonly {
+  value: DrawingTool;
+  icon: typeof IconPencil;
+  label: (m: Messages) => string;
+}[] = [
+  { value: 'pen', icon: IconPencil, label: (m) => m.drawing_pen() },
+  { value: 'line', icon: IconLine, label: (m) => m.drawing_line() },
+  { value: 'arrow', icon: IconArrowUpRight, label: (m) => m.drawing_arrow() },
+  { value: 'rectangle', icon: IconSquare, label: (m) => m.drawing_rectangle() },
+  { value: 'ellipse', icon: IconCircle, label: (m) => m.drawing_ellipse() },
+  { value: 'text', icon: IconTypography, label: (m) => m.drawing_text() },
+  { value: 'eraser', icon: IconEraser, label: (m) => m.drawing_eraser() },
+];
+const isTool = (value: unknown): value is DrawingTool =>
+  tools.some((candidate) => candidate.value === value);
 
 /** Icon stroke weights that depict the three line widths. */
 const widthIconStroke: Record<DrawingWidth, number> = { thin: 1.25, medium: 2.25, bold: 3.5 };
@@ -176,6 +200,7 @@ export function DrawingDialog({
   const dirty = hasDrawingChanges(history);
   const empty = history.strokes.length === 0;
   const editing = initial !== null;
+  const copyImage = useDrawingCopy();
 
   useEffect(() => {
     if (confirming) keepRef.current?.focus();
@@ -214,6 +239,17 @@ export function DrawingDialog({
     if (confirming) keepDrawing();
     else if (dirty) setConfirming(true);
     else onClose();
+  };
+
+  // Copies what is drawn now as an image, without inserting it (ADR 0033).
+  const copyDrawing = () => {
+    if (!copyImage) return;
+    const result = finalizeDrawing(history.strokes, space);
+    if (!result.ok) {
+      setTooLarge(result.reason === 'too-large');
+      return;
+    }
+    void copyImage(result.drawing);
   };
 
   const submit = () => {
@@ -277,16 +313,22 @@ export function DrawingDialog({
             className="drawing-toggle"
             onValueChange={(values) => {
               const next = values[0];
-              if (next === 'pen' || next === 'eraser') setTool(next);
+              if (isTool(next)) setTool(next);
             }}
             value={[tool]}
           >
-            <ToggleItem label={m.drawing_pen()} value="pen">
-              <IconPencil aria-hidden="true" />
-            </ToggleItem>
-            <ToggleItem label={m.drawing_eraser()} value="eraser">
-              <IconEraser aria-hidden="true" />
-            </ToggleItem>
+            {tools.map((candidate) => {
+              const ToolIcon = candidate.icon;
+              return (
+                <ToggleItem
+                  key={candidate.value}
+                  label={candidate.label(m)}
+                  value={candidate.value}
+                >
+                  <ToolIcon aria-hidden="true" />
+                </ToggleItem>
+              );
+            })}
           </ToggleGroup>
           <ToggleGroup
             aria-label={m.drawing_ink_label()}
@@ -295,7 +337,7 @@ export function DrawingDialog({
               const next = values[0];
               if (!isInk(next)) return;
               setInk(next);
-              setTool('pen');
+              if (tool === 'eraser') setTool('pen');
             }}
             value={[ink]}
           >
@@ -316,7 +358,7 @@ export function DrawingDialog({
               const next = values[0];
               if (!isWidth(next)) return;
               setWidth(next);
-              setTool('pen');
+              if (tool === 'eraser') setTool('pen');
             }}
             value={[width]}
           >
@@ -364,6 +406,8 @@ export function DrawingDialog({
           onEraseStrokes={(strokes) => apply({ type: 'erase', strokes })}
           space={space}
           strokes={history.strokes}
+          textLabel={m.drawing_text_field_label()}
+          textSize={drawingTextSizes[width]}
           tool={tool}
           width={widthValue}
         />
@@ -396,6 +440,17 @@ export function DrawingDialog({
             </div>
           ) : (
             <>
+              {copyImage ? (
+                <Button
+                  className="drawing-copy-image"
+                  disabled={empty}
+                  onClick={copyDrawing}
+                  variant="ghost"
+                >
+                  <IconPhoto aria-hidden="true" data-icon="inline-start" />
+                  {m.drawing_copy_image()}
+                </Button>
+              ) : null}
               <Button onClick={requestClose} ref={cancelRef} variant="outline">
                 {m.common_cancel()}
               </Button>

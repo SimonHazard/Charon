@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Charon",
   "mainBinaryName": "Charon",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "identifier": "dev.simonhazard.charon",
   "build": {
     "frontendDist": "../dist",
@@ -23,7 +23,9 @@
         "resizable": true,
         "fullscreen": false,
         "visible": false,
-        "backgroundColor": "#ebeae8"
+        "backgroundColor": "#f8f7f9",
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {

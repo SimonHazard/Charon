@@ -29,6 +29,10 @@ export type PreferencesSnapshot = {
    * The persisted formatted-capture choice (ADR 0026).
    */
   richCapture: boolean;
+  /**
+   * The focused Tag new Notes start with (ADR 0030), if any.
+   */
+  focusedTag: string | null;
 };
 
 export type NativeLabels = {

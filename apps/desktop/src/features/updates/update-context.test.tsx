@@ -73,11 +73,13 @@ function nativeClients(installKind: string): {
         backgroundActive: false,
         captureNotifications: false,
         richCapture: false,
+        focusedTag: null,
       }),
       reset: vi.fn(),
       setBackgroundMode: vi.fn(),
       setCaptureNotifications: vi.fn(),
       setRichCapture: vi.fn(),
+      setFocusedTag: vi.fn(),
     },
   };
 }

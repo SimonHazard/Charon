@@ -51,7 +51,10 @@ export function workspaceClient(
       let notes = current.notes;
       switch (command.type) {
         case 'createNote':
-          notes = [note({ id: `created-${nextRevision}`, body: command.body }), ...notes];
+          notes = [
+            note({ id: `created-${nextRevision}`, body: command.body, tags: command.tags }),
+            ...notes,
+          ];
           break;
         case 'updateNote':
           notes = notes.map((item) =>

@@ -826,6 +826,7 @@ mod tests {
             &WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "deletion sentinel".to_owned(),
+                tags: Vec::new(),
             },
             || NOTE_ID.to_owned(),
             || "2026-07-30T12:01:00Z".to_owned(),
@@ -887,6 +888,7 @@ mod tests {
             &WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "deletion sentinel".to_owned(),
+                tags: Vec::new(),
             },
             || NOTE_ID.to_owned(),
             || "2026-07-30T12:01:00Z".to_owned(),

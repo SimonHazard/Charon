@@ -47,4 +47,5 @@ export const demoClipboardClient: ClipboardClient = {
     attachmentCount: 1,
     byteCount: 68,
   }),
+  writeDrawingImage: async () => undefined,
 };

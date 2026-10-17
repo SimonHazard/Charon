@@ -43,6 +43,9 @@ describe('render scope across Workspace commands', () => {
     captured.length = 0;
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(900);
+    // TanStack Virtual sizes the scroll element from its client box.
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(900);
   });
 
   it('keeps untouched Notes and the Tag list stable when one Note changes', async () => {

@@ -10,6 +10,8 @@ export interface NativePreferencesClient {
   setCaptureNotifications(enabled: boolean): Promise<PreferencesSnapshot>;
   /** The opt-in formatted capture on macOS (ADR 0026). */
   setRichCapture(enabled: boolean): Promise<PreferencesSnapshot>;
+  /** Focuses one Tag for the shelf and new Notes, or clears it (ADR 0030). */
+  setFocusedTag(tag: string | null): Promise<PreferencesSnapshot>;
 }
 
 export const tauriPreferencesClient: NativePreferencesClient = {
@@ -21,6 +23,7 @@ export const tauriPreferencesClient: NativePreferencesClient = {
     invoke<PreferencesSnapshot>('preferences_set_capture_notifications', { enabled }),
   setRichCapture: (enabled) =>
     invoke<PreferencesSnapshot>('preferences_set_rich_capture', { enabled }),
+  setFocusedTag: (tag) => invoke<PreferencesSnapshot>('preferences_set_focused_tag', { tag }),
 };
 
 export function asPreferencesError(error: unknown): PreferencesIpcError {

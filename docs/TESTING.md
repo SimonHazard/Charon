@@ -46,10 +46,20 @@ Desktop E2E tests use `/?fixture=demo`, a synthetic Workspace. Fixture Notes,
 Tags, Attachment names, paths, and timestamps never touch a real Workspace and
 are removed from the production bundle.
 
-The fixture proves React behavior, layout, focus, drafts, copy composition, and
-error states. It cannot prove native IPC, operating-system permissions, global
+The fixture proves React behavior, layout, focus, drafts, copy composition, the
+command menu, the focused Tag, drawing tools and image rendering, and error
+states. It cannot prove native IPC, operating-system permissions, global
 shortcut delivery, selected-text access, clipboard restoration, file pickers,
-window lifecycle, first-launch warnings, or installed updater behavior.
+file drops and clipboard file lists, window lifecycle and hiding, first-launch
+warnings, or installed updater behavior. Unit tests drive drops and pastes
+through a fake intake client; plan 063 lists the native checks.
+
+`bun run test:perf` keeps the desktop JavaScript under 260 KiB gzip (about
+250 KiB on 2026-10-17) and times search and snapshot reconciliation at 20,000
+Notes.
+
+Local runs need Node 22.22 or newer for Astro 7.4 (`fnm use 26` works) and the
+Playwright 1.64 browsers (`bunx playwright install chromium webkit`, once).
 
 ## Native and updater validation
 

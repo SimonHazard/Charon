@@ -19,6 +19,10 @@ pub enum WorkspaceCommand {
     CreateNote {
         expected_revision: u64,
         body: String,
+        /// The focused Tag a new Note starts with (ADR 0030). Older recovery
+        /// records omit it.
+        #[serde(default)]
+        tags: Vec<String>,
     },
     UpdateNote {
         expected_revision: u64,
@@ -108,8 +112,9 @@ pub(crate) fn apply_command(
     let mut next = manifest.clone();
     let mut next_bodies = bodies.clone();
     match command {
-        WorkspaceCommand::CreateNote { body, .. } => {
+        WorkspaceCommand::CreateNote { body, tags, .. } => {
             validate_body(body)?;
+            let tags = normalize_tags(tags.clone())?;
             if body.trim().is_empty() {
                 return Err(WorkspaceError::Validation(
                     "note body cannot be empty".to_owned(),
@@ -124,7 +129,7 @@ pub(crate) fn apply_command(
                 created_at: timestamp.clone(),
                 updated_at: timestamp,
                 completed_at: None,
-                tags: Vec::new(),
+                tags,
                 attachments: Vec::new(),
             });
             next_bodies.insert(id, body.clone());
@@ -233,6 +238,7 @@ mod tests {
         let value = serde_json::to_value(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "body".to_owned(),
+            tags: Vec::new(),
         })
         .expect("serialize");
         assert_eq!(value["type"], "createNote");
@@ -247,6 +253,7 @@ mod tests {
             &WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "  body\n".to_owned(),
+                tags: Vec::new(),
             },
             || "fef8abcc-7047-4a35-a070-b6d9f0eca026".to_owned(),
             || "2026-07-30T12:01:00Z".to_owned(),

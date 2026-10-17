@@ -1,11 +1,14 @@
 /**
- * Inline Markdown drawings (format v1).
+ * Inline Markdown drawings (format v1, ADR 0021 as amended by ADR 0033).
  *
  * A drawing is ordinary Note text: one fenced ```svg block holding a small
  * SVG document that Charon generated and marked `data-charon-drawing="1"`.
+ * Pen strokes and shapes (lines, arrows, rectangles, ellipses) are stroked
+ * `<path>` elements; a label is one `<text>` element with plain content.
  * Parsing is a strict whitelist over a hand-written tokenizer. Nothing parsed
  * here is ever handed to the DOM: callers re-create elements from the
- * validated numbers and enumerated strings returned by `parseDrawingSvg`.
+ * validated numbers, enumerated strings, and checked text returned by
+ * `parseDrawingSvg`.
  */
 
 import { scanFences } from '@/features/notes/drawing/markdown-fences';
@@ -16,11 +19,16 @@ export type PathCommand =
   | { op: 'M' | 'L'; x: number; y: number }
   | { op: 'Q'; cx: number; cy: number; x: number; y: number };
 
+/** A text label: its baseline start, font size, and plain single-line content. */
+export type DrawingText = { x: number; y: number; size: number; content: string };
+
+/** One mark: a stroked path, or a text label (`text` set, no path commands). */
 export type Stroke = {
   color: string;
   width: number;
   opacity: number | null;
   commands: readonly PathCommand[];
+  text?: DrawingText;
 };
 
 export type Drawing = { viewBox: Box; strokes: readonly Stroke[] };
@@ -46,6 +54,11 @@ export const DRAWING_MAX_VIEWBOX_SIZE = 4_096;
 export const DRAWING_PADDING = 16;
 export const DRAWING_MIN_WIDTH = 0.5;
 export const DRAWING_MAX_WIDTH = 48;
+export const DRAWING_TEXT_MAX_LENGTH = 200;
+export const DRAWING_TEXT_MIN_SIZE = 8;
+export const DRAWING_TEXT_MAX_SIZE = 96;
+/** The one font family a label names, so a copied image renders it like Preview. */
+export const DRAWING_TEXT_FONT = 'sans-serif';
 
 /** Stored ink data. These literals are content, never UI styling. */
 export const drawingInks = [
@@ -64,13 +77,20 @@ export const drawingWidths = [
 ] as const;
 export type DrawingWidth = (typeof drawingWidths)[number]['id'];
 
+/** Label sizes that match the three widths. */
+export const drawingTextSizes: Record<DrawingWidth, number> = { thin: 20, medium: 28, bold: 44 };
+
 const numberPattern = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/u;
 const colorPattern = /^#[0-9a-f]{6}$/u;
 const pathToken = /([MLQ])|(-?(?:\d+(?:\.\d+)?|\.\d+))|([\s,]+)/uy;
 const attributeName = /[A-Za-z][A-Za-z0-9-]*/uy;
 const whitespace = /[ \t\r\n]/u;
-// Printable ASCII plus XML whitespace: no entity, no control, no non-ASCII.
-const allowedCharacters = /^[\t\n\r\x20-\x25\x27-\x7e]*$/u;
+// XML whitespace plus printable characters: no entity (`&`), no control. Non-ASCII text can only
+// pass as label content; every attribute and path value is checked by a strict ASCII pattern.
+const allowedCharacters =
+  /^[\t\n\r\x20-\x25\x27-\x7e\u00a0-\ud7ff\ue000-\ufffc\u{10000}-\u{10ffff}]*$/u;
+// One line of printable text without markup characters.
+const textContentPattern = /^[^\p{Cc}\p{Cf}<>&]+$/u;
 
 const rootAttributes = ['xmlns', 'viewBox', 'width', 'height', DRAWING_MARKER] as const;
 const pathAttributes = new Set([
@@ -82,6 +102,7 @@ const pathAttributes = new Set([
   'stroke-linejoin',
   'stroke-opacity',
 ]);
+const textAttributes = ['x', 'y', 'font-size', 'fill', 'font-family'] as const;
 const commandArity = { M: 2, L: 2, Q: 4 } as const;
 
 export function roundCoordinate(value: number): number {
@@ -180,8 +201,31 @@ export function strokePathData(stroke: Stroke): string {
   return data;
 }
 
-/** Every coordinate pair in order: endpoints and quadratic control points. */
+/** Plain label text a user typed, made storable: one line, no markup or control characters. */
+export function sanitizeDrawingText(value: string): string {
+  return [
+    ...value
+      .replace(/[\p{Cc}\p{Cf}<>&]/gu, ' ')
+      .replace(/\s+/gu, ' ')
+      .trim(),
+  ]
+    .slice(0, DRAWING_TEXT_MAX_LENGTH)
+    .join('')
+    .trim();
+}
+
+/** An estimate of a label's box from its size and length; no font is measured. */
+export function textBox(text: DrawingText): Box {
+  const width = Math.max(text.size * 0.6, [...text.content].length * text.size * 0.56);
+  return { x: text.x, y: text.y - text.size * 0.82, width, height: text.size * 1.04 };
+}
+
+/** Every coordinate pair in order: endpoints and quadratic control points, or a label's box. */
 export function strokeCoordinates(stroke: Stroke): number[] {
+  if (stroke.text) {
+    const { x, y, width, height } = textBox(stroke.text);
+    return [x, y, x + width, y, x + width, y + height, x, y + height, x, y];
+  }
   const values: number[] = [];
   for (const command of stroke.commands) {
     if (command.op === 'Q') values.push(command.cx, command.cy, command.x, command.y);
@@ -191,6 +235,7 @@ export function strokeCoordinates(stroke: Stroke): number[] {
 }
 
 function countNumbers(stroke: Stroke): number {
+  if (stroke.text) return 3;
   return stroke.commands.reduce((total, command) => total + (command.op === 'Q' ? 4 : 2), 0);
 }
 
@@ -198,7 +243,7 @@ function countNumbers(stroke: Stroke): number {
 // SVG document
 
 type ParsedElement = {
-  name: 'svg' | 'path';
+  name: 'svg' | 'path' | 'text';
   attributes: Map<string, string>;
   selfClosing: boolean;
 };
@@ -226,7 +271,7 @@ class Cursor {
   }
 }
 
-function readElement(cursor: Cursor, name: 'svg' | 'path'): ParsedElement | null {
+function readElement(cursor: Cursor, name: ParsedElement['name']): ParsedElement | null {
   if (!cursor.consume(`<${name}`)) return null;
   const attributes = new Map<string, string>();
   for (;;) {
@@ -292,6 +337,22 @@ function parseStroke(attributes: Map<string, string>): Stroke | null {
   return { color, width, opacity, commands };
 }
 
+function parseText(attributes: Map<string, string>, content: string): Stroke | null {
+  if (attributes.size !== textAttributes.length) return null;
+  if (!textAttributes.every((name) => attributes.has(name))) return null;
+  if (attributes.get('font-family') !== DRAWING_TEXT_FONT) return null;
+  const color = attributes.get('fill');
+  if (color !== 'currentColor' && !(color && colorPattern.test(color))) return null;
+  const x = parseNumber(attributes.get('x') ?? '');
+  const y = parseNumber(attributes.get('y') ?? '');
+  const size = parseNumber(attributes.get('font-size') ?? '');
+  if (x === null || y === null || size === null) return null;
+  if (size < DRAWING_TEXT_MIN_SIZE || size > DRAWING_TEXT_MAX_SIZE) return null;
+  if (!textContentPattern.test(content) || content.trim() !== content) return null;
+  if ([...content].length > DRAWING_TEXT_MAX_LENGTH) return null;
+  return { color, width: 1, opacity: null, commands: [], text: { x, y, size, content } };
+}
+
 /** Returns a validated drawing, or null for anything outside format v1. */
 export function parseDrawingSvg(source: string): Drawing | null {
   if (source.length > DRAWING_MAX_BLOCK_BYTES || !allowedCharacters.test(source)) return null;
@@ -310,6 +371,17 @@ export function parseDrawingSvg(source: string): Drawing | null {
       cursor.skipWhitespace();
       return cursor.done ? { viewBox, strokes } : null;
     }
+    if (/^<text[\s>]/u.test(source.slice(cursor.index, cursor.index + 6))) {
+      const element = readElement(cursor, 'text');
+      if (!element || element.selfClosing) return null;
+      const close = source.indexOf('</text>', cursor.index);
+      if (close < 0) return null;
+      const label = parseText(element.attributes, source.slice(cursor.index, close));
+      cursor.index = close + '</text>'.length;
+      if (!label || strokes.length >= DRAWING_MAX_PATHS) return null;
+      strokes.push(label);
+      continue;
+    }
     if (!/^<path[\s/]/u.test(source.slice(cursor.index, cursor.index + 6))) return null;
     const path = readElement(cursor, 'path');
     if (!path?.selfClosing) return null;
@@ -327,6 +399,13 @@ export function serializeDrawing(drawing: Drawing): string {
     `<svg xmlns="${SVG_NAMESPACE}" viewBox="${formatNumber(x)} ${formatNumber(y)} ${w} ${h}" width="${w}" height="${h}" ${DRAWING_MARKER}="1">`,
   ];
   for (const stroke of drawing.strokes) {
+    if (stroke.text) {
+      const { x, y, size, content } = stroke.text;
+      lines.push(
+        `<text x="${formatNumber(x)}" y="${formatNumber(y)}" font-size="${formatNumber(size)}" fill="${stroke.color}" font-family="${DRAWING_TEXT_FONT}">${content}</text>`,
+      );
+      continue;
+    }
     const opacity =
       stroke.opacity === null ? '' : ` stroke-opacity="${formatNumber(stroke.opacity, 2)}"`;
     lines.push(

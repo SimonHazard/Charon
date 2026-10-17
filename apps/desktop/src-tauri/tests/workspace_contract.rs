@@ -2,10 +2,11 @@ use std::fs;
 use std::path::Path;
 
 use charon_desktop_lib::workspace::{
-    AttachmentDto, MigrationFailure, NoteDto, NoteStatus, StorageFailure, Workspace,
-    WorkspaceChangedEvent, WorkspaceCommand, WorkspaceCommandResult, WorkspaceError,
-    WorkspaceEventOrigin, WorkspaceFolderChoice, WorkspaceHealth, WorkspaceHealthIssue,
-    WorkspaceHealthIssueKind, WorkspaceIpcError, WorkspaceSnapshot,
+    AttachmentDragEvent, AttachmentDropEvent, AttachmentDto, AttachmentSources, MigrationFailure,
+    NoteDto, NoteStatus, StorageFailure, Workspace, WorkspaceChangedEvent, WorkspaceCommand,
+    WorkspaceCommandResult, WorkspaceError, WorkspaceEventOrigin, WorkspaceFolderChoice,
+    WorkspaceHealth, WorkspaceHealthIssue, WorkspaceHealthIssueKind, WorkspaceIpcError,
+    WorkspaceSnapshot,
 };
 use serde_json::json;
 use tempfile::tempdir;
@@ -19,6 +20,7 @@ fn exercise_flat_contract(mut workspace: Workspace) {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: initial.revision,
             body: "  exact body\n".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create");
     let id = created.snapshot.notes[0].id.clone();
@@ -75,6 +77,7 @@ fn real_workspace_reopens_and_round_trips_a_note_body() {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "  portable body\n".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create Note");
     drop(workspace);
@@ -122,6 +125,7 @@ fn attachment_import_rejects_unsafe_sources_atomically() {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "note".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create");
     let note_id = created.snapshot.notes[0].id.clone();
@@ -192,6 +196,7 @@ fn same_name_attachments_are_distinct_and_external_deletion_is_a_health_issue() 
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "note".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create");
     let imported = workspace
@@ -234,6 +239,7 @@ fn permanent_note_delete_removes_body_attachment_and_transaction_sentinels() {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "private note sentinel".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create");
     let note_id = created.snapshot.notes[0].id.clone();
@@ -293,6 +299,7 @@ fn every_real_filesystem_attachment_failure_is_atomic_and_recoverable() {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "stable note".to_owned(),
+                tags: Vec::new(),
             })
             .expect("create note");
         let note_id = created.snapshot.notes[0].id.clone();
@@ -344,6 +351,7 @@ fn blocked_delete_cleanup_reports_its_transaction_and_retries_before_execute() {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "delete me".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create Note");
     let note_id = created.snapshot.notes[0].id.clone();
@@ -365,6 +373,7 @@ fn blocked_delete_cleanup_reports_its_transaction_and_retries_before_execute() {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 2,
             body: "after cleanup".to_owned(),
+            tags: Vec::new(),
         })
         .expect("retry cleanup before command");
     assert_eq!(retried.snapshot.notes.len(), 1);
@@ -386,6 +395,7 @@ fn attachment_import_never_follows_symlinks() {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "note".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create");
     assert!(workspace
@@ -405,6 +415,7 @@ fn exercise_attachment_contract(workspace: &mut Workspace, source: String) {
         .execute(WorkspaceCommand::CreateNote {
             expected_revision: 0,
             body: "note sentinel".to_owned(),
+            tags: Vec::new(),
         })
         .expect("create");
     let note_id = created.snapshot.notes[0].id.clone();
@@ -767,6 +778,9 @@ fn export_bindings() {
         WorkspaceEventOrigin::decl(&config),
         WorkspaceChangedEvent::decl(&config),
         WorkspaceFolderChoice::decl(&config),
+        AttachmentSources::decl(&config),
+        AttachmentDragEvent::decl(&config),
+        AttachmentDropEvent::decl(&config),
         WorkspaceCommand::decl(&config),
         WorkspaceCommandResult::decl(&config),
         WorkspaceIpcError::decl(&config),

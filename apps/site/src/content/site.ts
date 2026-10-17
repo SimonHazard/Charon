@@ -15,7 +15,7 @@ export const copy = {
     title: 'Keep what matters.',
     intro:
       'Capture your ideas, keep them locally as Markdown, and copy them when you need context for an AI agent.',
-    releaseStatus: 'v0.1.0 is available in early access',
+    releaseStatus: 'v0.3.0 is available in early access',
     download: 'Download Charon',
     downloadNote: 'Available for macOS, Windows, and Linux on GitHub Releases.',
     releaseNote:
@@ -27,7 +27,7 @@ export const copy = {
     title: 'Gardez l’essentiel.',
     intro:
       'Capturez vos idées, gardez-les en Markdown sur votre ordinateur et copiez-les pour donner du contexte à un agent IA.',
-    releaseStatus: 'La v0.1.0 est disponible en accès anticipé',
+    releaseStatus: 'La v0.3.0 est disponible en accès anticipé',
     download: 'Télécharger Charon',
     downloadNote: 'Disponible pour macOS, Windows et Linux sur GitHub Releases.',
     releaseNote:

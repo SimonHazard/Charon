@@ -14,7 +14,7 @@ function SelectTrigger({ className, children, ...props }: SelectPrimitive.Trigge
     <SelectPrimitive.Trigger
       data-slot="select-trigger"
       className={cn(
-        "flex h-[var(--size-control-sm)] w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-input bg-field px-2.5 text-left text-sm text-foreground outline-none select-none transition-[background-color,border-color,color] [transition-duration:var(--motion-duration-direct)] [transition-timing-function:var(--motion-easing-direct)] hover:border-[var(--border-strong)] hover:bg-[var(--control-hover)] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-[var(--control-hover)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-[var(--surface-inset)] disabled:text-muted-foreground motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex h-[var(--size-control-sm)] w-full min-w-0 items-center justify-between gap-2 rounded-[var(--radius-field)] border border-input bg-field px-[calc(--spacing(3)-1px)] text-left text-sm shadow-[var(--shadow-control)] text-foreground outline-none select-none transition-[background-color,border-color,color] [transition-duration:var(--motion-duration-direct)] [transition-timing-function:var(--motion-easing-direct)] hover:border-[var(--border-strong)] hover:bg-[var(--control-hover)] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-[var(--control-hover)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-[var(--surface-inset)] disabled:text-muted-foreground motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
@@ -64,7 +64,7 @@ function SelectContent({
         <SelectPrimitive.Popup
           data-slot="select-content"
           className={cn(
-            'z-50 max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-y-auto overscroll-contain rounded-lg bg-popover p-1 text-sm text-popover-foreground shadow-[var(--shadow-floating)] ring-1 ring-foreground/10 outline-hidden transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] data-ending-style:[transition-duration:var(--motion-duration-transient-exit)] [transition-timing-function:var(--motion-easing-transient)] data-starting-style:transform-[scale(var(--motion-transient-scale))] data-starting-style:opacity-0 data-ending-style:transform-[scale(var(--motion-transient-scale))] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:[transition-property:opacity]',
+            'dropdown-glass z-50 max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-y-auto overscroll-contain rounded-[var(--radius-field)] p-1 text-sm text-popover-foreground shadow-[var(--shadow-floating)] outline-hidden transition-[transform,opacity] [transition-duration:var(--motion-duration-transient)] data-ending-style:[transition-duration:var(--motion-duration-transient-exit)] [transition-timing-function:var(--motion-easing-transient)] data-starting-style:transform-[scale(var(--motion-transient-scale))] data-starting-style:opacity-0 data-ending-style:transform-[scale(var(--motion-transient-scale))] data-ending-style:opacity-0 motion-reduce:transform-none motion-reduce:[transition-property:opacity]',
             className,
           )}
           {...props}
@@ -81,7 +81,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        'relative flex min-h-8 w-full cursor-default items-center rounded-md py-1.5 pr-8 pl-2 text-sm outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-50 data-highlighted:bg-[var(--control-hover)] data-highlighted:text-foreground',
+        'relative flex min-h-7 w-full cursor-default items-center rounded-[0.375rem] py-1 pr-8 pl-2 text-sm outline-none select-none data-disabled:pointer-events-none data-disabled:opacity-60 data-highlighted:bg-accent data-highlighted:text-accent-foreground',
         className,
       )}
       {...props}

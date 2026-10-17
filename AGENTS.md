@@ -37,7 +37,9 @@ Use the vocabulary exactly:
 - Copy only after an explicit action. `Copy as Markdown` emits Note bodies,
   optional Tags, and optional safe names plus canonical paths to managed
   Attachment copies. It never reads Attachment bytes, uploads, pastes, or
-  changes Note state. Disclose that local paths enter the clipboard.
+  changes Note state. Disclose that local paths enter the clipboard. A
+  drawing's separate Copy image writes one PNG rendered from its validated
+  values (ADR 0033).
 - Never add automatic Paste or arbitrary keystroke injection. ADR 0010 permits
   exactly one synthetic platform Copy after an explicit selected-text capture
   gesture, inside its bounded snapshot, change-count, timeout, disclosure, and
@@ -53,8 +55,9 @@ Use the vocabulary exactly:
 - Treat unmodified `Shift`, `Shift` as a native modifier sequence. Keep
   `Cmd+Shift+Space` on macOS and `Alt+Shift+Space` on Windows/Linux as the
   default reveal-and-focus-composer shortcut; ADR 0025 lets the user replace
-  that one accelerator (not on Wayland) and reset it. Double Shift is not
-  configurable. Never claim an unimplemented capability;
+  that one accelerator (not on Wayland) and reset it. While Charon is
+  frontmost it hides Charon and returns focus to the previous app (ADR 0031).
+  Double Shift is not configurable. Never claim an unimplemented capability;
   new Windows/X11 adapters begin as experimental and Wayland never claims
   double Shift. Charon ships without paid signing under ADR 0014; macOS
   releases use Tauri's ad-hoc identity (ADR 0027, which supersedes ADR 0018)
@@ -84,15 +87,20 @@ Use the vocabulary exactly:
   features.
 - The active model is one flat Note collection. Do not restore Sections,
   hierarchy, manual order, Move, Merge, Trash, multiple destinations, or
-  Note Selection or bulk Note commands without an accepted ADR.
+  Note Selection or bulk Note commands without an accepted ADR. At most one
+  focused Tag (ADR 0030) filters the shelf and tags new Notes; it is native
+  view state, never a section, registry, or hierarchy.
 - A Note has at most 16 Tags. Each trimmed Tag has 1-48 Unicode scalar values,
   no control/line-break character, first-entered spelling and order, and case-
   insensitive uniqueness. No Tag IDs, colors, nesting, registry, or management
   surface.
-- A Note has at most 20 Attachments of at most 100 MiB. The explicit picker may
-  return transient source paths to the command boundary; Rust accepts only a
-  regular non-symlink file outside the Workspace, copies it under
-  `attachments/<note-id>/`, and persists no external source path. Never execute,
+- A Note has at most 20 Attachments of at most 100 MiB. The explicit picker, a
+  file drop, or a file or image paste (ADR 0032) hands Rust transient source
+  paths; React receives only single-use tokens and display names and never
+  subscribes to Tauri's path-carrying drag event. Rust accepts only a regular
+  non-symlink file outside the Workspace, copies it under
+  `attachments/<note-id>/`, and persists no external source path; a pasted
+  image's temporary PNG is deleted when its import ends. Never execute,
   preview arbitrary formats, adopt unknown files, upload, or share them across
   Notes.
 - Desktop and site import only `@charon/theme`, never each other. The theme
@@ -104,12 +112,15 @@ Use the vocabulary exactly:
 
 ## UI and motion
 
-- The appearance follows the OS by default; Light and Graphite are explicit
-  choices. Use semantic roles mapped from Charon Prune, Lavender, and Cream.
-  Product components never contain raw palette values or theme conditionals.
-- Keep one single-column shelf: minimal drag region; search with trailing Help
-  and Preferences; one virtualized unified Note stack with direct per-Note
-  actions; always-visible bottom composer. No navigation rail or product routes.
+- The appearance follows the OS by default; Light and Dark are explicit
+  choices. Both use the Iris design system (ADR 0028) through the semantic
+  roles of `packages/theme`. Product
+  components never contain raw palette values or theme conditionals.
+- Keep one single-column shelf: minimal drag region (the macOS traffic lights
+  sit in it); search with trailing Commands, Help, and Preferences; one
+  virtualized unified Note stack with direct per-Note actions; always-visible
+  floating composer. The `CmdOrCtrl+K` command menu (ADR 0029) is a transient
+  dialog. No navigation rail or product routes.
 - An opt-in background mode (ADR 0023) may show one Rust-owned menu bar or
   notification area icon with only Open and Quit, on macOS and Windows only;
   closing hides only while that icon exists (macOS always hides), and Quit stays
@@ -117,6 +128,8 @@ Use the vocabulary exactly:
 - Use Tabler outline icons and the platform system font. No emoji UI, Inter,
   painted gradients (the Note list scroll-edge mask of ADR 0022 excepted), glow,
   permanent glass, decorative rails, card grids, or decorative list entrances.
+  Glass is for transient surfaces and the composer only; the canvas grain is
+  the one texture (ADR 0028).
 - All desktop copy goes through Paraglide. Keep wording plain and put displayed
   key combinations in semantic `kbd` markup.
 - Use `apple-design` for desktop gestures, motion, or irreversible interactions.

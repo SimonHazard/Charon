@@ -1,4 +1,4 @@
-import { IconEdit } from '@tabler/icons-react';
+import { IconEdit, IconPhoto } from '@tabler/icons-react';
 import {
   type ComponentPropsWithoutRef,
   createContext,
@@ -12,6 +12,7 @@ import {
 import { useMessages } from '@/app/providers';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDrawingCopy } from '@/features/notes/drawing/drawing-copy-context';
 import { type Drawing, parseDrawingSvg } from '@/features/notes/drawing/drawing-format';
 import { DrawingPaths } from '@/features/notes/drawing/drawing-paths';
 
@@ -51,6 +52,7 @@ function DrawingFigure({ drawing }: { drawing: Drawing }) {
   const nested = useContext(NestedDrawingContext);
   const onEdit = useContext(DrawingEditContext);
   const edit = nested ? undefined : onEdit;
+  const copyImage = useDrawingCopy();
   const figureRef = useRef<HTMLElement>(null);
   const { x, y, width, height } = drawing.viewBox;
   return (
@@ -64,29 +66,47 @@ function DrawingFigure({ drawing }: { drawing: Drawing }) {
       >
         <DrawingPaths strokes={drawing.strokes} />
       </svg>
-      {edit ? (
-        <Tooltip>
-          <TooltipTrigger
-            aria-label={m.drawing_edit()}
-            className="note-drawing-edit"
-            onClick={(event) => {
-              const figure = figureRef.current;
-              const scope = figure?.closest('.note-preview') ?? figure?.parentElement;
-              const figures = [
-                ...(scope?.querySelectorAll('figure.note-drawing[data-drawing-editable]') ?? []),
-              ];
-              edit({
-                index: Math.max(0, figure ? figures.indexOf(figure) : 0),
-                drawing,
-                trigger: event.currentTarget,
-              });
-            }}
-            render={<Button size="icon-sm" variant="ghost" />}
-          >
-            <IconEdit aria-hidden="true" />
-          </TooltipTrigger>
-          <TooltipContent>{m.drawing_edit()}</TooltipContent>
-        </Tooltip>
+      {edit || copyImage ? (
+        <div className="note-drawing-actions">
+          {edit ? (
+            <Tooltip>
+              <TooltipTrigger
+                aria-label={m.drawing_edit()}
+                className="note-drawing-edit"
+                onClick={(event) => {
+                  const figure = figureRef.current;
+                  const scope = figure?.closest('.note-preview') ?? figure?.parentElement;
+                  const figures = [
+                    ...(scope?.querySelectorAll('figure.note-drawing[data-drawing-editable]') ??
+                      []),
+                  ];
+                  edit({
+                    index: Math.max(0, figure ? figures.indexOf(figure) : 0),
+                    drawing,
+                    trigger: event.currentTarget,
+                  });
+                }}
+                render={<Button size="icon-sm" variant="ghost" />}
+              >
+                <IconEdit aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>{m.drawing_edit()}</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {copyImage ? (
+            <Tooltip>
+              <TooltipTrigger
+                aria-label={m.drawing_copy_image()}
+                className="note-drawing-copy"
+                onClick={() => void copyImage(drawing)}
+                render={<Button size="icon-sm" variant="ghost" />}
+              >
+                <IconPhoto aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent>{m.drawing_copy_image()}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
       ) : null}
     </figure>
   );

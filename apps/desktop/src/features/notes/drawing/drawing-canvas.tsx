@@ -1,14 +1,33 @@
-import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useRef } from 'react';
-import type { Box, PathCommand, Stroke } from '@/features/notes/drawing/drawing-format';
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import {
+  type Box,
+  formatPathData,
+  type PathCommand,
+  type Stroke,
+  sanitizeDrawingText,
+} from '@/features/notes/drawing/drawing-format';
 import {
   clientToDrawing,
   type Point,
+  type ShapeTool,
   StrokeTrace,
+  shapeCommands,
+  shapeIsTiny,
   strokeHit,
 } from '@/features/notes/drawing/drawing-geometry';
 import { DrawingPaths, strokeKey } from '@/features/notes/drawing/drawing-paths';
 
-export type DrawingTool = 'pen' | 'eraser';
+export type DrawingTool = 'pen' | 'eraser' | 'text' | ShapeTool;
+
+export const shapeTools: readonly ShapeTool[] = ['line', 'arrow', 'rectangle', 'ellipse'];
+const isShapeTool = (tool: DrawingTool): tool is ShapeTool =>
+  (shapeTools as readonly string[]).includes(tool);
 
 type Rect = { left: number; top: number; width: number; height: number };
 
@@ -23,7 +42,20 @@ type Gesture =
       color: string;
       width: number;
     }
+  | {
+      kind: 'shape';
+      pointerId: number;
+      rect: Rect;
+      tool: ShapeTool;
+      start: Point;
+      commands: PathCommand[] | null;
+      color: string;
+      width: number;
+    }
   | { kind: 'erase'; pointerId: number; rect: Rect; last: Point; hits: Set<Stroke> };
+
+/** A label being typed: where it starts in the drawing and where its field sits on screen. */
+type TextDraft = { point: Point; left: number; top: number; fontPx: number };
 
 type DrawingCanvasProps = {
   strokes: readonly Stroke[];
@@ -31,7 +63,10 @@ type DrawingCanvasProps = {
   tool: DrawingTool;
   color: string;
   width: number;
+  /** Font size of a new label, in drawing units. */
+  textSize: number;
   label: string;
+  textLabel: string;
   describedBy?: string;
   /** False once the drawing holds the maximum number of strokes. */
   canAddStroke: boolean;
@@ -52,9 +87,10 @@ function samplesOf(event: ReactPointerEvent<SVGSVGElement>): readonly PointerEve
 }
 
 /**
- * Pointer drawing surface. Ink appears on pointer down; the live stroke is a
- * path mutated through a ref so pointer moves never touch React state; the
- * stroke commits once on pointer up or cancel.
+ * Pointer drawing surface. Ink appears on pointer down; the live stroke or shape is a path
+ * mutated through a ref so pointer moves never touch React state; it commits once on pointer up
+ * or cancel. The text tool opens a field at the pointer; Enter or leaving the field adds the
+ * label and Escape drops it.
  */
 export function DrawingCanvas({
   strokes,
@@ -62,7 +98,9 @@ export function DrawingCanvas({
   tool,
   color,
   width,
+  textSize,
   label,
+  textLabel,
   describedBy,
   canAddStroke,
   onAddStrokes,
@@ -72,14 +110,16 @@ export function DrawingCanvas({
   const svgRef = useRef<SVGSVGElement>(null);
   const liveRef = useRef<SVGPathElement>(null);
   const gestureRef = useRef<Gesture | null>(null);
+  const [textDraft, setTextDraft] = useState<TextDraft | null>(null);
+  const textCommittedRef = useRef(false);
 
-  // Erasing hides hit paths immediately; React removes them on commit. Any
-  // path still hidden afterwards (an undo mid-gesture) becomes visible again.
+  // Erasing hides hit marks immediately; React removes them on commit. Any
+  // mark still hidden afterwards (an undo mid-gesture) becomes visible again.
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs after each committed stroke list.
   useLayoutEffect(() => {
     if (gestureRef.current?.kind === 'erase') return;
-    for (const path of svgRef.current?.querySelectorAll('path[visibility]') ?? []) {
-      path.removeAttribute('visibility');
+    for (const mark of svgRef.current?.querySelectorAll('[visibility]') ?? []) {
+      mark.removeAttribute('visibility');
     }
   }, [strokes]);
 
@@ -105,6 +145,15 @@ export function DrawingCanvas({
       if (gesture.hits.size) onEraseStrokes(gesture.hits);
       return;
     }
+    liveRef.current?.removeAttribute('d');
+    if (gesture.kind === 'shape') {
+      if (gesture.commands) {
+        onAddStrokes([
+          { color: gesture.color, width: gesture.width, opacity: null, commands: gesture.commands },
+        ]);
+      }
+      return;
+    }
     const pieces = [...gesture.pieces, gesture.trace.commands()];
     onAddStrokes(
       pieces.map((commands) => ({
@@ -114,7 +163,28 @@ export function DrawingCanvas({
         commands,
       })),
     );
-    liveRef.current?.removeAttribute('d');
+  };
+
+  const commitText = (value: string) => {
+    const draft = textDraft;
+    if (!draft || textCommittedRef.current) return;
+    textCommittedRef.current = true;
+    setTextDraft(null);
+    const content = sanitizeDrawingText(value);
+    if (!content) return;
+    if (!canAddStroke) {
+      onBlocked();
+      return;
+    }
+    onAddStrokes([
+      {
+        color,
+        width: 1,
+        opacity: null,
+        commands: [],
+        text: { x: draft.point.x, y: draft.point.y, size: textSize, content },
+      },
+    ]);
   };
 
   const onPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
@@ -127,6 +197,24 @@ export function DrawingCanvas({
     const point = clientToDrawing(event.clientX, event.clientY, rect, space);
     if (!point) return;
     event.preventDefault();
+    if (tool === 'text' && !penEraser) {
+      if (!canAddStroke) {
+        onBlocked();
+        return;
+      }
+      const scale = Math.min(rect.width / space.width, rect.height / space.height);
+      const fontPx = textSize * scale;
+      // The click marks the label's vertical middle; its baseline sits a third of a size below.
+      const baseline = { x: point.x, y: Math.min(space.y + space.height, point.y + textSize / 3) };
+      textCommittedRef.current = false;
+      setTextDraft({
+        point: baseline,
+        left: event.clientX - rect.left,
+        top: event.clientY - rect.top - fontPx * 0.7,
+        fontPx,
+      });
+      return;
+    }
     if (tool === 'eraser' || penEraser) {
       const gesture: Extract<Gesture, { kind: 'erase' }> = {
         kind: 'erase',
@@ -142,20 +230,33 @@ export function DrawingCanvas({
         onBlocked();
         return;
       }
-      const gesture: Gesture = {
-        kind: 'draw',
-        pointerId: event.pointerId,
-        rect,
-        trace: new StrokeTrace(point),
-        pieces: [],
-        piecesData: '',
-        color,
-        width,
-      };
-      gestureRef.current = gesture;
       liveRef.current?.setAttribute('stroke', color);
       liveRef.current?.setAttribute('stroke-width', String(width));
-      showLive(gesture);
+      if (isShapeTool(tool)) {
+        gestureRef.current = {
+          kind: 'shape',
+          pointerId: event.pointerId,
+          rect,
+          tool,
+          start: point,
+          commands: null,
+          color,
+          width,
+        };
+      } else {
+        const gesture: Gesture = {
+          kind: 'draw',
+          pointerId: event.pointerId,
+          rect,
+          trace: new StrokeTrace(point),
+          pieces: [],
+          piecesData: '',
+          color,
+          width,
+        };
+        gestureRef.current = gesture;
+        showLive(gesture);
+      }
     }
     try {
       svg.setPointerCapture?.(event.pointerId);
@@ -176,6 +277,16 @@ export function DrawingCanvas({
       }
       return;
     }
+    if (gesture.kind === 'shape') {
+      const point = clientToDrawing(event.clientX, event.clientY, gesture.rect, space);
+      if (!point) return;
+      gesture.commands = shapeIsTiny(gesture.start, point)
+        ? null
+        : shapeCommands(gesture.tool, gesture.start, point, gesture.width, event.shiftKey);
+      if (gesture.commands) liveRef.current?.setAttribute('d', formatPathData(gesture.commands));
+      else liveRef.current?.removeAttribute('d');
+      return;
+    }
     let changed = false;
     for (const sample of samplesOf(event)) {
       const point = clientToDrawing(sample.clientX, sample.clientY, gesture.rect, space);
@@ -193,29 +304,65 @@ export function DrawingCanvas({
 
   const onPointerEnd = (event: ReactPointerEvent<SVGSVGElement>) => finish(event.pointerId);
 
+  const onTextKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitText(event.currentTarget.value);
+    } else if (event.key === 'Escape') {
+      // Escape drops only the label being typed; the dialog stays open.
+      event.preventDefault();
+      event.stopPropagation();
+      textCommittedRef.current = true;
+      setTextDraft(null);
+      svgRef.current?.focus({ preventScroll: true });
+    }
+  };
+
   return (
-    <svg
-      aria-describedby={describedBy}
-      aria-label={label}
-      className="drawing-canvas"
-      data-tool={tool}
-      onLostPointerCapture={onPointerEnd}
-      onPointerCancel={onPointerEnd}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerEnd}
-      ref={svgRef}
-      role="img"
-      viewBox={`${space.x} ${space.y} ${space.width} ${space.height}`}
-    >
-      <DrawingPaths keyed strokes={strokes} />
-      <path
-        className="drawing-live-stroke"
-        fill="none"
-        ref={liveRef}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div className="drawing-stage">
+      <svg
+        aria-describedby={describedBy}
+        aria-label={label}
+        className="drawing-canvas"
+        data-tool={tool}
+        onLostPointerCapture={onPointerEnd}
+        onPointerCancel={onPointerEnd}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerEnd}
+        ref={svgRef}
+        role="img"
+        viewBox={`${space.x} ${space.y} ${space.width} ${space.height}`}
+      >
+        <DrawingPaths keyed strokes={strokes} />
+        <path
+          className="drawing-live-stroke"
+          fill="none"
+          ref={liveRef}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      {textDraft ? (
+        <input
+          aria-label={textLabel}
+          autoComplete="off"
+          // biome-ignore lint/a11y/noAutofocus: the text tool opens this field exactly where the user clicked.
+          autoFocus
+          className="drawing-text-input"
+          maxLength={200}
+          onBlur={(event) => commitText(event.currentTarget.value)}
+          onKeyDown={onTextKeyDown}
+          spellCheck={false}
+          style={{
+            left: textDraft.left,
+            top: textDraft.top,
+            fontSize: textDraft.fontPx,
+            color: color === 'currentColor' ? undefined : color,
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

@@ -27,6 +27,7 @@ export function NoteList({
   notes,
   expandedId,
   acknowledgedId = null,
+  dropTargetId = null,
   revealRequest = null,
   allTags,
   copyState,
@@ -48,6 +49,8 @@ export function NoteList({
   notes: readonly NoteDto[];
   expandedId: string | null;
   acknowledgedId?: string | null;
+  /** The Note a file drag would attach to (ADR 0032). */
+  dropTargetId?: string | null;
   revealRequest?: NoteRevealRequest | null;
   allTags: readonly string[];
   copyState: { noteId: string; status: 'copied' | 'error'; message: string } | null;
@@ -205,6 +208,7 @@ export function NoteList({
             >
               <NoteRow
                 acknowledged={acknowledgedId === note.id}
+                dropTarget={dropTargetId === note.id}
                 allTags={allTags}
                 copyState={
                   copyState?.noteId === note.id

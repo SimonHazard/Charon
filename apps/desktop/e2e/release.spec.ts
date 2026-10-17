@@ -188,7 +188,8 @@ async function expectCompactShelf(page: Page, width: number, height: number) {
   expect(geometry?.listBeforeComposer).toBe(true);
   expect(geometry?.composerBottom).toBeLessThanOrEqual(height + 1);
   expect(geometry?.rowBorder).toBe('solid');
-  expect(geometry?.rowShadow).toBe('none');
+  // ADR 0028: Note rows are hairline cards with a 1px control shadow.
+  expect(geometry?.rowShadow).not.toBe('none');
   expect(geometry?.rowBackground).not.toBe('rgba(0, 0, 0, 0)');
   expect(width - (geometry?.shelfWidth ?? width)).toBeGreaterThanOrEqual(0);
 }
@@ -322,9 +323,9 @@ test('search, exact Tag filter, and visible status stay coherent', async ({ page
   await expect(page.getByText('Agent handoff')).toBeVisible();
   await expect(page.getByText('Local Markdown')).toBeHidden();
   await page.getByRole('button', { name: 'Clear search and tag filter' }).click();
-  await page.getByRole('button', { name: 'Show notes tagged Privacy' }).click();
+  await page.getByRole('button', { name: 'Focus tag Privacy' }).click();
   await expect(page.getByText('Local Markdown')).toBeVisible();
-  await page.getByRole('button', { name: 'Clear tag filter Privacy' }).click();
+  await page.getByRole('button', { name: 'Leave tag Privacy' }).click();
   await expect(page.getByText('Capture contract')).toBeVisible();
   await expect(page.locator('[data-note-id="done-note"]')).toHaveAttribute('data-status', 'done');
   await expect(
@@ -857,7 +858,7 @@ function expectFadeInPlace(frames: MotionFrame[], duration: number) {
   expect(frames.some(({ opacity }) => opacity > 0.02 && opacity < 0.98)).toBe(true);
 }
 
-// Every animated surface: new ones add themselves here (plan 048). Toasts have their own test.
+// Every animated surface: new ones add themselves here. Toasts have their own test.
 const reducedMotionSurfaces: {
   name: string;
   selector: string;
@@ -1105,7 +1106,7 @@ test('compact Preferences applies themes and locale without leaving the shelf', 
     'aria-pressed',
     'true',
   );
-  await page.getByRole('button', { name: 'Graphite' }).click();
+  await page.getByRole('button', { name: 'Dark' }).click();
   await expect(html).toHaveAttribute('data-theme', 'dark');
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.emulateMedia({ colorScheme: 'light' });
@@ -1209,7 +1210,7 @@ test('icon-only controls name themselves in Tooltips', async ({ page }) => {
   const tooltipNamed = (text: string) =>
     page.locator('[data-slot="tooltip-content"]', { hasText: new RegExp(`^${text}$`) });
   const edit = page.getByRole('button', { name: 'Edit Agent handoff', exact: true });
-  for (const theme of ['Light', 'Graphite']) {
+  for (const theme of ['Light', 'Dark']) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: theme, exact: true }).click();
     await page.keyboard.press('Escape');
@@ -1270,7 +1271,7 @@ test('compact shelf keeps EN and FR across Light and Dark at 400 and 480 pixels'
           .getByRole('button', {
             name: {
               light: /Light|Clair/,
-              dark: /Graphite/,
+              dark: /Dark|Sombre/,
             }[theme],
           })
           .click();
@@ -1420,7 +1421,7 @@ test('fine-pointer hover keeps rows, controls, and destructive actions visually 
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('.preferences-popover')).toHaveCSS('opacity', '1');
   const selectedTheme = page.getByRole('button', { name: 'System' });
-  const otherTheme = page.getByRole('button', { name: 'Graphite' });
+  const otherTheme = page.getByRole('button', { name: 'Dark' });
   await otherTheme.hover();
   const otherThemeHover = await settledBackground(otherTheme);
   await selectedTheme.hover();
@@ -1449,7 +1450,7 @@ test('site keeps only the truthful localized early access pages', async ({ page 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Keep what matters.');
   await expect(page.locator('video, picture, [data-theme-control]')).toHaveCount(0);
   await expect(
-    page.getByText('v0.1.0 is available in early access', { exact: true }),
+    page.getByText('v0.3.0 is available in early access', { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Download Charon' })).toHaveAttribute(
     'href',
@@ -1458,7 +1459,7 @@ test('site keeps only the truthful localized early access pages', async ({ page 
   await page.goto(`${site}fr/`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Gardez l’essentiel.');
   await expect(
-    page.getByText('La v0.1.0 est disponible en accès anticipé', { exact: true }),
+    page.getByText('La v0.3.0 est disponible en accès anticipé', { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Télécharger Charon' })).toHaveAttribute(
     'href',
@@ -1535,6 +1536,11 @@ test('desktop major shelf and Preferences states are axe-clean', async ({ page }
   await page.keyboard.press('Escape');
   await expect(page.locator('.preferences-popover')).toBeHidden();
   await page.getByRole('button', { name: 'Edit Agent handoff' }).click();
+  // Contrast is measured once the editor's entrance fade has settled.
+  await expect(page.locator('[data-note-editor="capture-note"]')).toHaveCSS('opacity', '1');
+  await page.waitForFunction(() =>
+    document.getAnimations().every(({ playState }) => playState === 'finished'),
+  );
   results = await new AxeBuilder({ page }).analyze();
   expect(
     results.violations.filter((violation) =>
@@ -1563,7 +1569,7 @@ test('site content and capture relationship remain complete without JavaScript',
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(
-    page.getByText('v0.1.0 is available in early access', { exact: true }),
+    page.getByText('v0.3.0 is available in early access', { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Download Charon' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ko-fi' })).toBeVisible();
@@ -1593,14 +1599,15 @@ test('Windows shelf aligns rows and native title bar; solid Preferences and full
   await page.goto(desktop);
   await expect(page.locator('.window-drag-region')).toHaveCount(0);
   await expect(page.locator('.desktop-shell')).toHaveAttribute('data-native-titlebar', 'true');
-  const search = await page.locator('.note-search').boundingBox();
+  // The toolbar row (search plus its trailing actions) spans the shelf like the Notes.
+  const search = await page.locator('.note-workbar').boundingBox();
   const row = await page.locator('.note-row').first().boundingBox();
   expect(search).not.toBeNull();
   expect(row).not.toBeNull();
   expect(search?.y).toBeLessThan(16);
   expect(Math.abs((search?.x ?? 0) - (row?.x ?? 0))).toBeLessThan(1);
   expect(Math.abs((search?.width ?? 0) - (row?.width ?? 0))).toBeLessThan(1);
-  for (const theme of ['Graphite', 'Light']) {
+  for (const theme of ['Dark', 'Light']) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: theme, exact: true }).click();
     const popup = page.locator('.preferences-popover');
@@ -1634,11 +1641,12 @@ test('Windows shelf aligns rows and native title bar; solid Preferences and full
   const geometry = await dialog.evaluate((element) => {
     const footer = element.querySelector('[data-slot="alert-dialog-footer"]');
     if (!footer) throw new Error('Delete dialog footer is missing');
+    // The footer spans the dialog's inner box: inside its 1px glass border (ADR 0028).
     const outer = element.getBoundingClientRect();
     const inner = footer.getBoundingClientRect();
     return {
-      widthDifference: Math.abs(outer.width - inner.width),
-      xDifference: Math.abs(outer.x - inner.x),
+      widthDifference: Math.abs(element.clientWidth - inner.width),
+      xDifference: Math.abs(outer.x + element.clientLeft - inner.x),
     };
   });
   expect(geometry.widthDifference).toBeLessThan(1);

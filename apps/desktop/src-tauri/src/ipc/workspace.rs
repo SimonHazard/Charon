@@ -30,7 +30,7 @@ struct PickedSource {
     expires_at: Instant,
 }
 
-const PICKED_SOURCE_TTL: Duration = Duration::from_secs(5 * 60);
+pub(crate) const PICKED_SOURCE_TTL: Duration = Duration::from_secs(5 * 60);
 
 #[tauri::command]
 pub async fn workspace_choose_attachments(
@@ -134,7 +134,7 @@ fn consume_sources(
         .collect()
 }
 
-fn register_attachment_sources(
+pub(crate) fn register_attachment_sources(
     runtime: &WorkspaceRuntime,
     paths: Vec<PathBuf>,
     ttl: Duration,
@@ -249,9 +249,13 @@ pub fn workspace_execute(
         }
         _ => None,
     };
-    with_workspace(&app, &runtime, |workspace| {
+    let consumed = attachment_sources.clone().unwrap_or_default();
+    let result = with_workspace(&app, &runtime, |workspace| {
         workspace.execute_with_attachment_sources(command, attachment_sources)
-    })
+    });
+    // A pasted image's temporary copy goes as soon as its import ends (ADR 0032).
+    super::attachments::release_temporaries(&app, &consumed);
+    result
 }
 
 fn replace_workspace(
@@ -430,10 +434,14 @@ pub(crate) enum CaptureNoteOutcome {
     WorkspaceClosed,
 }
 
+/// Creates the Note for one selected-text capture. A focused Tag (ADR 0030)
+/// is added when it still satisfies the Tag rules; an invalid one never costs
+/// the capture.
 pub(crate) fn create_capture_note(
     app: &AppHandle,
     runtime: &State<'_, WorkspaceRuntime>,
     body: String,
+    focused_tag: Option<String>,
 ) -> Result<CaptureNoteOutcome, WorkspaceIpcError> {
     let mut current = runtime.current.lock().map_err(|_| WorkspaceIpcError {
         code: "runtime_lock".to_owned(),
@@ -445,7 +453,11 @@ pub(crate) fn create_capture_note(
     let Some(workspace) = current.as_mut() else {
         return Ok(CaptureNoteOutcome::WorkspaceClosed);
     };
-    let result = execute_capture_note(workspace, body).map_err(WorkspaceIpcError::from);
+    let tags = focused_tag
+        .filter(|tag| crate::workspace::is_valid_tag(tag))
+        .into_iter()
+        .collect();
+    let result = execute_capture_note(workspace, body, tags).map_err(WorkspaceIpcError::from);
     emit_pending(app, workspace);
     result
 }
@@ -453,6 +465,7 @@ pub(crate) fn create_capture_note(
 fn execute_capture_note(
     workspace: &mut Workspace,
     body: String,
+    tags: Vec<String>,
 ) -> Result<CaptureNoteOutcome, crate::workspace::WorkspaceError> {
     if body.trim().is_empty() {
         return Ok(CaptureNoteOutcome::Empty);
@@ -462,6 +475,7 @@ fn execute_capture_note(
     let result = workspace.execute(WorkspaceCommand::CreateNote {
         expected_revision: before.revision,
         body,
+        tags,
     })?;
     // CreateNote adds exactly one Note under the held runtime lock, so the
     // snapshot diff names it. Should it ever not, stay silent rather than
@@ -535,7 +549,7 @@ mod tests {
         let previous_dir = tempdir().expect("previous");
         let candidate_dir = tempdir().expect("candidate");
         let mut previous = Workspace::create(previous_dir.path()).expect("previous workspace");
-        execute_capture_note(&mut previous, "preserved".to_owned()).unwrap();
+        execute_capture_note(&mut previous, "preserved".to_owned(), Vec::new()).unwrap();
         let previous_id = previous.snapshot().unwrap().workspace_id;
         let runtime = WorkspaceRuntime::default();
         *runtime.current.lock().unwrap() = Some(previous);
@@ -594,8 +608,9 @@ mod tests {
     #[test]
     fn capture_note_creates_one_flat_note_with_exact_body_and_reports_its_id() {
         let mut workspace = Workspace::in_memory().expect("workspace");
-        let outcome = execute_capture_note(&mut workspace, "  exact selection\n".to_owned())
-            .expect("capture note");
+        let outcome =
+            execute_capture_note(&mut workspace, "  exact selection\n".to_owned(), Vec::new())
+                .expect("capture note");
         let snapshot = workspace.snapshot().expect("snapshot");
         assert_eq!(snapshot.notes.len(), 1);
         assert_eq!(snapshot.notes[0].body, "  exact selection\n");
@@ -609,8 +624,10 @@ mod tests {
     #[test]
     fn capture_note_reports_only_the_new_id_beside_existing_notes() {
         let mut workspace = Workspace::in_memory().expect("workspace");
-        let first = execute_capture_note(&mut workspace, "first".to_owned()).expect("first");
-        let second = execute_capture_note(&mut workspace, "second".to_owned()).expect("second");
+        let first =
+            execute_capture_note(&mut workspace, "first".to_owned(), Vec::new()).expect("first");
+        let second =
+            execute_capture_note(&mut workspace, "second".to_owned(), Vec::new()).expect("second");
         let snapshot = workspace.snapshot().expect("snapshot");
         let id_of = |body: &str| {
             snapshot
@@ -626,10 +643,24 @@ mod tests {
     }
 
     #[test]
+    fn capture_note_starts_with_the_focused_tag() {
+        let mut workspace = Workspace::in_memory().expect("workspace");
+        execute_capture_note(
+            &mut workspace,
+            "tagged".to_owned(),
+            vec!["Research".to_owned()],
+        )
+        .expect("capture note");
+        let snapshot = workspace.snapshot().expect("snapshot");
+        assert_eq!(snapshot.notes[0].tags, ["Research"]);
+    }
+
+    #[test]
     fn capture_note_rejects_whitespace() {
         let mut workspace = Workspace::in_memory().expect("workspace");
         assert_eq!(
-            execute_capture_note(&mut workspace, "  \n".to_owned()).expect("capture note"),
+            execute_capture_note(&mut workspace, "  \n".to_owned(), Vec::new())
+                .expect("capture note"),
             CaptureNoteOutcome::Empty
         );
         assert!(workspace.snapshot().expect("snapshot").notes.is_empty());
@@ -855,6 +886,7 @@ mod tests {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "known".to_owned(),
+                tags: Vec::new(),
             })
             .expect("create Note");
         fs::write(root.path().join("notes/stray.md"), "stray").expect("stray Note");
@@ -882,6 +914,7 @@ mod tests {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "known".to_owned(),
+                tags: Vec::new(),
             })
             .expect("create Note");
         let imported = workspace
@@ -917,6 +950,7 @@ mod tests {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "known".to_owned(),
+                tags: Vec::new(),
             })
             .expect("create Note");
         let note_id = created.snapshot.notes[0].id.clone();
@@ -961,6 +995,7 @@ mod tests {
             .execute(WorkspaceCommand::CreateNote {
                 expected_revision: 0,
                 body: "known".to_owned(),
+                tags: Vec::new(),
             })
             .expect("create Note");
         let note_id = created.snapshot.notes[0].id.clone();

@@ -61,6 +61,7 @@ export const NoteRow = memo(function NoteRow({
   note,
   expanded,
   acknowledged = false,
+  dropTarget = false,
   allTags,
   copyState,
   onCopy,
@@ -82,6 +83,8 @@ export const NoteRow = memo(function NoteRow({
   expanded: boolean;
   /** Briefly tints a Note that a selected-text capture just created. */
   acknowledged?: boolean;
+  /** Marks the Note a file drag over the shelf would attach to (ADR 0032). */
+  dropTarget?: boolean;
   allTags: readonly string[];
   copyState: { status: 'copied' | 'error'; message: string } | null;
   onCopy(noteId: string): Promise<void>;
@@ -153,6 +156,7 @@ export const NoteRow = memo(function NoteRow({
     <motion.article
       className="note-row"
       data-acknowledged={acknowledged || undefined}
+      data-drop-target={dropTarget || undefined}
       data-expanded={expanded}
       data-note-id={note.id}
       data-status={status}

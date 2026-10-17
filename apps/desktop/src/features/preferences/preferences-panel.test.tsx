@@ -88,6 +88,7 @@ function clients(
     backgroundActive: false,
     captureNotifications: false,
     richCapture: false,
+    focusedTag: null,
     ...background,
   };
   const setBackgroundMode = vi.fn(async (enabled: boolean) => ({
@@ -109,6 +110,7 @@ function clients(
     setBackgroundMode,
     setCaptureNotifications,
     setRichCapture,
+    setFocusedTag: vi.fn(async (focusedTag: string | null) => ({ ...preferences, focusedTag })),
   };
   return {
     captureClient,
@@ -145,7 +147,11 @@ function WorkspaceActivity() {
       <button
         type="button"
         onClick={() =>
-          void workspace.executeWorkspaceCommand({ type: 'createNote', body: 'A new note' })
+          void workspace.executeWorkspaceCommand({
+            type: 'createNote',
+            body: 'A new note',
+            tags: [],
+          })
         }
       >
         Save note
@@ -235,7 +241,7 @@ describe('compact Preferences', () => {
     );
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Settings' }));
-    await user.click(screen.getByRole('button', { name: 'Graphite' }));
+    await user.click(screen.getByRole('button', { name: 'Dark' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
     const language = screen.getByRole('combobox', { name: 'Language' });
     expect(language.textContent).toContain('English');
@@ -251,7 +257,7 @@ describe('compact Preferences', () => {
     expect(native.requestPermission).toHaveBeenNthCalledWith(2, 'accessibility');
   });
 
-  it('offers System, Light, and Graphite and follows the OS only while System is chosen', async () => {
+  it('offers System, Light, and Dark and follows the OS only while System is chosen', async () => {
     localStorage.setItem(themeStorageKey, 'dark');
     const native = clients();
     render(
@@ -270,7 +276,7 @@ describe('compact Preferences', () => {
       within(appearance)
         .getAllByRole('button')
         .map((item) => item.getAttribute('aria-label')),
-    ).toEqual(['System', 'Light', 'Graphite']);
+    ).toEqual(['System', 'Light', 'Dark']);
     expect(document.documentElement.dataset.theme).toBe('dark');
 
     await user.click(within(appearance).getByRole('button', { name: 'System' }));

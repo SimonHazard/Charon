@@ -34,8 +34,8 @@ quand la source ne fournit pas de représentation exploitable.
 `CaptureCoordinator`, le contenu reste local, et le texte brut doit rester le
 fallback déterministe.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
-  l'opérateur — plan 062, [ADR 0026](adr/0026-formatted-selected-text-capture.md).
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 062, [ADR 0026](adr/0026-formatted-selected-text-capture.md).
   Option expérimentale « Conserver la mise en forme », désactivée par défaut,
   macOS uniquement : le repli Copy de l'ADR 0010 lit aussi une fois le HTML
   produit (1 Mio au plus), converti en Markdown en mémoire ; le texte brut
@@ -62,8 +62,8 @@ notification / menu bar.
 **Contraintes** : aucune capture ou action supplémentaire ne doit devenir
   implicite. Le mode background doit rester local, explicite et désactivable.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
-  l'opérateur — plan 059, [ADR 0023](adr/0023-background-mode-and-tray.md).
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 059, [ADR 0023](adr/0023-background-mode-and-tray.md).
   Option désactivée par défaut ; icône (Ouvrir/Quitter) sur macOS et Windows,
   indisponible sous Linux dans cette version. Le plan 039 couvre le cas macOS
   sans icône : fermer la fenêtre la masque, le Dock la rouvre et `Cmd+Q` quitte.
@@ -86,8 +86,8 @@ notification / menu bar.
   prétendre supporter une séquence que l'OS ne livre pas, et conserver le
   fallback composer utilisable même après refus de permission.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
-  l'opérateur — plan 061, [ADR 0025](adr/0025-user-chosen-composer-shortcut.md).
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 061, [ADR 0025](adr/0025-user-chosen-composer-shortcut.md).
   Un seul raccourci choisi pour révéler Charon et focaliser le composer, sur
   macOS, Windows et X11, avec validation, liste réservée, retour au raccourci
   précédent si le système refuse, et réinitialisation. Le double Maj reste
@@ -114,8 +114,8 @@ notification / menu bar.
   synchronisation. Le clic doit cibler un UUID de Note local valide et rester
   sans effet destructif.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test natif de
-  l'opérateur — plan 060, [ADR 0024](adr/0024-capture-notifications.md).
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 060, [ADR 0024](adr/0024-capture-notifications.md).
   Option désactivée par défaut, uniquement après une capture de texte
   sélectionné qui crée une Note pendant que la fenêtre n'a pas le focus, au
   plus une toutes les 2 s, avec le texte fixe « Charon » / « Note capturée. »
@@ -132,8 +132,8 @@ Preferences : [github.com/SimonHazard/Charon](https://github.com/SimonHazard/Cha
 **Contraintes** : ouverture uniquement après activation explicite du lien,
   sans iframe, tracking ou requête automatique depuis l'application.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test de
-  l'opérateur — plan 057, avec l'élément suivant.
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 057, avec l'élément suivant.
 
 ### P3 — Rendre visible le caractère open source et contribuable
 
@@ -148,8 +148,8 @@ code de conduite et la licence MIT.
 **Contraintes** : rester informatif, sans transformer la shelf en page de
 marketing ni ajouter de route produit.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test de
-  l'opérateur — plan 057 (section « À propos » dans Preferences).
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 057 (section « À propos » dans Preferences).
 
 ### P1 — Corriger et systématiser les Tooltips
 
@@ -170,8 +170,8 @@ noms de fichiers tronqués.
   une action ou d'accéder à son nom. Il ne doit pas bloquer le focus, la saisie,
   Escape ou les autres surfaces transitoires.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test de
-  l'opérateur — plan 056 (inventaire, règle, corrections). Le
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 056 (inventaire, règle, corrections). Le
   plan 041 fixe le délai d'ouverture et le plan 050 la durée de sortie.
 
 ### P3 — Améliorer le cheat sheet Markdown
@@ -193,17 +193,18 @@ l'édition, sans surcharger la shelf.
   requête réseau ou présenter une syntaxe que le preview ne rend pas de manière
   sûre.
 
-**Statut** : implémenté dans l'arbre de travail, en attente du test de
-  l'opérateur — plan 058 (exemples testés contre le rendu
+**Statut** : livré dans la v0.2.0 (PR #67, 2026-10-02), vérification native
+  à confirmer par l'opérateur — plan 058 (exemples testés contre le rendu
   réel, correction du masquage de contenu par le front-matter).
 
 ## Planification
 
-Toutes les idées ci-dessus sont planifiées dans [`plans/README.md`](../plans/README.md)
-et enchaînées par [`plans/RUNBOOK.md`](../plans/RUNBOOK.md) : 056-058 dans le
-lot C (`0.3.0`), 059-060 dans le lot E (`0.4.0` proposé), 061-062 dans le lot F
-(`0.5.0` proposé). Le 2026-10-02, l'opérateur a demandé de terminer toute la
-file dans un seul arbre de travail non commité (branche `charon-v0.2`) : les
-étapes ADR et essai natif des plans 059-062 ont été levées avec les choix par
-défaut des ADR 0023-0026, dont les preuves natives restent à vérifier par
-l'opérateur. Une nouvelle idée s'ajoute ici avant d'être planifiée.
+Les idées ci-dessus ont été livrées dans la v0.2.0 (2026-10-02, PR #67) ; leurs
+vérifications natives restantes sont regroupées dans le plan 063. Le
+2026-10-17, l'opérateur a demandé d'adopter le design system Iris (ADR 0028)
+et d'accélérer les flux de capture : palette de commandes `⌘K` (ADR 0029),
+tag focalisé (ADR 0030), masquage qui rend le focus et raccourci bascule
+(ADR 0031), fichiers déposés ou collés (ADR 0032), formes, libellés et copie
+en image des dessins (ADR 0033). Ils sont préparés pour la v0.3.0 sur la
+branche `codex/v0.3` et suivis par le plan 063. Une nouvelle idée s'ajoute ici
+avant d'être planifiée.

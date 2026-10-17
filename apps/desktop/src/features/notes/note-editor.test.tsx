@@ -75,6 +75,7 @@ function preferencesClientWith(backgroundActive: boolean): NativePreferencesClie
     backgroundActive,
     captureNotifications: false,
     richCapture: false,
+    focusedTag: null,
   };
   return {
     read: async () => preferences,
@@ -82,6 +83,7 @@ function preferencesClientWith(backgroundActive: boolean): NativePreferencesClie
     setBackgroundMode: async () => preferences,
     setCaptureNotifications: async () => preferences,
     setRichCapture: async () => preferences,
+    setFocusedTag: async () => preferences,
   };
 }
 const preferencesClient = preferencesClientWith(false);

@@ -22,6 +22,7 @@ pub fn run() {
         .manage(ipc::capture::CaptureRuntime::default())
         .manage(ipc::shell::ShellRuntime::default())
         .manage(ipc::notification::NotificationRuntime::default())
+        .manage(ipc::attachments::AttachmentIntakeRuntime::default())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let _ = reveal_main(app);
         }))
@@ -49,7 +50,9 @@ pub fn run() {
             ipc::workspace::workspace_open_or_create,
             ipc::workspace::workspace_snapshot,
             ipc::workspace::workspace_execute,
+            ipc::attachments::workspace_paste_attachments,
             ipc::clipboard::clipboard_compose_and_write,
+            ipc::clipboard::clipboard_write_drawing_image,
             ipc::capture::capture_capabilities,
             ipc::capture::capture_open,
             ipc::capture::capture_request_permission,
@@ -60,7 +63,9 @@ pub fn run() {
             ipc::preferences::preferences_set_background_mode,
             ipc::preferences::preferences_set_capture_notifications,
             ipc::preferences::preferences_set_rich_capture,
+            ipc::preferences::preferences_set_focused_tag,
             ipc::shell::shell_set_labels,
+            ipc::shell::shell_hide,
             ipc::shell::shell_quit,
             ipc::shell::shell_cancel_quit,
         ])
@@ -85,6 +90,7 @@ pub fn run() {
                         .build(),
                 );
             }
+            ipc::attachments::clear_leftovers();
             ipc::capture::initialize(app.handle())?;
             ipc::notification::load(app.handle());
             Ok(())
@@ -104,13 +110,21 @@ pub fn run() {
             // Closing hides Charon and keeps capture armed on macOS (the Dock
             // icon, the reveal shortcut, or a second launch shows it again)
             // and, elsewhere, only while the background-mode tray icon exists
-            // (ADR 0023). If hiding fails, the window closes normally.
+            // (ADR 0023). macOS hides the whole application so focus returns
+            // to the previous one (ADR 0031). If hiding fails, the window
+            // closes normally.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main"
                     && ipc::shell::close_hides(window.app_handle())
-                    && window.hide().is_ok()
+                    && ipc::shell::hide_main(window.app_handle())
                 {
                     api.prevent_close();
+                }
+            }
+            // Files dragged onto the shelf become one-shot tokens (ADR 0032).
+            if let tauri::WindowEvent::DragDrop(drag) = event {
+                if window.label() == "main" {
+                    ipc::attachments::handle_drag_drop(window, drag);
                 }
             }
             if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
@@ -138,6 +152,9 @@ pub fn run() {
 /// Unminimizes, shows, and focuses the main window. Launch, a second launch,
 /// the macOS Dock icon, and the background-mode tray all reveal Charon through it.
 pub(crate) fn reveal_main<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
+    // A hidden macOS application (ADR 0031) is unhidden before its window shows.
+    #[cfg(target_os = "macos")]
+    let _ = app.show();
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         window.show()?;

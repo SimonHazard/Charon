@@ -336,7 +336,7 @@ describe('NoteRow Tooltip rule', () => {
       expect(control.hasAttribute('data-tooltip-trigger')).toBe(true);
     }
     expect(document.querySelector('.note-row-title[title]')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Show notes tagged Agent' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Focus tag Agent' })).toBeTruthy();
 
     // The in-place copy confirmation keeps the same named, Tooltip-bearing control.
     view.rerender(row(taggedNote(), { status: 'copied', message: 'Copied' }));
@@ -354,7 +354,7 @@ describe('NoteRow Tooltip rule', () => {
       ['Mark done', 'Mark done'],
       ['Edit Agent handoff', 'Edit'],
       ['Delete Agent handoff', 'Delete'],
-      ['Show notes tagged Agent', 'Show notes tagged Agent'],
+      ['Focus tag Agent', 'Focus tag Agent'],
       ['Remove release-brief.pdf', 'Remove release-brief.pdf'],
       ['Remove tag Agent', 'Remove tag Agent'],
       ['Markdown help', 'Markdown help'],
