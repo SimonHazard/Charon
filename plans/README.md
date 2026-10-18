@@ -12,9 +12,10 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
   design system, and speed up capture. ADRs 0028-0033 record the result: the
   Iris design system, the `CmdOrCtrl+K` command menu, the focused Tag, hiding
   that returns focus, files dropped or pasted as Attachments, and drawing
-  shapes, labels, and image copy. It is prepared as v0.3.0 (manifests, release
-  notes, site) on the branch `codex/v0.3`, whose pull request to `main` waits
-  for the operator's native tests.
+  shapes, labels, and image copy. v0.3.0 shipped on 2026-10-17 (#68).
+- On 2026-10-18 the first macOS checks of plan 063 led to ADR 0035 (a drawing
+  Note copies as an image) and a simpler site; they are prepared as v0.3.1 on
+  `codex/v0.3.1`. The remaining native checks continue against 0.3.1.
 - Tauri 3 is still alpha (3.0.0-alpha.5); Charon stays on the latest Tauri 2
   (2.12.4) and every other dependency moved to its latest stable release.
 - A protected merge to `main` builds and publishes Apple Silicon macOS, Linux,
@@ -29,7 +30,7 @@ milestones live in [`docs/IMPLEMENTATION_HISTORY.md`](../docs/IMPLEMENTATION_HIS
 
 | Plan | Title | What it does | Priority | Effort | Depends on | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| 063 | [Verify natively and release 0.3.0](063-verify-natively-and-release-0-3-0.md) | Checks on real machines what tests cannot (title bar, hiding, drops, pastes, drawings, v0.2 leftovers), then commits, opens the pull request, and releases 0.3.0 | P1 | M | — | IN PROGRESS: implemented and bumped to 0.3.0 on `codex/v0.3` (pull request open), awaiting operator test |
+| 063 | [Verify natively and release 0.3.0](063-verify-natively-and-release-0-3-0.md) | Checks on real machines what tests cannot (title bar, hiding, drops, pastes, drawings, v0.2 leftovers), then commits, opens the pull request, and releases 0.3.0 | P1 | M | — | IN PROGRESS: 0.3.0 shipped (#68); macOS pass under way, its first finding fixed in 0.3.1 on `codex/v0.3.1` |
 
 Status values are `TODO`, `IN PROGRESS`, `DONE`, `BLOCKED: <reason>`, and
 `REJECTED: <reason>`.

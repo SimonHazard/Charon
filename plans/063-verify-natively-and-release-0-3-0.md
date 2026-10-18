@@ -5,7 +5,15 @@
 Confirm on real machines what no automated test covers, from the v0.2.0 queue
 and from the 2026-10-17 work (ADRs 0028-0033), then release it as `0.3.0`.
 
-## Current state (2026-10-17)
+## Current state (2026-10-18)
+
+- v0.3.0 shipped on 2026-10-17 (#68). The operator's macOS pass on
+  2026-10-18 ticked permissions, design, command menu, focused Tag, hiding,
+  files, and drawings except one finding, fixed in 0.3.1 (ADR 0035); the
+  background mode, notification, shortcut, formatted capture, and VoiceOver
+  checks remain. Run them, and the rest, against 0.3.1.
+
+Earlier state (2026-10-17):
 
 - `main` is v0.2.0 (`714fdab`, #67). The 0.3.0 work is implemented and
   prepared for release (the four manifests, `Cargo.lock`, `bun.lock`,
@@ -78,6 +86,8 @@ Mark each line with the platform and result in the pull request body.
       in a label.
 - [ ] Copy image from the dialog and from Preview, then paste into ChatGPT,
       Claude, and a document: dark ink on white.
+- [ ] The row Copy of a Note that is only a drawing pastes the image, not
+      SVG source (ADR 0035, from the 2026-10-18 macOS check).
 - [ ] New drawing with strokes, then Quit from the tray (and close the window
       on Windows and Linux without background mode): Charon stays open and
       the drawing asks to discard or keep.
