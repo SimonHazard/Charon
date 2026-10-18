@@ -13,6 +13,7 @@ import {
   finalizeDrawing,
   findDrawingBlocks,
   formatPathData,
+  imageCopyDrawing,
   insertDrawingBlock,
   parseDrawingSvg,
   parsePathData,
@@ -325,6 +326,16 @@ describe('drawing blocks in Markdown', () => {
     expect(stripDrawingBlocks(body, 'Drawing')).toBe('# Plan\n\nDrawing\n\nAfter');
     expect(stripDrawingBlocks(body, '')).toBe('# Plan\n\n\n\nAfter');
     expect(stripDrawingBlocks('No drawing', 'Drawing')).toBe('No drawing');
+  });
+
+  it('copies only a Note that is exactly one drawing, without Attachments, as an image', () => {
+    const attachment = { id: 'a', fileName: 'a.png', relativePath: 'a', createdAt: '' };
+    expect(imageCopyDrawing({ body: `\n${block}\n`, attachments: [] })).toEqual(drawing);
+    expect(imageCopyDrawing({ body: block, attachments: [attachment] })).toBeNull();
+    expect(imageCopyDrawing({ body: `Context\n\n${block}`, attachments: [] })).toBeNull();
+    expect(imageCopyDrawing({ body: `${block}\n\n${block}`, attachments: [] })).toBeNull();
+    expect(imageCopyDrawing({ body: `> ${block}`, attachments: [] })).toBeNull();
+    expect(imageCopyDrawing({ body: 'No drawing', attachments: [] })).toBeNull();
   });
 
   it('inserts on its own lines with blank lines only where needed', () => {

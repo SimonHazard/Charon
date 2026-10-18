@@ -39,7 +39,8 @@ Use the vocabulary exactly:
   Attachment copies. It never reads Attachment bytes, uploads, pastes, or
   changes Note state. Disclose that local paths enter the clipboard. A
   drawing's separate Copy image writes one PNG rendered from its validated
-  values (ADR 0033).
+  values (ADR 0033); a Note that is only one drawing, without Attachments,
+  copies as that PNG instead (ADR 0035).
 - Never add automatic Paste or arbitrary keystroke injection. ADR 0010 permits
   exactly one synthetic platform Copy after an explicit selected-text capture
   gesture, inside its bounded snapshot, change-count, timeout, disclosure, and

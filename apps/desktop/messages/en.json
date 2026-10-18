@@ -89,6 +89,8 @@
   "note_editor_save_error": "The note was not saved. Your draft is preserved; retry after resolving the workspace issue.",
   "copy_as_markdown": "Copy as Markdown",
   "copy_note_as_markdown": "Copy {title} as Markdown",
+  "copy_as_image": "Copy as image",
+  "copy_note_as_image": "Copy {title} as an image",
   "copy_inline_copied": "Copied",
   "copy_local_paths_disclosure": "Managed local attachment paths enter the clipboard; attachment bytes never do.",
   "clipboard_error_empty_body": "This note is empty, so nothing was written.",

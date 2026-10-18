@@ -6,11 +6,18 @@ import { AppProviders } from '@/app/providers';
 import type { WorkspaceCommand } from '@/bindings/workspace';
 import { toast } from '@/components/ui/toast';
 import { WorkspaceState } from '@/components/workspace-state';
+import { DRAWING_SPACE, toDrawingBlock } from '@/features/notes/drawing/drawing-format';
 import { NoteScreen } from '@/features/notes/note-screen';
 import type { ClipboardClient } from '@/lib/ipc/clipboard-client';
 import { captureClients } from '@/test/capture-fixture';
 import { shellClients } from '@/test/shell-fixture';
 import { note, snapshot, workspaceClient } from '@/test/workspace-fixture';
+
+vi.mock('@/features/notes/drawing/drawing-image', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/notes/drawing/drawing-image')>()),
+  // jsdom cannot rasterize; the PNG bytes only need to reach the clipboard client.
+  drawingToPng: vi.fn(async () => new Uint8Array([137, 80, 78, 71])),
+}));
 
 const current = snapshot([
   note({ id: 'alpha', body: '# Alpha\nbody', tags: ['Agent'] }),
@@ -383,6 +390,41 @@ describe('single note shelf', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('copies a Note that is only a drawing as its image (ADR 0035)', async () => {
+    const user = userEvent.setup();
+    const block = toDrawingBlock({
+      viewBox: DRAWING_SPACE,
+      strokes: [
+        {
+          color: 'currentColor',
+          width: 4,
+          opacity: null,
+          commands: [
+            { op: 'M', x: 10, y: 10 },
+            { op: 'L', x: 50, y: 50 },
+          ],
+        },
+      ],
+    });
+    const composeAndWrite = vi.fn();
+    const writeDrawingImage = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AppProviders workspaceClient={workspaceClient(current)}>
+        <NoteScreen
+          clipboardClient={{ composeAndWrite, writeDrawingImage }}
+          snapshot={snapshot([note({ id: 'sketch', body: block, tags: ['Agent'] })])}
+        />
+      </AppProviders>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Copy Drawing as an image' }));
+
+    await waitFor(() =>
+      expect(writeDrawingImage).toHaveBeenCalledWith(new Uint8Array([137, 80, 78, 71])),
+    );
+    expect(composeAndWrite).not.toHaveBeenCalled();
+    expect(await screen.findAllByText('Copied')).not.toHaveLength(0);
   });
 
   it('keeps a failed per-Note copy contextual without changing the Note', async () => {

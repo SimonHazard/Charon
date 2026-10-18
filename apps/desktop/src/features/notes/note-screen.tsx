@@ -48,7 +48,7 @@ import { type IntakeOutcome, useAttachmentIntake } from '@/features/notes/attach
 import { CaptureInput, type CaptureInputHandle } from '@/features/notes/capture-input';
 import { DrawingCopyProvider } from '@/features/notes/drawing/drawing-copy-context';
 import { DrawingDialog, type DrawingDialogControl } from '@/features/notes/drawing/drawing-dialog';
-import type { Drawing } from '@/features/notes/drawing/drawing-format';
+import { type Drawing, imageCopyDrawing } from '@/features/notes/drawing/drawing-format';
 import { drawingToPng } from '@/features/notes/drawing/drawing-image';
 import { NoteList, type NoteRevealRequest } from '@/features/notes/note-list';
 import { createNoteIndex, type NoteIndex } from '@/features/notes/search';
@@ -407,11 +407,18 @@ export function NoteScreen({
         window.clearTimeout(copyTimerRef.current);
         copyTimerRef.current = null;
       }
+      // A Note that is only a drawing copies as its image, rendered like Copy image (ADR 0035).
+      const note = snapshot.notes.find((candidate) => candidate.id === noteId);
+      const drawing = clipboardClient.writeDrawingImage && note ? imageCopyDrawing(note) : null;
       try {
-        await clipboardClient.composeAndWrite({
-          expectedRevision: snapshot.revision,
-          noteId,
-        });
+        if (drawing && clipboardClient.writeDrawingImage) {
+          await clipboardClient.writeDrawingImage(await drawingToPng(drawing));
+        } else {
+          await clipboardClient.composeAndWrite({
+            expectedRevision: snapshot.revision,
+            noteId,
+          });
+        }
         const message = m.copy_inline_copied();
         setCopyState({ noteId, status: 'copied', message });
         announce(message);
@@ -422,6 +429,10 @@ export function NoteScreen({
           copyTimerRef.current = null;
         }, 2_500);
       } catch (error) {
+        if (drawing) {
+          setCopyState({ noteId, status: 'error', message: m.drawing_image_copy_failed() });
+          return;
+        }
         const clipboardError = asClipboardError(error);
         if (clipboardError.code === 'stale_revision') {
           try {
@@ -445,7 +456,7 @@ export function NoteScreen({
         setCopyState({ noteId, status: 'error', message });
       }
     },
-    [announce, clipboardClient, m, refreshWorkspace, snapshot.revision],
+    [announce, clipboardClient, m, refreshWorkspace, snapshot.notes, snapshot.revision],
   );
 
   const expandNote = useCallback(

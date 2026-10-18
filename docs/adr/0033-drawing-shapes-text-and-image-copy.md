@@ -6,6 +6,9 @@ Accepted on 2026-10-17 by operator decision. Amends ADR 0021's tool set and
 format whitelist, and the single-format rule of `Copy as Markdown`, which stays
 as it is: image copy is a separate explicit action.
 
+Amended on 2026-10-18 by ADR 0035: a Note that is only one drawing, without
+Attachments, copies as that drawing's PNG.
+
 ## Context
 
 Quick sketches for an agent need more than freehand ink: boxes, arrows, and a

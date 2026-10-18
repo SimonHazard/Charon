@@ -31,7 +31,8 @@ durable Note visible to users, editors, backup tools, and local agents.
   or remove locally managed Attachments.
 - Sketch a quick drawing with the pen, lines, arrows, rectangles, ellipses, and
   text labels inside a Note's Markdown, stored as one small inline SVG code
-  block, edit it again later, or copy it as an image for a prompt (ADR 0033).
+  block, edit it again later, or copy it as an image for a prompt (ADR 0033);
+  a Note that is only a drawing copies as its image (ADR 0035).
 - Focus one Tag: the shelf shows its Notes and every new Note joins it until
   the user leaves it (ADR 0030).
 - Reach Tags, Notes, actions, appearance, and language from one `CmdOrCtrl+K`
@@ -321,7 +322,7 @@ acknowledgement.
 
 A visitor sees a concise early access page with the approved PNG icon, a short
 introduction to local Markdown capture, and one GitHub Releases download link.
-The page announces the v0.3.0 early access for macOS, Windows, and Linux.
+The page announces the v0.3.1 early access for macOS, Windows, and Linux.
 The minimal footer links to the operator's website and Ko-fi without repeating
 Charon. Detailed workflow, platform, privacy, and changelog claims remain in the
 repository contracts. The static site performs no tracking and embeds no
