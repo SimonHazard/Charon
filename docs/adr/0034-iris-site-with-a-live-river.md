@@ -7,6 +7,13 @@ composition, design direction, client script) and the static-site line of
 `AGENTS.md`. ADR 0004's static, cross-application, and privacy boundaries are
 unchanged.
 
+Amended on 2026-10-18 by operator decision: how it works is three plain
+numbered steps of one sentence each, with no output panels (the try section
+already shows the real clipboard text), and the footer carries no visible
+River credit; the licence notice stays with the vendored files and in the
+shipped script as a legal comment. The footer is as tall as its content,
+with a smaller cropped name.
+
 ## Context
 
 The site was a quiet holding page: a headline, a download link, and no client
