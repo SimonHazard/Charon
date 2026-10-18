@@ -1,8 +1,12 @@
-# Charon 0.3.0 — Early Access
+# Charon 0.3.1 — Early Access
 
 Charon is a local-only capture shelf for turning selected text or manual entries into ordinary, agent-ready Markdown files in a folder you control.
 
-## Highlights
+## What's new in 0.3.1
+
+- Copying a Note that holds only a drawing now puts the drawing on the clipboard as an image, ready to paste into a prompt. Notes with text or attachments still copy as Markdown, and each drawing keeps its own Copy image button.
+
+## Since 0.2.0
 
 - A new Iris look: denser rows, hairline Note cards, a floating composer, translucent menus and dialogs, and Light and Dark appearances that follow the system by default. On macOS the window controls now sit in the shelf's own top strip.
 - Press Cmd/Ctrl+K for the command menu: focus a tag, open a Note, start a new note or drawing, open settings or help, switch appearance or language, or hide Charon.
@@ -35,4 +39,4 @@ Charon is a local-only capture shelf for turning selected text or manual entries
 
 ## Privacy
 
-Charon has no account, sync, analytics, telemetry, crash upload, content upload, or automatic Paste. Update checks, background mode, capture notifications, and Keep formatting are disabled by default. Enabled update checks send no Note content, Attachment, Workspace path, or stable identifier. A paste reads the clipboard only after you paste, and only for files or an image; a pasted image is stored as a temporary PNG only until its import ends, it is refused, or five minutes pass. Copy image writes a drawing to the clipboard only when you ask. Drawings, files, and formatted capture remain local; notification text never includes Note content.
+Charon has no account, sync, analytics, telemetry, crash upload, content upload, or automatic Paste. Update checks, background mode, capture notifications, and Keep formatting are disabled by default. Enabled update checks send no Note content, Attachment, Workspace path, or stable identifier. A paste reads the clipboard only after you paste, and only for files or an image; a pasted image is stored as a temporary PNG only until its import ends, it is refused, or five minutes pass. Copy image, and Copy on a Note that holds only a drawing, write that drawing to the clipboard only when you ask. Drawings, files, and formatted capture remain local; notification text never includes Note content.

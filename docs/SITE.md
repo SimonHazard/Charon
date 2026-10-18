@@ -6,9 +6,10 @@ static-site and cross-application boundaries.
 
 ## Current public direction
 
-The public home announces v0.3.0 early access and links to GitHub Releases.
-The initial release was published on 2026-09-20, v0.2.0 on 2026-10-02, and
-v0.3.0 follows, with macOS, Windows, and Linux installers; both languages state
+The public home announces v0.3.1 early access and links to GitHub Releases.
+The initial release was published on 2026-09-20, v0.2.0 on 2026-10-02, v0.3.0
+on 2026-10-17, and v0.3.1 follows, with macOS, Windows, and Linux installers;
+both languages state
 its availability and refer to the release notes for installation instructions.
 
 On 2026-10-17 the operator asked for the site to wear the desktop app's Iris
@@ -29,10 +30,9 @@ The English `/` and French `/fr/` pages contain, in order:
    left and, on the right, the primary download linking to
    `https://github.com/SimonHazard/Charon/releases` above the published early
    access version and its platforms;
-3. how it works: a heading and three steps (capture with double Shift, add
-   Tags, files, or drawings, then `Copy as Markdown`), each with what the user
-   gives and what Charon returns, set as Charon's real output (the Note file,
-   the Workspace folder, and the exact clipboard text) with sample content,
+3. how it works: a heading and three numbered steps in one row, each a short
+   title and one sentence (capture with double Shift or the composer; add
+   Tags, files, screenshots, or sketches; `Copy as Markdown` and paste),
    followed by the platform note on double Shift;
 4. try it: an input at display size holding a sample Note, the text
    `Copy as Markdown` would write for it with the sample's Tags, updated as
@@ -44,15 +44,14 @@ The English `/` and French `/fr/` pages contain, in order:
 6. the footer in Iris Light: a two-line invitation with the second download
    link, the experimental-project note, the `Ko-fi` link to
    `https://ko-fi.com/simonhazard` and the `simonhazard.com` link to
-   `https://simonhazard.com/`, the copyright and the React Bits credit, and
-   the name `Charon` set across the full width and cut by the page's edge.
+   `https://simonhazard.com/`, the copyright, and
+   the name `Charon` set large and cut by the page's edge.
 
 The download destination is the release listing, which remains useful across
 releases. Do not invent installer filenames, publish a dead version-specific
 link, or claim a build is available before publication. When the announced
 version changes, update the localized copy and its verification assertions
-together. The how-it-works and try samples must keep matching the desktop
-app's real formats; `composeMarkdown` mirrors `clipboard/composer.rs`.
+together. The try samples must keep matching the desktop app's real format; `composeMarkdown` mirrors `clipboard/composer.rs`.
 
 There is no language switch, theme control, source link, product screenshot,
 imitation of the app's interface, video, testimonial, or pricing table.

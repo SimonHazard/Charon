@@ -11,14 +11,6 @@ export const routes: Record<Locale, Record<PageKind, string>> = {
 /** A sample Note shown as it would leave Charon; the try section composes it live. */
 export type SampleNote = { body: string; tags: readonly string[] };
 
-const sampleBody =
-  'The retry should back off exponentially, cap at 30 seconds, and never retry a 4xx.';
-const sampleBodyFr =
-  'Le retry doit reculer de façon exponentielle, plafonner à 30 secondes et ne jamais relancer une 4xx.';
-const notePath = '/Volumes/Work/Charon/notes/7f3a91c2-5d0e-4b8a-9f61-2c7d84e1b3a0.md';
-const attachmentPath =
-  '/Volumes/Work/Charon/attachments/7f3a91c2-5d0e-4b8a-9f61-2c7d84e1b3a0/c41e08d5-6b2f-4e9a-8d17-93a5f0c2e6b4.png';
-
 /** `ClipboardComposer::inline_code`: a backtick run one longer than the longest inside. */
 function inlineCode(value: string): string {
   const longest = Math.max(0, ...(value.match(/`+/gu) ?? []).map((run) => run.length));
@@ -27,20 +19,8 @@ function inlineCode(value: string): string {
 }
 
 /** The text `Copy as Markdown` writes for one Note (desktop `clipboard/composer.rs`). */
-export function composeMarkdown(
-  body: string,
-  tags: readonly string[],
-  attachments: readonly { name: string; path: string }[] = [],
-): string {
-  let output = body;
-  if (tags.length) output += `\n\n**Tags:** ${tags.map(inlineCode).join(' ')}`;
-  if (attachments.length) {
-    output += '\n\n**Attachments:**';
-    for (const { name, path } of attachments) {
-      output += `\n- ${inlineCode(name)}: ${inlineCode(path)}`;
-    }
-  }
-  return output;
+export function composeMarkdown(body: string, tags: readonly string[]): string {
+  return tags.length ? `${body}\n\n**Tags:** ${tags.map(inlineCode).join(' ')}` : body;
 }
 
 export const copy = {
@@ -54,38 +34,17 @@ export const copy = {
     intro:
       'Capture your ideas, keep them locally as Markdown, and copy them when you need context for an AI agent.',
     download: 'Download Charon',
-    releaseStatus: 'v0.3.0 is available in early access for macOS, Windows, and Linux.',
+    releaseStatus: 'v0.3.1 is available in early access for macOS, Windows, and Linux.',
     howTitle: 'From selection to prompt.',
-    exchanges: [
+    steps: [
       {
-        step: 'First, select text in any app and press [[Shift]] twice.',
-        callLabel: 'What you selected',
-        call: sampleBody,
-        responseLabel: 'The Markdown file Charon writes',
-        response: `${notePath}\n\n${sampleBody}`,
+        title: 'Capture',
+        text: 'Select text in any app and press [[Shift]] twice, or open the composer and type.',
       },
-      {
-        step: 'Then tag it, drop in a screenshot, or draw on it.',
-        callLabel: 'What you add',
-        call: 'Tags: api, retries. File: screenshot.png',
-        responseLabel: 'Your folder afterwards',
-        response:
-          '/Volumes/Work/Charon/\n  charon.workspace.json  (tags: api, retries)\n  notes/7f3a91c2-….md\n  attachments/7f3a91c2-…/c41e08d5-….png',
-      },
-      {
-        step: 'Finally, choose Copy as Markdown and paste it into your agent.',
-        callLabel: 'What you choose',
-        call: 'Copy as Markdown',
-        responseLabel: 'What your clipboard holds',
-        response: composeMarkdown(
-          sampleBody,
-          ['api', 'retries'],
-          [{ name: 'screenshot.png', path: attachmentPath }],
-        ),
-      },
+      { title: 'Add', text: 'Add tags, a file, a screenshot, or a sketch if it helps.' },
+      { title: 'Copy', text: 'Choose Copy as Markdown and paste it into your agent.' },
     ],
-    platformNote:
-      'Double Shift captures selected text on macOS and is experimental on Windows and Linux X11. Everywhere, a shortcut opens the composer so you can type.',
+    platformNote: 'Double Shift works on macOS and is experimental on Windows and Linux X11.',
     tryTitle: 'Try Copy as Markdown',
     tryLabel: 'Write a note',
     tryAnswer: 'What Copy as Markdown would put on your clipboard',
@@ -101,7 +60,7 @@ export const copy = {
     ] satisfies SampleNote[],
     privacyTitle: 'Privacy',
     facts: [
-      { label: 'Version', value: '0.3.0, early access' },
+      { label: 'Version', value: '0.3.1, early access' },
       { label: 'Runs on', value: 'macOS on Apple Silicon, Windows, Linux' },
       { label: 'Price', value: 'Free, MIT licensed' },
     ],
@@ -132,7 +91,6 @@ export const copy = {
     closeLines: ['Your next prompt', 'starts here.'],
     releaseNote:
       'An experimental side project. See the release notes for installation instructions.',
-    credit: 'River animation: Threads by React Bits',
   },
   fr: {
     skip: 'Aller au contenu',
@@ -144,38 +102,21 @@ export const copy = {
     intro:
       'Capturez vos idées, gardez-les en Markdown sur votre ordinateur et copiez-les pour donner du contexte à un agent IA.',
     download: 'Télécharger Charon',
-    releaseStatus: 'La v0.3.0 est disponible en accès anticipé pour macOS, Windows et Linux.',
+    releaseStatus: 'La v0.3.1 est disponible en accès anticipé pour macOS, Windows et Linux.',
     howTitle: 'De la sélection au prompt.',
-    exchanges: [
+    steps: [
       {
-        step: 'D’abord, sélectionnez du texte dans n’importe quelle app et appuyez deux fois sur [[Maj]].',
-        callLabel: 'Ce que vous avez sélectionné',
-        call: sampleBodyFr,
-        responseLabel: 'Le fichier Markdown que Charon écrit',
-        response: `${notePath}\n\n${sampleBodyFr}`,
+        title: 'Capturer',
+        text: 'Sélectionnez du texte dans n’importe quelle app et appuyez deux fois sur [[Maj]], ou ouvrez le champ de saisie pour écrire.',
       },
       {
-        step: 'Ensuite, ajoutez des tags, déposez une capture d’écran ou dessinez.',
-        callLabel: 'Ce que vous ajoutez',
-        call: 'Tags : api, retries. Fichier : capture.png',
-        responseLabel: 'Votre dossier ensuite',
-        response:
-          '/Volumes/Work/Charon/\n  charon.workspace.json  (tags : api, retries)\n  notes/7f3a91c2-….md\n  attachments/7f3a91c2-…/c41e08d5-….png',
+        title: 'Compléter',
+        text: 'Ajoutez des tags, un fichier, une capture d’écran ou un croquis si besoin.',
       },
-      {
-        step: 'Enfin, choisissez Copier en Markdown et collez dans votre agent.',
-        callLabel: 'Ce que vous choisissez',
-        call: 'Copier en Markdown',
-        responseLabel: 'Ce que contient votre presse-papiers',
-        response: composeMarkdown(
-          sampleBodyFr,
-          ['api', 'retries'],
-          [{ name: 'capture.png', path: attachmentPath }],
-        ),
-      },
+      { title: 'Copier', text: 'Choisissez Copier en Markdown et collez dans votre agent.' },
     ],
     platformNote:
-      'Le double Maj capture le texte sélectionné sur macOS et reste expérimental sur Windows et Linux X11. Partout, un raccourci ouvre le champ de saisie pour écrire.',
+      'Le double Maj fonctionne sur macOS et reste expérimental sur Windows et Linux X11.',
     tryTitle: 'Essayer Copier en Markdown',
     tryLabel: 'Écrivez une note',
     tryAnswer: 'Ce que Copier en Markdown placerait dans votre presse-papiers',
@@ -191,7 +132,7 @@ export const copy = {
     ] satisfies SampleNote[],
     privacyTitle: 'Confidentialité',
     facts: [
-      { label: 'Version', value: '0.3.0, accès anticipé' },
+      { label: 'Version', value: '0.3.1, accès anticipé' },
       { label: 'Plateformes', value: 'macOS sur Apple Silicon, Windows, Linux' },
       { label: 'Prix', value: 'Gratuit, sous licence MIT' },
     ],

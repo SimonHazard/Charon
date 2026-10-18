@@ -7,7 +7,8 @@ import type { AttachmentDto, NoteDto, NoteStatus } from '@/bindings/workspace';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { stripDrawingBlocks } from '@/features/notes/drawing/drawing-format';
+import { useDrawingCopy } from '@/features/notes/drawing/drawing-copy-context';
+import { imageCopyDrawing, stripDrawingBlocks } from '@/features/notes/drawing/drawing-format';
 import { NoteEditor, noteEditorId } from '@/features/notes/note-editor';
 import { iconSwapMotion } from '@/motion/system';
 
@@ -116,6 +117,12 @@ export const NoteRow = memo(function NoteRow({
   const drawingLabel = m.drawing_label();
   const headline = useMemo(() => noteHeadline(note.body, drawingLabel), [note.body, drawingLabel]);
   const title = headline.title || m.note_untitled();
+  // A Note that is only a drawing copies as its image (ADR 0035).
+  const canCopyImage = Boolean(useDrawingCopy());
+  const copiesImage = useMemo(
+    () => canCopyImage && imageCopyDrawing(note) !== null,
+    [canCopyImage, note],
+  );
   const remainingLines = headline.snippet;
   const attachmentSummary = m.attachment_count({ count: note.attachments.length });
   const attachmentDetails = note.attachments.length
@@ -259,8 +266,10 @@ export const NoteRow = memo(function NoteRow({
         <div className="note-row-actions">
           <Tooltip>
             <TooltipTrigger
-              aria-describedby={copyDisclosureId}
-              aria-label={m.copy_note_as_markdown({ title })}
+              aria-describedby={copiesImage ? undefined : copyDisclosureId}
+              aria-label={
+                copiesImage ? m.copy_note_as_image({ title }) : m.copy_note_as_markdown({ title })
+              }
               className="note-copy-button"
               data-copied={copied ? '' : undefined}
               onClick={() => {
@@ -285,8 +294,14 @@ export const NoteRow = memo(function NoteRow({
               </AnimatePresence>
             </TooltipTrigger>
             <TooltipContent className="copy-action-tooltip">
-              <span>{m.copy_as_markdown()}</span>
-              <span className="copy-disclosure">{m.copy_local_paths_disclosure()}</span>
+              {copiesImage ? (
+                <span>{m.copy_as_image()}</span>
+              ) : (
+                <>
+                  <span>{m.copy_as_markdown()}</span>
+                  <span className="copy-disclosure">{m.copy_local_paths_disclosure()}</span>
+                </>
+              )}
             </TooltipContent>
           </Tooltip>
           <span className="sr-only" id={copyDisclosureId}>

@@ -89,6 +89,8 @@
   "note_editor_save_error": "La note n’a pas été enregistrée. Votre brouillon est conservé ; réessayez après avoir résolu le problème de l’espace de travail.",
   "copy_as_markdown": "Copier en Markdown",
   "copy_note_as_markdown": "Copier {title} en Markdown",
+  "copy_as_image": "Copier en image",
+  "copy_note_as_image": "Copier {title} en image",
   "copy_inline_copied": "Copié",
   "copy_local_paths_disclosure": "Les chemins locaux des pièces jointes gérées entrent dans le presse-papiers, jamais leurs octets.",
   "clipboard_error_empty_body": "Cette note est vide ; rien n’a été écrit.",

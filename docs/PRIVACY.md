@@ -70,7 +70,9 @@ file, including the plain text of any label. Drawing makes no network request
 and the Preview of a drawing loads no resource. `Copy as Markdown` includes a
 drawing's SVG text exactly as stored. A drawing's Copy image (ADR 0033), only
 after an explicit action, renders that drawing in the webview and writes one PNG
-image to the system clipboard; it reads no file and changes no Note.
+image to the system clipboard; it reads no file and changes no Note. The Copy
+action of a Note that is only one drawing, without Attachments, writes that PNG
+instead of the SVG text (ADR 0035).
 
 Local logs and diagnostics exclude Note bodies, Tag values, Attachment bytes,
 clipboard payloads, selected text, and sensitive filesystem paths by default. A

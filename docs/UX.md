@@ -179,7 +179,7 @@ layout pressure.
 | Draw in a Note | Expanded Note, Draw button beside Markdown help, or New drawing in the command menu | One modal drawing dialog fits 400 by 480 with pen, line, arrow, rectangle, ellipse, text, and eraser tools and Copy image; Preview shows validated drawings with Edit drawing and Copy image actions. |
 | Edit Tags | Expanded Note, stacked section | Chips wrap, the add input stays usable, and limits and errors remain local. |
 | Manage Attachments | Expanded Note, stacked section | Generic file metadata, pending and error states, add, and remove remain available without previews. |
-| Copy as Markdown | Direct row action | One Note keeps its body exact; completion, failure, and local-path disclosure remain contextual and reachable. |
+| Copy as Markdown | Direct row action | One Note keeps its body exact; completion, failure, and local-path disclosure remain contextual and reachable. A Note that is only one drawing, without Attachments, copies as its PNG and reads Copy as image (ADR 0035). |
 | Permanently delete a Note | Direct row action and per-Note AlertDialog | The dialog reflows at 400px, makes the irreversible scope explicit, and keeps cleanup retry contextual. |
 | Preferences | Search-trailing gear Popover | Appearance, language, Notes folder, composer shortcut change and reset, capture state, notifications, and formatting, background mode, updates, and About scroll within a 400 by 480 shelf. |
 | Capture help and permissions | Search-trailing Help Popover and Preferences Capture section | Permission state and action remain visible while long disclosures use keyboard-accessible progressive disclosure. |

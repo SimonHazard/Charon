@@ -1,5 +1,6 @@
-// Threads from React Bits (https://reactbits.dev) by David Haz, used under the
-// MIT + Commons Clause license in ./LICENSE.md; adapted only where marked.
+/*! @license Threads from React Bits (https://reactbits.dev), Copyright (c) 2026
+    David Haz, used under the MIT + Commons Clause license in ./LICENSE.md;
+    adapted only where marked. */
 'use client';
 
 import { useEffect, useRef, type HTMLAttributes } from 'react';

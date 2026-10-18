@@ -509,6 +509,23 @@ export function findDrawingBlocks(body: string): DrawingBlock[] {
 }
 
 /**
+ * The drawing a Note copies as an image instead of Markdown (ADR 0035): a body
+ * that is exactly one top-level drawing block, with no Attachment whose path
+ * the image would drop.
+ */
+export function imageCopyDrawing(note: {
+  body: string;
+  attachments: readonly unknown[];
+}): Drawing | null {
+  if (note.attachments.length) return null;
+  const blocks = findDrawingBlocks(note.body);
+  const [block] = blocks;
+  if (blocks.length !== 1 || !block) return null;
+  const outside = note.body.slice(0, block.start) + note.body.slice(block.end);
+  return outside.trim() ? null : block.drawing;
+}
+
+/**
  * Replaces each drawing block, nested ones included, with `label` (headlines)
  * or nothing (search).
  */

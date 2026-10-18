@@ -1450,21 +1450,23 @@ test('site keeps only the truthful localized early access pages', async ({ page 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Keep what matters.');
   await expect(page.locator('video, picture, [data-theme-control]')).toHaveCount(0);
   await expect(
-    page.getByText('v0.3.0 is available in early access', { exact: true }),
+    page.getByText('v0.3.1 is available in early access for macOS, Windows, and Linux.', {
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Download Charon' })).toHaveAttribute(
-    'href',
-    'https://github.com/SimonHazard/Charon/releases',
-  );
+  await expect(
+    page.getByRole('main').getByRole('link', { name: 'Download Charon' }),
+  ).toHaveAttribute('href', 'https://github.com/SimonHazard/Charon/releases');
   await page.goto(`${site}fr/`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Gardez l’essentiel.');
   await expect(
-    page.getByText('La v0.3.0 est disponible en accès anticipé', { exact: true }),
+    page.getByText('La v0.3.1 est disponible en accès anticipé pour macOS, Windows et Linux.', {
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Télécharger Charon' })).toHaveAttribute(
-    'href',
-    'https://github.com/SimonHazard/Charon/releases',
-  );
+  await expect(
+    page.getByRole('main').getByRole('link', { name: 'Télécharger Charon' }),
+  ).toHaveAttribute('href', 'https://github.com/SimonHazard/Charon/releases');
   await page.goto(`${site}privacy/`);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found');
   await page.goto(`${site}download/`);
@@ -1492,8 +1494,12 @@ test('site is keyboard accessible, axe-clean and makes no third-party request', 
   const nextLink = browserName === 'webkit' && process.platform === 'darwin' ? 'Alt+Tab' : 'Tab';
   await page.keyboard.press(nextLink);
   await expect(page.getByRole('link', { name: 'Charon', exact: true })).toBeFocused();
+  for (const name of ['How it works', 'Try it', 'Privacy']) {
+    await page.keyboard.press(nextLink);
+    await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
+  }
   await page.keyboard.press(nextLink);
-  await expect(page.getByRole('link', { name: 'Download Charon' })).toBeFocused();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Download Charon' })).toBeFocused();
   const results = await new AxeBuilder({ page }).analyze();
   expect(
     results.violations.filter((violation) =>
@@ -1569,16 +1575,18 @@ test('site content and capture relationship remain complete without JavaScript',
   await page.goto(site);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(
-    page.getByText('v0.3.0 is available in early access', { exact: true }),
+    page.getByText('v0.3.1 is available in early access for macOS, Windows, and Linux.', {
+      exact: true,
+    }),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Download Charon' })).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Download Charon' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Ko-fi' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'simonhazard.com' })).toBeVisible();
   for (const route of ['', 'fr/']) {
     await page.goto(`${site}${route}`);
     for (const width of [320, 390, 768, 1280, 1536]) {
       await page.setViewportSize({ width, height: 844 });
-      await expect(page.locator('.primary-action')).toBeVisible();
+      await expect(page.locator('.hero .primary-action')).toBeVisible();
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,

@@ -128,7 +128,7 @@ available in Git history; active work lives only in `plans/`.
   2026-10-17; their native checks that no automated test covers moved to plan
   063.
 
-## v0.3.0: Iris design and faster capture flows (prepared 2026-10-17)
+## v0.3.0: Iris design and faster capture flows (published 2026-10-17, #68)
 
 - On 2026-10-17 the operator asked to finish the project, extend its capture
   flows, adopt the Iris design system, and bump every dependency. Tauri 3
@@ -150,3 +150,18 @@ available in Git history; active work lives only in `plans/`.
 - ADR 0034 redesigns the site in Iris Dark around a live river (React Bits'
   Threads), Charon's real outputs, a live `Copy as Markdown` preview, and an
   accent-field privacy section, with a hash-checked CSP for its scripts.
+
+## v0.3.1: drawing Notes copy as images (prepared 2026-10-18)
+
+- The operator's first macOS pass over plan 063 (permissions, Iris
+  appearance, command menu, focused Tag, hiding, files) passed; copying a
+  drawing Note pasted SVG source. ADR 0035 makes the row Copy of a Note that is
+  only one drawing, without Attachments, write that drawing's PNG.
+- The site's how-it-works section became three one-sentence steps, the footer
+  lost its visible River credit and shrank to its content, and the vendored
+  Threads licence notice now survives minification as a legal comment.
+- The two-line headings gained the space their accessible names lacked
+  ("Keep whatmatters."), and the site journeys of `release.spec.ts` caught up
+  with the ADR 0034 page (full release sentence, two download links, three
+  in-page links before the download).
+- The manifests, release notes, and site moved to 0.3.1 on `codex/v0.3.1`.

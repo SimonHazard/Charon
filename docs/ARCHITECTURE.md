@@ -274,7 +274,8 @@ A drawing's Copy image (ADR 0033) is `ClipboardComposer`'s second explicit
 write: the webview renders the validated drawing to PNG and sends the bytes to
 `clipboard_write_drawing_image`; Rust decodes them within bounds (8 MiB, 8,192
 pixels a side) and writes one image through the same adapter. It reads no
-Workspace file.
+Workspace file. A Note whose body is exactly one top-level drawing and which
+has no Attachment takes this write for its row Copy too (ADR 0035).
 
 ### Update integration
 
